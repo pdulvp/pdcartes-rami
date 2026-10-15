@@ -4,11 +4,11 @@
 #include "Palette.h"
 #include "Rivals.h"
 
+#include <QContextMenuEvent>
 #include <QFontMetricsF>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
-#include <QPushButton>
 
 #include <algorithm>
 
@@ -23,15 +23,6 @@ RivalCard::RivalCard(const QString &rivalId, QWidget *parent)
     : QWidget(parent), m_rivalId(rivalId) {
     setAttribute(Qt::WA_Hover);
     setMinimumSize(286, 112);
-
-    m_reset = new QPushButton(tr("Niveau de départ"), this);
-    m_reset->setCursor(Qt::PointingHandCursor);
-    m_reset->setFocusPolicy(Qt::NoFocus);
-    m_reset->setToolTip(tr("Remettre %1 au niveau avec lequel il arrive, sur ce profil "
-                           "seulement")
-                            .arg(rivalById(rivalId).name));
-    m_reset->hide();
-    connect(m_reset, &QPushButton::clicked, this, &RivalCard::wantsReset);
 }
 
 QSize RivalCard::sizeHint() const { return QSize(300, 118); }
@@ -49,34 +40,18 @@ void RivalCard::setPickable(bool pickable) {
     update();
 }
 
-void RivalCard::showReset(bool show) {
-    m_reset->setVisible(show);
-    dressReset();
-    update();
-}
-
-void RivalCard::reread() {
-    dressReset();
-    update();
-}
-
-void RivalCard::dressReset() {
-    const Palette &scheme = currentPalette();
-    m_reset->setStyleSheet(QStringLiteral("QPushButton { background: %1; color: %2;"
-                                          " border: 1px solid %3; border-radius: 6px;"
-                                          " padding: 4px 11px; }"
-                                          "QPushButton:hover { border: 1px solid %4; }")
-                               .arg(scheme.field.name(), scheme.surfaceText.name(),
-                                    scheme.edge.name(), scheme.accent.name()));
-    m_reset->adjustSize();
-    m_reset->move(width() - int(kPad) - m_reset->width(), height() - int(kPad) - m_reset->height());
-}
-
-void RivalCard::resizeEvent(QResizeEvent *) { dressReset(); }
+void RivalCard::reread() { update(); }
 
 void RivalCard::mousePressEvent(QMouseEvent *event) {
     if (!m_pickable || event->button() != Qt::LeftButton) return;
     setInvited(!m_invited);
+}
+
+void RivalCard::contextMenuEvent(QContextMenuEvent *event) {
+    // La position à l'écran plutôt que dans la carte: la page qui dresse le
+    // menu n'a pas à savoir où la carte se trouve.
+    Q_EMIT menuWanted(event->globalPos());
+    event->accept();
 }
 
 void RivalCard::enterEvent(QEnterEvent *) {
@@ -191,8 +166,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
                      .arg(learning.matchesWon);
     }
     painter.setPen(scheme.hint);
-    painter.drawText(QRectF(left, y, m_reset->isVisible() ? wide - m_reset->width() - 10.0 : wide,
-                            asideMetrics.height()),
+    painter.drawText(QRectF(left, y, wide, asideMetrics.height()),
                      Qt::AlignLeft | Qt::AlignVCenter, record);
 
     if (m_pickable && m_invited) {

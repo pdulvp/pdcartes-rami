@@ -12,6 +12,11 @@
 // profiles is the only way back to a table of beginners.
 inline constexpr int kProfileCount = 3;
 
+// Ce qui tient sur une plaque du menu d'ouverture. Un nom plus long y serait
+// coupé, et une plaque dont le nom est coupé ne dit plus lequel des trois
+// elle est.
+inline constexpr int kProfileNameLength = 24;
+
 struct ProfileRecord {
     int slot = 1;
     QString name;

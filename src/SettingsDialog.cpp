@@ -1,33 +1,43 @@
 #include "SettingsDialog.h"
 
+#include "CardArt.h"
 #include "CardDeck.h"
 #include "DialogChrome.h"
 #include "Palette.h"
-#include "Profiles.h"
-#include "RivalCard.h"
-#include "Rivals.h"
 #include "Tables.h"
 
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
-#include <QMessageBox>
+#include <QListWidget>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSignalBlocker>
+#include <QToolButton>
 #include <QUrl>
-#include <QScrollArea>
 #include <QVBoxLayout>
+
+#include <algorithm>
+#include <cmath>
 
 namespace {
 
 constexpr int kHeadingGap = 8;
 constexpr int kSectionGap = 20;
+
+// La hauteur d'un aperçu de dos. Assez grand pour qu'un motif se reconnaisse,
+// assez petit pour que les dos d'un jeu tiennent sur une ligne.
+constexpr int kBackHeight = 92;
+
+// La proportion du coin arrondi d'une carte, la même que celle du tapis.
+constexpr qreal kCornerPart = 0.085;
 
 QCheckBox *switchRow(QWidget *parent, const QString &text, bool on) {
     auto *box = new QCheckBox(text, parent);
@@ -49,6 +59,78 @@ QRadioButton *choiceRow(QWidget *parent, const QString &text) {
     ink.setColor(QPalette::Text, currentPalette().surfaceText);
     button->setPalette(ink);
     return button;
+}
+
+// Un bouton d'icône, à droite du champ sur lequel il agit.
+//
+// Deux grands boutons en bas de la section disaient la même chose et la
+// disaient loin de la liste qu'ils relisaient. Ici ils sont contre elle, et
+// ce qu'ils font tient dans leur infobulle -- sauf sur un bureau dont le
+// thème ne porte pas ces icônes, où chacun reprend son mot.
+QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QString &fallback,
+                        const QString &tip) {
+    const Palette &scheme = currentPalette();
+    auto *button = new QToolButton(parent);
+    button->setToolTip(tip);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setFocusPolicy(Qt::NoFocus);
+    button->setIconSize(QSize(17, 17));
+
+    const QIcon icon = tintedIcon(iconNames, scheme.surfaceText);
+    if (icon.isNull()) {
+        button->setText(fallback);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    } else {
+        button->setIcon(icon);
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setFixedSize(32, 30);
+    }
+    button->setStyleSheet(QStringLiteral("QToolButton { background: %1; color: %2;"
+                                         " border: 1px solid %3; border-radius: 6px;"
+                                         " padding: 4px 7px; }"
+                                         "QToolButton:hover { border: 1px solid %4; }"
+                                         "QToolButton:pressed { background: %5; }")
+                              .arg(scheme.field.name(), scheme.surfaceText.name(),
+                                   scheme.edge.name(), scheme.accent.name(),
+                                   blendColours(scheme.field, scheme.accent, 0.18).name()));
+    return button;
+}
+
+// L'aperçu d'un dos, dessiné comme la table le dessinera.
+//
+// `set` nul -- ou un dos que le jeu choisi n'a pas -- rend le treillis que le
+// programme dessine lui-même, qui est bien ce qui serait sur la table dans ce
+// cas-là. L'aperçu porte donc toujours la vérité.
+QPixmap backPreview(const CardSet *set, int at, const QSizeF &box) {
+    const qreal dpr = qApp->devicePixelRatio();
+    QPixmap tile(QSize(int(std::ceil(box.width() * dpr)), int(std::ceil(box.height() * dpr))));
+    tile.setDevicePixelRatio(dpr);
+    tile.fill(Qt::transparent);
+
+    QPainter painter(&tile);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const QRectF where(0.5, 0.5, box.width() - 1.0, box.height() - 1.0);
+    const QPixmap art = set ? set->backImage(at, tile.size()) : QPixmap();
+    if (art.isNull()) {
+        CardLook look;
+        look.noShadow = true;
+        drawCardBack(&painter, where, currentPalette(), look);
+        return tile;
+    }
+
+    const qreal corner =
+        std::max(2.0, std::min(where.width(), where.height()) * kCornerPart);
+    QPainterPath shape;
+    shape.addRoundedRect(where, corner, corner);
+    painter.setPen(Qt::NoPen);
+    painter.fillPath(shape, currentPalette().cardBack);
+    painter.setClipPath(shape);
+    QRectF onto(0, 0, art.width() / dpr, art.height() / dpr);
+    onto.moveCenter(where.center());
+    painter.drawPixmap(onto, art, QRectF(0, 0, art.width(), art.height()));
+    return tile;
 }
 
 } // namespace
@@ -115,22 +197,39 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     chrome.fields->addLayout(paceRow);
     chrome.fields->addSpacing(kSectionGap);
 
-    // --- Les cartes.
+    // --- Les cartes: le jeu, les deux boutons qui vont avec le dossier, et
+    // les dos en aperçu.
     chrome.fields->addWidget(dialogSectionHeading(this, tr("Les cartes")));
     chrome.fields->addSpacing(kHeadingGap);
 
     auto *deckRow = new QHBoxLayout;
-    deckRow->setSpacing(10);
+    deckRow->setSpacing(8);
     auto *deckLabel = new QLabel(tr("Jeu de cartes :"), this);
     deckLabel->setPalette(ink);
     m_deck = new QComboBox(this);
-    auto *backLabel = new QLabel(tr("Dos :"), this);
-    backLabel->setPalette(ink);
-    m_back = new QComboBox(this);
     deckRow->addWidget(deckLabel);
-    deckRow->addWidget(m_deck, 2);
-    deckRow->addWidget(backLabel);
-    deckRow->addWidget(m_back, 1);
+    deckRow->addWidget(m_deck, 1);
+
+    auto *openFolder = iconButton(this,
+                                  {QStringLiteral("folder-open-symbolic"),
+                                   QStringLiteral("folder-symbolic"),
+                                   QStringLiteral("document-open-symbolic"),
+                                   QStringLiteral("folder")},
+                                  tr("Dossier"), tr("Ouvrir le dossier des cartes"));
+    connect(openFolder, &QToolButton::clicked, this, [] {
+        CardDecks::ensureFolder();
+        QDesktopServices::openUrl(QUrl::fromLocalFile(CardDecks::folder()));
+    });
+    auto *rescan = iconButton(this,
+                              {QStringLiteral("view-refresh-symbolic"),
+                               QStringLiteral("view-refresh")},
+                              tr("Relire"), tr("Relire le dossier des cartes"));
+    connect(rescan, &QToolButton::clicked, this, [this] {
+        CardDecks::instance().refresh();
+        fillDecks();
+    });
+    deckRow->addWidget(openFolder);
+    deckRow->addWidget(rescan);
     chrome.fields->addLayout(deckRow);
     chrome.fields->addSpacing(4);
 
@@ -138,27 +237,49 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     m_deckNote->setWordWrap(true);
     markHintLabel(m_deckNote);
     chrome.fields->addWidget(m_deckNote);
-    chrome.fields->addSpacing(6);
+    chrome.fields->addSpacing(10);
 
-    auto *deckButtons = new QHBoxLayout;
-    deckButtons->setSpacing(8);
-    auto *openFolder = new QPushButton(tr("Ouvrir le dossier des cartes"), this);
-    openFolder->setCursor(Qt::PointingHandCursor);
-    connect(openFolder, &QPushButton::clicked, this, [this] {
-        CardDecks::ensureFolder();
-        QDesktopServices::openUrl(QUrl::fromLocalFile(CardDecks::folder()));
-    });
-    auto *rescan = new QPushButton(tr("Relire le dossier"), this);
-    rescan->setCursor(Qt::PointingHandCursor);
-    connect(rescan, &QPushButton::clicked, this, [this] {
-        CardDecks::instance().refresh();
-        fillDecks();
-    });
-    deckButtons->addWidget(openFolder);
-    deckButtons->addWidget(rescan);
-    deckButtons->addStretch();
-    chrome.fields->addLayout(deckButtons);
-    chrome.fields->addSpacing(kSectionGap);
+    auto *backLabel = new QLabel(tr("Dos :"), this);
+    backLabel->setPalette(ink);
+    chrome.fields->addWidget(backLabel);
+    chrome.fields->addSpacing(5);
+
+    // Les dos se choisissent sur l'image plutôt que sur leur nom: « Treillis »
+    // ne dit pas à quoi un dos ressemble, et c'est la seule chose qu'on veut
+    // savoir d'un dos.
+    const Palette &scheme = currentPalette();
+    const int backWide = int(std::ceil(kBackHeight * kCardRatio));
+    m_backs = new QListWidget(this);
+    m_backs->setViewMode(QListView::IconMode);
+    m_backs->setFlow(QListView::LeftToRight);
+    m_backs->setWrapping(false);
+    m_backs->setMovement(QListView::Static);
+    m_backs->setResizeMode(QListView::Adjust);
+    m_backs->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_backs->setIconSize(QSize(backWide, kBackHeight));
+    m_backs->setGridSize(QSize(std::max(backWide + 22, 86), kBackHeight + 30));
+    m_backs->setSpacing(6);
+    m_backs->setFrameShape(QFrame::NoFrame);
+    m_backs->setWordWrap(true);
+    m_backs->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_backs->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // Juste la place d'une rangée de vignettes et de la barre qui glisse
+    // dessous quand un jeu en apporte plus qu'il n'en tient.
+    m_backs->setFixedHeight(kBackHeight + 30 + 22);
+    m_backs->setStyleSheet(
+        QStringLiteral("QListWidget { background: %1; color: %2; border: 1px solid %3;"
+                       " border-radius: 8px; padding: 3px; }"
+                       "QListWidget::item { border: 1px solid transparent;"
+                       " border-radius: 8px; padding: 4px; }"
+                       "QListWidget::item:hover { border: 1px solid %4; }"
+                       "QListWidget::item:selected { background: %5;"
+                       " border: 1px solid %6; color: %2; }")
+            .arg(scheme.field.name(), scheme.surfaceText.name(), scheme.edge.name(),
+                 blendColours(scheme.edge, scheme.accent, 0.5).name(),
+                 blendColours(scheme.field, scheme.accent, 0.18).name(),
+                 scheme.accent.name()));
+    chrome.fields->addWidget(m_backs);
+    chrome.fields->addStretch(1);
 
     fillDecks();
     connect(m_deck, &QComboBox::currentIndexChanged, this, [this] {
@@ -166,91 +287,12 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
         fillBacks();
         describeDeck();
     });
-    connect(m_back, &QComboBox::currentIndexChanged, this, [this] {
-        if (m_back->currentIndex() >= 0) {
-            CardDecks::instance().chooseBack(m_back->currentData().toInt());
-        }
-    });
-
-    // --- Le profil.
-    chrome.fields->addWidget(dialogSectionHeading(this, tr("Le profil")));
-    chrome.fields->addSpacing(kHeadingGap);
-    auto *nameRow = new QHBoxLayout;
-    nameRow->setSpacing(10);
-    auto *nameLabel = new QLabel(tr("Nom du profil %1 :").arg(currentProfile()), this);
-    nameLabel->setPalette(ink);
-    m_profileName = new QLineEdit(profileName(currentProfile()), this);
-    m_profileName->setMaxLength(24);
-    nameRow->addWidget(nameLabel);
-    nameRow->addWidget(m_profileName, 1);
-
-    auto *forget = new QPushButton(tr("Tout oublier sur ce profil"), this);
-    forget->setCursor(Qt::PointingHandCursor);
-    connect(forget, &QPushButton::clicked, this, [this] {
-        const ProfileRecord record = profileRecord(currentProfile());
-        const auto answer = QMessageBox::question(
-            this, tr("Ramisol"),
-            tr("Effacer les parties de « %1 » et remettre les six adversaires à leur "
-               "niveau de départ ?")
-                .arg(record.name),
-            QMessageBox::Cancel | QMessageBox::Yes);
-        if (answer != QMessageBox::Yes) return;
-        forgetProfile(currentProfile());
-        m_profileName->setText(profileName(currentProfile()));
-        for (RivalCard *card : m_cards) card->reread();
-    });
-    nameRow->addWidget(forget);
-    chrome.fields->addLayout(nameRow);
-    chrome.fields->addSpacing(kSectionGap);
-
-    // --- Les six.
-    chrome.fields->addWidget(dialogSectionHeading(this, tr("Les adversaires")));
-    chrome.fields->addSpacing(kHeadingGap);
-    auto *note = new QLabel(
-        tr("L'expérience monte à chaque manche jouée. Le bouton remet un adversaire à son "
-           "niveau de départ, sur ce profil."),
-        this);
-    note->setWordWrap(true);
-    markHintLabel(note);
-    chrome.fields->addWidget(note);
-    chrome.fields->addSpacing(8);
-
-    auto *scroller = new QScrollArea(this);
-    scroller->setWidgetResizable(true);
-    scroller->setFrameShape(QFrame::NoFrame);
-    scroller->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scroller->setMinimumHeight(250);
-    auto *pen = new QWidget(scroller);
-    auto *grid = new QGridLayout(pen);
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(10);
-    int which = 0;
-    for (const Rival &rival : rivals()) {
-        auto *card = new RivalCard(rival.id, pen);
-        card->showReset(true);
-        const QString id = rival.id;
-        connect(card, &RivalCard::wantsReset, this, [this, card, id] {
-            const Rival &who = rivalById(id);
-            const auto answer = QMessageBox::question(
-                this, tr("Ramisol"),
-                tr("Remettre %1 à %2 points d'expérience (%3), sur « %4 » ?")
-                    .arg(who.name)
-                    .arg(who.startXp)
-                    .arg(levelName(levelOf(who.startXp)).toLower(),
-                         profileName(currentProfile())),
-                QMessageBox::Cancel | QMessageBox::Yes);
-            if (answer != QMessageBox::Yes) return;
-            resetRival(id);
-            card->reread();
-        });
-        grid->addWidget(card, which / 2, which % 2);
-        m_cards.append(card);
-        ++which;
-    }
-    grid->setRowStretch(which / 2 + 1, 1);
-    scroller->setWidget(pen);
-    chrome.fields->addWidget(scroller, 1);
+    connect(m_backs, &QListWidget::currentItemChanged, this,
+            [](QListWidgetItem *now, QListWidgetItem *) {
+                if (!now) return;
+                const int which = now->data(Qt::UserRole).toInt();
+                if (which >= 0) CardDecks::instance().chooseBack(which);
+            });
 
     // --- Le pied.
     auto *buttons = new QDialogButtonBox(this);
@@ -265,7 +307,7 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     describeTargets();
-    resize(772, 744);
+    resize(700, 648);
 }
 
 void SettingsDialog::fillDecks() {
@@ -290,18 +332,33 @@ void SettingsDialog::fillBacks() {
     CardDecks &decks = CardDecks::instance();
     const CardSet *set = decks.current();
 
-    QSignalBlocker quiet(m_back);
-    m_back->clear();
+    // Muet pendant qu'on le remplit: sans cela, la première vignette posée
+    // se ferait choisir et écrirait son numéro par-dessus celui qui est gardé.
+    QSignalBlocker quiet(m_backs);
+    m_backs->clear();
+
+    const qreal aspect = (set && set->aspect() > 0.35 && set->aspect() < 1.60) ? set->aspect()
+                                                                              : kCardRatio;
+    const QSizeF box(kBackHeight * aspect, kBackHeight);
+
     if (!set || set->backCount() == 0) {
-        m_back->addItem(tr("celui du jeu"), 0);
-        m_back->setEnabled(false);
+        // Un seul aperçu, celui que le programme dessine -- et rien à choisir.
+        auto *item = new QListWidgetItem(QIcon(backPreview(set, -1, box)),
+                                         tr("celui du jeu"), m_backs);
+        item->setData(Qt::UserRole, -1);
+        item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
+        item->setFlags(Qt::ItemIsEnabled);
         return;
     }
-    m_back->setEnabled(true);
+
     const int chosen = decks.chosenBack();
     for (int at = 0; at < set->backCount(); ++at) {
-        m_back->addItem(set->backName(at), at);
-        if (at == chosen) m_back->setCurrentIndex(at);
+        auto *item = new QListWidgetItem(QIcon(backPreview(set, at, box)),
+                                         set->backName(at), m_backs);
+        item->setData(Qt::UserRole, at);
+        item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
+        item->setToolTip(set->backName(at));
+        if (at == chosen) m_backs->setCurrentItem(item);
     }
 }
 
@@ -353,8 +410,5 @@ GameSettings SettingsDialog::settings() const {
     chosen.autoSort = m_autoSort->isChecked();
     chosen.offerHints = m_offerHints->isChecked();
     chosen.celebrate = m_celebrate->isChecked();
-
-    const QString name = m_profileName->text().trimmed();
-    if (!name.isEmpty()) setProfileName(currentProfile(), name);
     return chosen;
 }

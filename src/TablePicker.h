@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QPoint>
 #include <QString>
 #include <QVector>
 #include <QWidget>
@@ -17,6 +18,12 @@ class TileButton;
 // sera est le seul choix qu'une nouvelle partie demande. Tout le reste de la
 // page est là pour répondre à la question d'avant: contre qui, et sont-ils
 // devenus meilleurs depuis la dernière fois.
+//
+// Ce qui se faisait d'un profil et d'un adversaire se fait donc ici, sur la
+// chose elle-même, plutôt que dans les réglages: un profil se renomme d'un
+// double clic, et un clic droit -- sur un profil ou sur un adversaire --
+// ouvre le reste. Les réglages ne gardent que ce qui vaut pour toute la
+// partie.
 class TablePicker : public QWidget {
     Q_OBJECT
 
@@ -37,9 +44,25 @@ public:
 Q_SIGNALS:
     void tableChosen(const QString &id);
     void profileChosen(int slot);
+    // Le nom d'un profil, ou ce qu'il a joué, vient de changer: la bande du
+    // haut porte le nom et doit le relire.
+    void profileChanged();
+
+protected:
+    // Les gestes sur les plaques de profil: le double clic renomme, le clic
+    // droit ouvre le menu. Un filtre, plutôt qu'un bouton dérivé pour deux
+    // événements que QPushButton ne rapporte pas.
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void dressProfiles();
+
+    void showProfileMenu(int slot, const QPoint &where);
+    void renameProfile(int slot);
+    void askForgetProfile(int slot);
+
+    void showRivalMenu(RivalCard *card, const QPoint &where);
+    void askResetRival(const QString &rivalId);
 
     QLabel *m_title = nullptr;
     QLabel *m_subtitle = nullptr;

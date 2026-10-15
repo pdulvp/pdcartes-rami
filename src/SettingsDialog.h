@@ -3,23 +3,22 @@
 #include "TablePage.h"
 
 #include <QDialog>
-#include <QVector>
 
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QLabel;
-class QLineEdit;
-class RivalCard;
+class QListWidget;
 
-// Les réglages: la longueur de la partie, trois ou quatre commodités, le nom
-// du profil -- et les six adversaires, chacun avec le bouton qui le remet au
-// niveau avec lequel il est arrivé.
+// Les réglages: la longueur de la partie, trois ou quatre commodités pendant
+// le jeu, et les cartes avec lesquelles on joue.
 //
-// Ce dernier point est la raison d'être de la moitié de cette boîte. Une
-// expérience qui ne monte jamais que dans un sens finit par rendre la table
-// injouable, et un joueur qui a rendu Oriane imbattable doit pouvoir la
-// remettre où elle était sans toucher aux cinq autres.
+// Ce qui appartient à un profil ou à un adversaire en particulier n'est plus
+// ici mais sur la chose elle-même, au menu d'ouverture: on renomme un profil
+// en double cliquant sa plaque, et on remet un adversaire à son niveau de
+// départ d'un clic droit sur sa carte. Les réglages ne gardent que ce qui
+// vaut pour toute la partie -- ce qui les ramène à une page qui se lit d'un
+// coup d'œil.
 class SettingsDialog : public QDialog {
     Q_OBJECT
 
@@ -34,16 +33,14 @@ private:
     void fillBacks();
     void describeDeck();
 
-    QVector<RivalCard *> m_cards;
     QButtonGroup *m_targets = nullptr;
     QButtonGroup *m_paces = nullptr;
     QCheckBox *m_autoSort = nullptr;
     QCheckBox *m_offerHints = nullptr;
     QCheckBox *m_celebrate = nullptr;
-    QLineEdit *m_profileName = nullptr;
     QLabel *m_targetNote = nullptr;
     QComboBox *m_deck = nullptr;
-    QComboBox *m_back = nullptr;
+    QListWidget *m_backs = nullptr;
     QLabel *m_deckNote = nullptr;
     GameSettings m_settings;
 };

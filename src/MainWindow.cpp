@@ -64,6 +64,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_picker->setTarget(m_settings.targetId);
     connect(m_picker, &TablePicker::tableChosen, this, &MainWindow::startGame);
     connect(m_picker, &TablePicker::profileChosen, this, [this] { updateTopBar(); });
+    // Un profil renommé depuis le menu: la bande du haut porte son nom.
+    connect(m_picker, &TablePicker::profileChanged, this, &MainWindow::updateTopBar);
 
     m_table = new TablePage(this);
     connect(m_table, &TablePage::stateChanged, this, &MainWindow::updateTopBar);

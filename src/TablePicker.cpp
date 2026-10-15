@@ -8,9 +8,16 @@
 #include "Tables.h"
 #include "TileButton.h"
 
+#include <QAction>
+#include <QContextMenuEvent>
+#include <QEvent>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
@@ -18,6 +25,31 @@
 namespace {
 
 const QSize kTableTile(200, 182);
+
+// Quel profil une plaque porte. Rangé sur le bouton lui-même, pour que le
+// filtre qui reçoit l'événement sache de qui il s'agit sans compter les
+// boutons.
+const char *kSlotProperty = "profileSlot";
+
+// Habille un menu contextuel aux couleurs de la table. Un menu est une
+// fenêtre à lui et n'hérite donc de rien: les couleurs viennent de
+// currentPalette(), comme pour les boîtes de dialogue.
+//
+// Les menus sont montés sur la pile et leur action choisie comparée au
+// retour d'exec(), plutôt que posés sur le tas avec une lambda par action:
+// ce que fait une entrée se lit alors à côté de ce qu'elle dit.
+void dressMenu(QMenu *menu) {
+    const Palette &scheme = currentPalette();
+    menu->setStyleSheet(
+        QStringLiteral("QMenu { background: %1; color: %2; border: 1px solid %3;"
+                       " border-radius: 8px; padding: 5px; }"
+                       "QMenu::item { padding: 6px 22px 6px 14px; border-radius: 5px; }"
+                       "QMenu::item:selected { background: %4; color: %5; }"
+                       "QMenu::item:disabled { color: %6; }"
+                       "QMenu::separator { height: 1px; background: %3; margin: 5px 8px; }")
+            .arg(scheme.surface.name(), scheme.surfaceText.name(), scheme.edge.name(),
+                 scheme.accent.name(), scheme.accentText.name(), scheme.hint.name()));
+}
 
 QLabel *heading(QWidget *parent, const QString &text, qreal scale, bool bold) {
     auto *label = new QLabel(text, parent);
@@ -69,6 +101,10 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         button->setCursor(Qt::PointingHandCursor);
         button->setFocusPolicy(Qt::NoFocus);
         button->setMinimumHeight(52);
+        button->setProperty(kSlotProperty, slot);
+        button->setToolTip(tr("Cliquer pour jouer sous ce profil. Double cliquer pour le "
+                              "renommer ; clic droit pour le reste."));
+        button->installEventFilter(this);
         connect(button, &QPushButton::clicked, this, [this, slot] {
             setCurrentProfile(slot);
             reread();
@@ -122,7 +158,12 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     for (const Rival &rival : rivals()) {
         auto *card = new RivalCard(rival.id, page);
         card->setPickable(true);
+        card->setToolTip(tr("Cliquer pour inviter %1 à la table ; clic droit pour le "
+                            "remettre à son niveau de départ.")
+                             .arg(rival.name));
         connect(card, &RivalCard::invitedChanged, this, [this] { reread(); });
+        connect(card, &RivalCard::menuWanted, this,
+                [this, card](const QPoint &where) { showRivalMenu(card, where); });
         grid->addWidget(card, at / 3, at % 3);
         m_cards.append(card);
         ++at;
@@ -149,6 +190,111 @@ QVector<QString> TablePicker::invited() const {
         if (card->invited()) who.append(card->rivalId());
     }
     return who;
+}
+
+bool TablePicker::eventFilter(QObject *watched, QEvent *event) {
+    const int slot = watched->property(kSlotProperty).toInt();
+    if (slot >= 1 && slot <= kProfileCount) {
+        // Rendus tous deux: sans quoi QPushButton fait du double clic un
+        // second clic, et du clic droit rien du tout.
+        if (event->type() == QEvent::MouseButtonDblClick) {
+            renameProfile(slot);
+            return true;
+        }
+        if (event->type() == QEvent::ContextMenu) {
+            const auto *where = static_cast<QContextMenuEvent *>(event);
+            showProfileMenu(slot, where->globalPos());
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void TablePicker::showProfileMenu(int slot, const QPoint &where) {
+    QMenu menu(this);
+    dressMenu(&menu);
+    QAction *play = menu.addAction(tr("Jouer sous ce profil"));
+    play->setEnabled(slot != currentProfile());
+    QAction *rename = menu.addAction(tr("Renommer…"));
+    menu.addSeparator();
+    QAction *forget = menu.addAction(tr("Tout oublier sur ce profil"));
+
+    const QAction *chosen = menu.exec(where);
+    if (chosen == play) {
+        setCurrentProfile(slot);
+        reread();
+        Q_EMIT profileChosen(slot);
+    } else if (chosen == rename) {
+        renameProfile(slot);
+    } else if (chosen == forget) {
+        askForgetProfile(slot);
+    }
+}
+
+void TablePicker::renameProfile(int slot) {
+    bool said = false;
+    const QString was = profileName(slot);
+    const QString now =
+        QInputDialog::getText(this, tr("Ramisol"), tr("Le nom de ce profil :"),
+                              QLineEdit::Normal, was, &said);
+    // Un nom vide rendrait la plaque muette: on garde alors l'ancien.
+    if (!said || now.trimmed().isEmpty()) return;
+    setProfileName(slot, now.trimmed().left(kProfileNameLength));
+    reread();
+    Q_EMIT profileChanged();
+}
+
+void TablePicker::askForgetProfile(int slot) {
+    const ProfileRecord record = profileRecord(slot);
+    const auto answer = QMessageBox::question(
+        this, tr("Ramisol"),
+        tr("Effacer les parties de « %1 » et remettre les six adversaires à leur "
+           "niveau de départ ?")
+            .arg(record.name),
+        QMessageBox::Cancel | QMessageBox::Yes);
+    if (answer != QMessageBox::Yes) return;
+    forgetProfile(slot);
+    reread();
+    Q_EMIT profileChanged();
+}
+
+void TablePicker::showRivalMenu(RivalCard *card, const QPoint &where) {
+    const Rival &who = rivalById(card->rivalId());
+    const Learning learning = learningFor(who.id);
+
+    QMenu menu(this);
+    dressMenu(&menu);
+    QAction *invite = menu.addAction(card->invited() ? tr("Ne pas inviter %1").arg(who.name)
+                                                     : tr("Inviter %1 à la table").arg(who.name));
+    menu.addSeparator();
+    QAction *reset = menu.addAction(tr("Niveau de départ"));
+    // Rien à remettre quand il n'a rien appris: l'entrée le dit en étant
+    // éteinte, plutôt qu'en posant une question dont la réponse ne fait rien.
+    reset->setEnabled(learning.xp > who.startXp);
+    reset->setToolTip(tr("Remettre %1 au niveau avec lequel il arrive, sur ce profil "
+                         "seulement")
+                          .arg(who.name));
+
+    const QAction *chosen = menu.exec(where);
+    if (chosen == invite) {
+        card->setInvited(!card->invited());
+    } else if (chosen == reset) {
+        askResetRival(who.id);
+    }
+}
+
+void TablePicker::askResetRival(const QString &rivalId) {
+    const Rival &who = rivalById(rivalId);
+    const auto answer = QMessageBox::question(
+        this, tr("Ramisol"),
+        tr("Remettre %1 à %2 points d'expérience (%3), sur « %4 » ?")
+            .arg(who.name)
+            .arg(who.startXp)
+            .arg(levelName(levelOf(who.startXp)).toLower(), profileName(currentProfile())),
+        QMessageBox::Cancel | QMessageBox::Yes);
+    if (answer != QMessageBox::Yes) return;
+    resetRival(rivalId);
+    reread();
 }
 
 void TablePicker::dressProfiles() {
@@ -188,7 +334,8 @@ void TablePicker::reread() {
 
     const ProfileRecord record = profileRecord(currentProfile());
     m_profileNote->setText(
-        tr("Vous jouez sous « %1 ». Chaque profil a sa propre expérience des adversaires.")
+        tr("Vous jouez sous « %1 ». Chaque profil a sa propre expérience des adversaires. "
+           "Double cliquez sur une plaque pour la renommer.")
             .arg(record.name));
 
     const Target &target = targetById(m_targetId.isEmpty() ? defaultTargetId() : m_targetId);
@@ -203,12 +350,15 @@ void TablePicker::reread() {
     const QVector<QString> who = invited();
     QStringList names;
     for (const QString &id : who) names.append(rivalById(id).name);
+    const QString gesture = tr(" Un clic droit remet un adversaire à son niveau de départ.");
     if (names.isEmpty()) {
         m_rivalNote->setText(tr("Les places vont aux moins joués. Cliquez sur une carte pour "
-                                "inviter quelqu'un."));
+                                "inviter quelqu'un.") +
+                             gesture);
     } else {
         m_rivalNote->setText(tr("Invités : %1. Les places qui restent vont aux moins joués.")
-                                 .arg(names.join(QStringLiteral(", "))));
+                                 .arg(names.join(QStringLiteral(", "))) +
+                             gesture);
     }
 
     for (RivalCard *card : m_cards) card->reread();
