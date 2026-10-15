@@ -92,6 +92,13 @@ même tour. Si le tour se termine et qu'elle n'y est pas, il faut la
 <b>reprendre en main</b> : les règles ne laissent pas défausser avec une pose
 qui ne compte pas.</p>
 
+<p>Tant qu'elle n'est pas partie, une pose se défait aussi carte par carte :
+<b>cliquez une carte de la pose</b> et elle revient seule en main, pourvu que
+sa combinaison tienne encore sans elle — une suite y perd une extrémité, une
+série de quatre y perd sa quatrième. Quand elle ne tient plus, c'est la
+combinaison entière qui revient. <b>Reprendre</b> rend toute la pose d'un
+coup.</p>
+
 <h2>Le joker</h2>
 
 <p>Un joker tient la place de n'importe quelle carte, et il n'en va pas plus
@@ -134,6 +141,9 @@ combinaison du tapis qui la prend</td></tr>
 <tr><th>Clic sur une combinaison du tapis</th><td>y met les cartes choisies</td></tr>
 <tr><th>Clic droit sur une combinaison</th><td>rachète son joker avec la carte
 choisie</td></tr>
+<tr><th>Clic sur une carte de votre pose</th><td>la reprend en main — ou toute
+sa combinaison, si elle ne tient plus sans elle</td></tr>
+<tr><th><b>Reprendre</b></th><td>rend toute la pose en cours à votre main</td></tr>
 <tr><th><b>Défausser</b></th><td>jette la carte choisie et finit le tour</td></tr>
 <tr><th>Double-clic sur une carte</th><td>la défausse directement</td></tr>
 <tr><th><b>Conseil</b></th><td>dit ce que le meilleur joueur de la table ferait

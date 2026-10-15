@@ -80,6 +80,7 @@ private:
     void doHint();
     void onMeldPressed(int meldId);
     void onMeldRightPressed(int meldId);
+    void onPoseCardPressed(int cardId);
     void onCardDoubleClicked(int cardId);
     void onStockPressed();
     void onPilePressed();

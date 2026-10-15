@@ -52,6 +52,17 @@ bool makeMeld(const QVector<Card> &cards, Meld *out);
 // Can `card` be added to `meld`? `out` gets the combination with it in place.
 bool canExtend(const Meld &meld, const Card &card, Meld *out);
 
+// La combinaison moins une de ses cartes, quand elle tient encore sans elle.
+// L'inverse de canExtend ; faux dès qu'il en resterait moins de trois, ou que
+// ce qui reste ne se lit plus.
+//
+// `out` garde ce que le joker remplaçait chaque fois que c'est possible, là
+// où makeMeld relirait les cartes qui restent et lui donnerait parfois une
+// autre place : ôter le 3 de 3-★-5-6, où le joker est le quatre, en ferait
+// 5-6-★ avec le joker en sept -- une pose qui ne perdrait rien des trois
+// points qu'on vient de lui retirer.
+bool shorten(const Meld &meld, int cardId, Meld *out);
+
 // Which cards would buy the joker back out of `meld`. A suite leaves exactly
 // one answer; a série leaves one per colour it is missing.
 QVector<Card> jokerWants(const Meld &meld);

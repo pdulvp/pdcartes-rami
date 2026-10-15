@@ -77,6 +77,7 @@ TablePage::TablePage(QWidget *parent) : QWidget(parent) {
     connect(m_view, &TableView::pilePressed, this, &TablePage::onPilePressed);
     connect(m_view, &TableView::meldPressed, this, &TablePage::onMeldPressed);
     connect(m_view, &TableView::meldRightPressed, this, &TablePage::onMeldRightPressed);
+    connect(m_view, &TableView::poseCardPressed, this, &TablePage::onPoseCardPressed);
     connect(m_view, &TableView::cardDoubleClicked, this, &TablePage::onCardDoubleClicked);
     connect(m_view, &TableView::chosenChanged, this, &TablePage::updateActions);
     connect(m_view, &TableView::zoomChanged, this, [this](int percent) {
@@ -125,7 +126,9 @@ QWidget *TablePage::buildActions() {
                             tr("Mettre les cartes choisies sur les combinaisons du tapis"),
                             tr("C"));
     m_takeBack = actionButton(m_actions, tr("Reprendre"),
-                              tr("Reprendre en main une pose qui ne fait pas 51 points"), {});
+                              tr("Reprendre en main toute la pose — ou cliquez une seule "
+                                 "carte de la pose pour ne reprendre qu'elle"),
+                              {});
     m_discard = actionButton(m_actions, tr("Défausser"),
                              tr("Jeter la carte choisie et finir le tour"), tr("D"));
     m_hint = actionButton(m_actions, tr("Conseil"), tr("Ce que le meilleur joueur ferait"),
@@ -586,6 +589,50 @@ void TablePage::doTakeBack() {
     if (m_settings.autoSort) sort(false);
     m_view->noteTakenBack(coming);
     sayWhatToDo();
+}
+
+// Un clic sur une carte de la pose : elle revient en main.
+//
+// Celle-là seule quand la combinaison tient encore sans elle -- reprendre
+// une pose entière pour en retirer une carte de trop était le geste qu'il
+// fallait faire avant. Quand elle ne tient plus, la combinaison revient
+// entière, parce que c'est la seule autre chose que les règles en laissent
+// faire.
+void TablePage::onPoseCardPressed(int cardId) {
+    const int me = mySeat();
+    if (me < 0 || m_game->turn() != me) return;
+
+    if (m_game->canTakeBackCard(cardId)) {
+        QString why;
+        if (!m_game->takeBackCard(cardId, &why)) {
+            grumble(why);
+            return;
+        }
+        if (m_settings.autoSort) sort(false);
+        m_view->noteTakenBack({cardId});
+        sayWhatToDo();
+        return;
+    }
+
+    // Quelles cartes vont revenir: relevées avant, puisque après la reprise
+    // la combinaison n'existe plus et que c'est d'elle qu'elles repartent.
+    const int meldId = m_game->poseMeldOf(cardId);
+    const Meld *meld = meldId < 0 ? nullptr : m_game->meldById(meldId);
+    if (!meld) return;
+    const QString was = meld->spell();
+    QVector<int> coming;
+    for (const Card &card : meld->cards) coming.append(card.id);
+
+    QString why;
+    if (!m_game->takeBackMeld(meldId, &why)) {
+        grumble(why);
+        return;
+    }
+    if (m_settings.autoSort) sort(false);
+    m_view->noteTakenBack(coming);
+    m_view->say(tr("%1 ne tenait plus sans cette carte : la combinaison revient "
+                   "entière en main.")
+                    .arg(was));
 }
 
 void TablePage::doDiscard() {

@@ -80,6 +80,8 @@ Q_SIGNALS:
     void meldPressed(int meldId);
     // Le clic droit sur une combinaison : racheter son joker.
     void meldRightPressed(int meldId);
+    // Le clic sur une carte de la pose en cours, sur le rail : la reprendre.
+    void poseCardPressed(int cardId);
     void chosenChanged();
     // Changé à la molette, pour que la fenêtre le garde.
     void zoomChanged(int percent);
@@ -128,6 +130,9 @@ private:
 
     int cardAt(const QPointF &where) const;
     int meldAt(const QPointF &where) const;
+    // La carte de la pose en cours sous le pointeur, ou -1. Les cartes d'une
+    // combinaison se chevauchent : c'est celle du dessus qui répond.
+    int poseCardAt(const QPointF &where) const;
 
     void tick();
     void wake();
@@ -195,6 +200,9 @@ private:
     QVector<Spot> m_meldBoxes;
     QVector<Spot> m_handBoxes;
     QVector<Spot> m_poseBoxes;
+    // Chaque carte du rail, une par une : m_poseBoxes donne la place d'une
+    // combinaison, et c'est une carte qu'on reprend.
+    QVector<Spot> m_poseCardBoxes;
     qreal m_meldHeight = 54.0;
     int m_zoom = 100;
     qreal m_beckon = 0.0;       // la phase du va-et-vient des flèches
@@ -202,6 +210,7 @@ private:
     QVector<int> m_chosen;
     int m_hovered = -1;
     int m_hoveredMeld = -1;
+    int m_hoveredPose = -1;
     bool m_hoverStock = false;
     bool m_hoverPile = false;
 

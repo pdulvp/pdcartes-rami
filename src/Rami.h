@@ -102,8 +102,26 @@ public:
     bool lay(const QVector<int> &cardIds, QString *why = nullptr);
     bool layOff(int cardId, int meldId, QString *why = nullptr);
     bool buyJoker(int cardId, int meldId, QString *why = nullptr);
-    bool takeBackPose(QString *why = nullptr);
     bool discard(int cardId, QString *why = nullptr);
+
+    // Défaire une pose qui n'est pas encore partie : en entier, par
+    // combinaison, ou carte à carte.
+    //
+    // Une pose en attente n'est pas sur le tapis -- elle est devant son
+    // joueur en attendant les cinquante-et-un -- et tant que le tour n'est
+    // pas fini elle se défait. Une seule carte ne revient que si la
+    // combinaison tient encore sans elle ; sinon c'est la combinaison
+    // entière, et c'est à l'appelant de la demander.
+    bool takeBackPose(QString *why = nullptr);
+    bool takeBackMeld(int meldId, QString *why = nullptr);
+    bool takeBackCard(int cardId, QString *why = nullptr);
+
+    // La combinaison de la pose en cours où se trouve cette carte, ou -1.
+    int poseMeldOf(int cardId) const;
+
+    // Cette carte peut-elle revenir seule ? Faux quand la combinaison ne
+    // tiendrait plus sans elle, et faux quand ce n'est pas le moment.
+    bool canTakeBackCard(int cardId) const;
 
     // Whether the turn could be ended now, without ending it.
     bool canDiscard(QString *why = nullptr) const;

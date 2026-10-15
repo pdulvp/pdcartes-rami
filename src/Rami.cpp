@@ -363,6 +363,74 @@ bool Rami::takeBackPose(QString *why) {
     return true;
 }
 
+bool Rami::takeBackMeld(int meldId, QString *why) {
+    if (m_phase != Phase::Build) {
+        if (why) *why = tr("Ce n'est pas le moment.");
+        return false;
+    }
+    Seat &seat = here();
+    for (int at = 0; at < seat.waiting.size(); ++at) {
+        if (seat.waiting.at(at).id != meldId) continue;
+        for (const Card &card : seat.waiting.at(at).cards) seat.hand.append(card);
+        seat.waiting.remove(at);
+        Q_EMIT changed();
+        return true;
+    }
+    if (why) *why = tr("Cette combinaison n'est pas dans votre pose.");
+    return false;
+}
+
+int Rami::poseMeldOf(int cardId) const {
+    for (const Meld &meld : seat(m_turn).waiting) {
+        if (findCard(meld.cards, cardId)) return meld.id;
+    }
+    return -1;
+}
+
+bool Rami::canTakeBackCard(int cardId) const {
+    if (m_phase != Phase::Build) return false;
+    for (const Meld &meld : seat(m_turn).waiting) {
+        if (!findCard(meld.cards, cardId)) continue;
+        Meld shorter;
+        return shorten(meld, cardId, &shorter);
+    }
+    return false;
+}
+
+bool Rami::takeBackCard(int cardId, QString *why) {
+    if (m_phase != Phase::Build) {
+        if (why) *why = tr("Ce n'est pas le moment.");
+        return false;
+    }
+    Seat &seat = here();
+    for (Meld &meld : seat.waiting) {
+        const Card *held = findCard(meld.cards, cardId);
+        if (!held) continue;
+        const Card coming = *held;
+
+        Meld shorter;
+        if (!shorten(meld, cardId, &shorter)) {
+            if (why) {
+                *why = tr("La combinaison ne tient plus sans %1 : il faut la reprendre "
+                          "entière.")
+                           .arg(cardName(coming));
+            }
+            return false;
+        }
+        // Son nom et son propriétaire lui reviennent: shorten() ne rend que
+        // des cartes et une lecture.
+        shorter.id = meld.id;
+        shorter.owner = meld.owner;
+        meld = shorter;
+
+        seat.hand.append(coming);
+        Q_EMIT changed();
+        return true;
+    }
+    if (why) *why = tr("Cette carte n'est pas dans votre pose.");
+    return false;
+}
+
 void Rami::sortSeatHand(int at, bool byRank) {
     if (at < 0 || at >= m_seats.size()) return;
     if (byRank) {

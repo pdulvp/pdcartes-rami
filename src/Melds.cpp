@@ -355,6 +355,37 @@ bool makeMeld(const QVector<Card> &cards, Meld *out) {
     return buildSuite(cards, true, out);
 }
 
+bool shorten(const Meld &meld, int cardId, Meld *out) {
+    if (!meld.valid() || !out) return false;
+
+    int at = -1;
+    for (int i = 0; i < meld.cards.size(); ++i) {
+        if (meld.cards.at(i).id == cardId) at = i;
+    }
+    if (at < 0) return false;
+
+    QVector<Card> rest = meld.cards;
+    rest.remove(at);
+    if (rest.size() < 3) return false;
+
+    // Une suite dont on ôte un bout: ce qui reste est déjà en ordre et suit
+    // toujours, et le joker est toujours la carte qu'il remplaçait -- son
+    // rang est `low` plus sa place, et quand la première carte s'en va les
+    // deux bougent du même pas.
+    if (meld.kind == MeldKind::Suite && (at == 0 || at == meld.cards.size() - 1)) {
+        Meld kept = meld;
+        kept.cards = rest;
+        if (at == 0) kept.low = meld.low + 1;
+        *out = kept;
+        return true;
+    }
+
+    // Tout le reste -- une série, ou une suite ouverte par le milieu -- se
+    // relit: une suite à qui on retire une carte du milieu ne tient que si
+    // le joker vient boucher le trou, et c'est makeMeld qui le dit.
+    return makeMeld(rest, out);
+}
+
 bool canExtend(const Meld &meld, const Card &card, Meld *out) {
     if (!meld.valid() || !card.valid() || !out) return false;
 

@@ -718,6 +718,7 @@ QRectF TableView::handSlot(int index, int count) const {
 void TableView::layoutHand() {
     m_handBoxes.clear();
     m_poseBoxes.clear();
+    m_poseCardBoxes.clear();
     if (!m_game) return;
 
     int me = -1;
@@ -777,7 +778,9 @@ void TableView::layoutHand() {
                           small.height());
         m_poseBoxes.append({meld.id, spot});
         for (int k = 0; k < meld.cards.size(); ++k) {
-            m_poseWas.insert(meld.cards.at(k).id, poseCardBox(spot, k));
+            const QRectF box = poseCardBox(spot, k);
+            m_poseCardBoxes.append({meld.cards.at(k).id, box});
+            m_poseWas.insert(meld.cards.at(k).id, box);
         }
         x += width + 12.0;
     }
@@ -1104,6 +1107,7 @@ void TableView::paintRail(QPainter *painter) {
                 if (inFlight(held.id)) continue;
                 CardLook look;
                 look.glow = m_glow.value(held.id, 0.0);
+                look.lit = held.id == m_hoveredPose;
                 drawCardFace(painter, poseCardBox(spot.box, k), held, scheme, look);
             }
         }
@@ -1224,6 +1228,19 @@ int TableView::meldAt(const QPointF &where) const {
     return -1;
 }
 
+int TableView::poseCardAt(const QPointF &where) const {
+    // À l'envers, comme pour la main: dans une combinaison qui se chevauche,
+    // celle du dessus est celle qu'on voulait.
+    for (int i = m_poseCardBoxes.size() - 1; i >= 0; --i) {
+        const Spot &spot = m_poseCardBoxes.at(i);
+        // Une carte qui vole encore vers le rail n'est pas encore là: on ne
+        // clique que ce qui est dessiné.
+        if (inFlight(spot.id)) continue;
+        if (spot.box.contains(where)) return spot.id;
+    }
+    return -1;
+}
+
 void TableView::mousePressEvent(QMouseEvent *event) {
     const QPointF where = event->position();
     if (event->button() != Qt::LeftButton) {
@@ -1241,6 +1258,11 @@ void TableView::mousePressEvent(QMouseEvent *event) {
     }
     if (m_pileBox.adjusted(-4, -4, 4, 4).contains(where)) {
         Q_EMIT pilePressed();
+        return;
+    }
+    const int onRail = poseCardAt(where);
+    if (onRail >= 0) {
+        Q_EMIT poseCardPressed(onRail);
         return;
     }
     const int card = cardAt(where);
@@ -1277,25 +1299,29 @@ void TableView::mouseDoubleClickEvent(QMouseEvent *event) {
 
 void TableView::mouseMoveEvent(QMouseEvent *event) {
     const QPointF where = event->position();
-    const int card = cardAt(where);
-    const int meld = card >= 0 ? -1 : meldAt(where);
+    const int pose = poseCardAt(where);
+    const int card = pose >= 0 ? -1 : cardAt(where);
+    const int meld = pose >= 0 || card >= 0 ? -1 : meldAt(where);
     const bool stock = m_stockBox.adjusted(-4, -4, 4, 4).contains(where);
     const bool pile = m_pileBox.adjusted(-4, -4, 4, 4).contains(where);
-    if (card == m_hovered && meld == m_hoveredMeld && stock == m_hoverStock &&
-        pile == m_hoverPile) {
+    if (card == m_hovered && meld == m_hoveredMeld && pose == m_hoveredPose &&
+        stock == m_hoverStock && pile == m_hoverPile) {
         return;
     }
     m_hovered = card;
     m_hoveredMeld = meld;
+    m_hoveredPose = pose;
     m_hoverStock = stock;
     m_hoverPile = pile;
-    setCursor(card >= 0 || meld >= 0 || stock || pile ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    setCursor(card >= 0 || meld >= 0 || pose >= 0 || stock || pile ? Qt::PointingHandCursor
+                                                                  : Qt::ArrowCursor);
     update();
 }
 
 void TableView::leaveEvent(QEvent *) {
     m_hovered = -1;
     m_hoveredMeld = -1;
+    m_hoveredPose = -1;
     m_hoverStock = false;
     m_hoverPile = false;
     update();
