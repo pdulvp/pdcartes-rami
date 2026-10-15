@@ -14,11 +14,20 @@
 namespace {
 
 // How round a card's corners are, as a fraction of its width.
-constexpr qreal kCornerPart = 0.085;
-
-qreal cornerFor(const QRectF &box) {
-    return std::max(2.0, std::min(box.width(), box.height()) * kCornerPart);
-}
+// L'arrondi du coin d'une carte, en part de sa largeur.
+//
+// Petit, et pour une raison qui ne se voit qu'avec un jeu installé: une carte
+// venue d'un fichier porte déjà son propre coin -- les CARDS.DLL de Windows
+// ont un filet noir qui rentre de deux pixels sur soixante et onze, soit
+// moins de trois centièmes. Découper par-dessus avec un arrondi plus large,
+// c'est scier au travers de ce filet et laisser un moignon à chaque coin.
+//
+// Ce chiffre-là passe donc partout: il suit le filet des cartes de Windows,
+// il ne mord pas dans un jeu dont les coins sont déjà transparents, il
+// adoucit un jeu aux coins carrés -- et les cartes que le programme dessine
+// le portent aussi, pour qu'un jeu installé et le jeu dessiné aient la même
+// coupe.
+constexpr qreal kCornerPart = 0.035;
 
 // Les points du tapis.
 //
@@ -276,6 +285,10 @@ QFont indexFont(const QFont &base, qreal height, bool bold) {
 
 } // namespace
 
+qreal cardCornerFor(const QRectF &box) {
+    return std::max(2.0, std::min(box.width(), box.height()) * kCornerPart);
+}
+
 QFont plainFont(const QPainter *painter) {
     QFont font = painter ? painter->font() : QFont();
     font.setBold(false);
@@ -294,7 +307,27 @@ qreal cardAspect() {
     return kCardRatio;
 }
 
-QSizeF cardSizeForHeight(qreal height) { return QSizeF(height * cardAspect(), height); }
+QSizeF cardSizeForHeight(qreal height) {
+    const qreal aspect = cardAspect();
+    // La hauteur demandée est un budget, et c'est la largeur qui le dépense.
+    //
+    // Tout le tapis se dispose en hauteur -- la main, les combinaisons, la
+    // pioche -- et laisse la largeur suivre la proportion du jeu choisi. Tant
+    // que le jeu est celui que le programme dessine, cela revient au même ;
+    // mais un jeu installé apporte la sienne, et les CARDS.DLL de Windows
+    // sont nettement plus larges que hautes (71 sur 96, contre 0,642). À
+    // hauteur égale, leurs cartes prenaient un sixième de place en plus : la
+    // main de quatorze cartes passait de rangée aérée à rangée qui touche les
+    // deux bords de la fenêtre.
+    //
+    // La carte tient donc dans la largeur qu'aurait la carte dessinée à cette
+    // hauteur-là, et c'est sa hauteur qui cède quand le jeu est plus large.
+    // Un jeu plus étroit que celui dessiné garde la hauteur demandée : il ne
+    // gênait personne.
+    if (aspect <= kCardRatio) return QSizeF(height * aspect, height);
+    const qreal wide = height * kCardRatio;
+    return QSizeF(wide, wide / aspect);
+}
 QSizeF cardSizeForWidth(qreal width) { return QSizeF(width, width / cardAspect()); }
 
 const QPixmap &weaveTile(const Palette &scheme) {
@@ -481,7 +514,7 @@ void drawCardFace(QPainter *painter, const QRectF &box, const Card &card, const 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    const qreal corner = cornerFor(box);
+    const qreal corner = cardCornerFor(box);
     QPainterPath shape;
     shape.addRoundedRect(box, corner, corner);
 
@@ -551,7 +584,7 @@ void drawCardBack(QPainter *painter, const QRectF &box, const Palette &scheme,
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    const qreal corner = cornerFor(box);
+    const qreal corner = cardCornerFor(box);
     QPainterPath shape;
     shape.addRoundedRect(box, corner, corner);
 
@@ -629,7 +662,7 @@ void drawCardSlot(QPainter *painter, const QRectF &box, const Palette &scheme,
                   const QString &label) {
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
-    const qreal corner = cornerFor(box);
+    const qreal corner = cardCornerFor(box);
 
     QColor line = scheme.feltText;
     line.setAlpha(110);

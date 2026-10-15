@@ -47,10 +47,24 @@ public:
     void noteDiscard(int seat, const Card &card);
     void noteDrawn(int seat, bool fromPile, const Card &card);
     void noteLaid(const QVector<int> &cardIds);
+    // La pose reprise en main: les cartes repartent du rail vers la main.
+    void noteTakenBack(const QVector<int> &cardIds);
     void stopAnimations();
 
     // Puts the colours that are current now on the cloth, for the dark button.
     void refresh();
+
+    // La taille des cartes, en pour cent.
+    //
+    // Un jeu installé apporte des images d'une finesse donnée -- les CARDS.DLL
+    // de Windows font 71 sur 96 -- et une figure réduite au quart de cela sur
+    // le tapis n'est plus qu'un bruit de couleurs. Aucun filtre ne rend des
+    // pixels qui n'existent pas: ce qu'il faut, c'est pouvoir les dessiner plus
+    // grandes. Le zoom tire sur toutes les tailles de carte à la fois, la main,
+    // le tapis, la pioche et la pose, et chaque bande de la table grandit avec
+    // elles plutôt que de les laisser déborder.
+    void setZoom(int percent);
+    int zoom() const { return m_zoom; }
 
     // Où chaque carte posée se trouve à l'écran, et laquelle c'est: ce qu'il
     // faut au feu d'artifice pour que les cartes aient l'air de se soulever du
@@ -67,6 +81,8 @@ Q_SIGNALS:
     // Le clic droit sur une combinaison : racheter son joker.
     void meldRightPressed(int meldId);
     void chosenChanged();
+    // Changé à la molette, pour que la fenêtre le garde.
+    void zoomChanged(int percent);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -74,6 +90,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
     void leaveEvent(QEvent *event) override;
 
 private:
@@ -116,6 +133,54 @@ private:
     void wake();
     QPointF seatAnchor(int at) const;
 
+    // Les deux flèches qui montrent où prendre: leur place, s'il y a lieu de
+    // les montrer, et le petit rectangle qu'il suffit de redemander quand
+    // elles seules bougent.
+    QRectF arrowBox(const QRectF &card) const;
+
+    // Une carte est-elle en train de voler ? Le jeu range la carte à sa
+    // destination avant que l'animation parte, si bien que sans cette
+    // question-là elle se trouve dessinée deux fois: une fois arrivée, une
+    // fois en chemin.
+    bool inFlight(int cardId) const;
+
+    // La place qu'occupe la i-ème carte d'une main qui en compte `count`.
+    //
+    // Fonction pure de ces deux nombres: c'est ce qui permet de savoir où les
+    // cartes étaient avant la pioche sans l'avoir noté -- la main d'avant est
+    // la main d'après moins une carte.
+    QRectF handSlot(int index, int count) const;
+
+    // Où une carte de la main est *à cet instant*: sa place, ou le point du
+    // trajet où elle en est si la main est en train de s'écarter. Le dessin
+    // et le pointage s'en servent tous les deux -- c'est ce qui garantit
+    // qu'on clique la carte qu'on voit.
+    QRectF handBoxNow(int id, const QRectF &box) const;
+
+    // La place de la k-ième carte d'une combinaison posée sur le tapis.
+    QRectF meldCardBox(const QRectF &spot, int index) const;
+
+    // La place de la k-ième carte d'une pose en cours, sur le rail.
+    QRectF poseCardBox(const QRectF &spot, int index) const;
+
+    // Où chaque carte posée sur le rail a été dessinée: d'où elle revient
+    // quand on la reprend en main.
+    QHash<int, QRectF> m_poseWas;
+
+    // L'écartement de la main pendant qu'une carte piochée vole vers sa
+    // place: d'où chaque carte part, et où en est le mouvement.
+    QHash<int, QRectF> m_slideFrom;
+    qreal m_slideAlong = 1.0;
+    QRectF m_handRowWas;
+
+    // Où chaque carte de la main a été posée la dernière fois qu'on a
+    // disposé la table. La disposition est refaite pendant que la carte
+    // quitte la main, si bien qu'au moment d'animer son départ sa place n'est
+    // déjà plus dans m_handBoxes: c'est ici qu'on la retrouve.
+    QHash<int, QRectF> m_handWas;
+    bool beckoning() const;
+    QRect beckonArea() const;
+
     const Rami *m_game = nullptr;
 
     QRectF m_seatsRow;
@@ -131,6 +196,8 @@ private:
     QVector<Spot> m_handBoxes;
     QVector<Spot> m_poseBoxes;
     qreal m_meldHeight = 54.0;
+    int m_zoom = 100;
+    qreal m_beckon = 0.0;       // la phase du va-et-vient des flèches
 
     QVector<int> m_chosen;
     int m_hovered = -1;

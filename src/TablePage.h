@@ -25,6 +25,7 @@ struct GameSettings {
     bool offerHints = true;     // le bouton Conseil
     bool celebrate = true;      // le feu d'artifice à la fin
     int pace = 1;               // 0 posé, 1 normal, 2 vif : le temps de réflexion
+    int zoom = 100;             // la taille des cartes, en pour cent
     QVector<QString> invited;   // les adversaires demandés, les autres au tour de rôle
 };
 
@@ -52,6 +53,9 @@ public:
 
 Q_SIGNALS:
     void stateChanged();
+    // La taille des cartes, changée à la molette sur le tapis: la fenêtre
+    // l'écrit dans les réglages.
+    void zoomChanged(int percent);
     // Demandé par la feuille de marque: on quitte la table.
     void wantsMenu();
 

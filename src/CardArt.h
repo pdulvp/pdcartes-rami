@@ -25,6 +25,11 @@ class QFont;
 // sienne ; tout le tapis se dispose d'après cardAspect().
 inline constexpr qreal kCardRatio = 0.642;
 qreal cardAspect();
+
+// L'arrondi du coin d'une carte de cette taille. Partagé, parce qu'un aperçu
+// de dos ailleurs dans le programme doit couper la sienne exactement comme le
+// tapis coupe les siennes.
+qreal cardCornerFor(const QRectF &box);
 QSizeF cardSizeForHeight(qreal height);
 QSizeF cardSizeForWidth(qreal width);
 

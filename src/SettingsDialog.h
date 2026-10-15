@@ -9,6 +9,7 @@ class QCheckBox;
 class QComboBox;
 class QLabel;
 class QListWidget;
+class QSlider;
 
 // Les réglages: la longueur de la partie, trois ou quatre commodités pendant
 // le jeu, et les cartes avec lesquelles on joue.
@@ -40,6 +41,8 @@ private:
     QCheckBox *m_celebrate = nullptr;
     QLabel *m_targetNote = nullptr;
     QComboBox *m_deck = nullptr;
+    QSlider *m_zoom = nullptr;
+    QLabel *m_zoomNote = nullptr;
     QListWidget *m_backs = nullptr;
     QLabel *m_deckNote = nullptr;
     GameSettings m_settings;

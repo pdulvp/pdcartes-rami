@@ -5,13 +5,17 @@
 #include "Rami.h"
 #include "Rivals.h"
 
+#include "CardDeck.h"
+
 #include <QFontMetricsF>
 #include <QMouseEvent>
+#include <QWheelEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 
@@ -20,7 +24,42 @@ constexpr int kFrameMs = 16;
 // What each band of the cloth is given, before anything is squeezed.
 constexpr qreal kSeatsHeight = 104.0;
 constexpr qreal kStacksWidth = 178.0;
-constexpr qreal kRailHeight = 62.0;
+// Le rail, au-dessus de la main: ce qu'on a commencé à poser y attend.
+//
+// Il tenait des cartes de 44 quand le tapis en donnait 56 -- déjà petites, et
+// franchement perdues depuis que le tapis est à 96. Or ces cartes-là sont
+// exactement celles qui vont partir sur le tapis: les voir en miniature puis
+// les retrouver au double un instant plus tard est un à-coup pour rien.
+constexpr qreal kRailHeight = 82.0;
+constexpr qreal kPoseTall = 62.0;
+
+// Le va-et-vient des flèches: de combien elles glissent, et à quelle vitesse.
+//
+// Trois pixels et un aller-retour en une seconde et demie. Assez pour que
+// l'œil l'attrape au bord du regard, trop peu pour qu'on ait envie qu'elles
+// s'arrêtent -- elles restent là tant qu'on n'a pas pioché.
+// L'allure des cartes qui voyagent, en part du trajet par image.
+//
+// Une seule pour tout le monde. La carte que vous piochiez allait à 0,048
+// quand celle d'en face allait à 0,072 -- l'idée étant qu'on veut suivre la
+// sienne -- et la main s'écartait à 0,048 elle aussi. Mais deux allures sur
+// la même table se remarquent, et de deux c'est la lente qu'on remarque:
+// tout ce qui touchait votre main paraissait traîner à côté du reste.
+//
+// Poser reste un peu plus posé, et l'est pour tout le monde pareil.
+constexpr qreal kFlightSpeed = 0.072;
+constexpr qreal kLaySpeed = 0.055;
+
+constexpr qreal kBeckonSwing = 3.0;
+constexpr qreal kBeckonSpeed = 0.07;
+
+// De combien les tas débordent de la boîte de leur carte: la pioche est un
+// empilement dont chaque épaisseur dépasse en haut à gauche, la défausse
+// laisse voir un bord de la carte d'en dessous, en haut à droite.
+constexpr qreal kStockLayerStep = 1.6;
+constexpr qreal kPileUnderStep = 3.0;
+
+int stockLayersFor(int left) { return std::min(3, std::max(1, left / 6 + 1)); }
 constexpr qreal kHandHeight = 134.0;
 constexpr qreal kMargin = 14.0;
 constexpr qreal kGap = 10.0;
@@ -29,8 +68,77 @@ constexpr qreal kGap = 10.0;
 // its corner to be read, which is the whole trick of a fanned hand.
 constexpr qreal kMeldStep = 0.60;
 
+// Ce que le tapis accorde à une carte posée, au mieux et au pire.
+//
+// Le plafond était à 56, et la boucle qui descend de quatre en quatre n'avait
+// jamais à descendre: même trente combinaisons tiennent à cette taille-là sur
+// un tapis de fenêtre ordinaire. Les cartes posées étaient donc petites tout
+// le temps, et pour rien -- la moitié de celles de la main, sur un tapis aux
+// neuf dixièmes vide.
+//
+// À 96 elles se lisent tant que le tapis est clair, et la boucle retrouve son
+// office quand il se remplit: 92 à dix-huit combinaisons, 80 à vingt-quatre,
+// 72 à trente -- qui reste au-dessus de ce qu'on avait en permanence avant.
+constexpr qreal kMeldTall = 96.0;
+constexpr qreal kMeldShort = 26.0;
+
+// La plus grande carte qui tienne dans la boîte, dans les deux sens.
+//
+// Tout le tapis se dispose en hauteur, et la colonne de droite est la seule
+// place où la largeur est, elle, arrêtée d'avance: une carte plus large que
+// sa colonne y débordait sur le tapis, et c'est exactement ce que le zoom et
+// un jeu large font arriver.
+// La flèche qui dit où l'on peut prendre: un trait et une pointe, couchée
+// vers la droite, dans la place qu'on lui laisse.
+//
+// Elle remplace le pointillé qui faisait le tour des deux tas. Un cadre en
+// pointillé autour d'une carte ressemble à une carte sélectionnée, et il en
+// entourait deux à la fois sans dire laquelle: la flèche, elle, montre, et
+// deux flèches côte à côte se lisent comme « l'un ou l'autre ».
+void drawTurnArrow(QPainter *painter, const QRectF &box, const QColor &ink) {
+    // Courte et grasse plutôt que longue et fine: ce qu'elle a à dire tient
+    // dans sa pointe, et un long trait traversant la marge ne faisait que
+    // mener l'œil loin de la carte qu'il désigne. Elle n'occupe donc que la
+    // moitié de la place offerte, serrée contre la carte.
+    const qreal tall = std::min(box.height(), 26.0);
+    const qreal head = tall * 0.64;
+    const qreal span = box.width() * 0.5 + 4.0;
+    if (span < head + 3.0) return;
+
+    const qreal y = box.center().y();
+    const qreal from = box.right() - span;
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(ink, std::max(2.5, tall * 0.26), Qt::SolidLine, Qt::RoundCap));
+    painter->drawLine(QPointF(from, y), QPointF(box.right() - head * 0.8, y));
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(ink);
+    QPainterPath tip;
+    tip.moveTo(box.right(), y);
+    tip.lineTo(box.right() - head, y - head * 0.62);
+    tip.lineTo(box.right() - head, y + head * 0.62);
+    tip.closeSubpath();
+    painter->drawPath(tip);
+    painter->restore();
+}
+
+QSizeF cardWithin(qreal height, qreal width) {
+    QSizeF card = cardSizeForHeight(height);
+    if (card.width() > width && card.width() > 0.0) {
+        card = cardSizeForHeight(height * width / card.width());
+    }
+    return card;
+}
+
 // How much a chosen card rises out of the hand.
 constexpr qreal kLift = 18.0;
+
+// Les bornes du zoom, et le cran de la molette. En deçà les figures ne se
+// lisent plus, au-delà la main de quatorze cartes ne tient plus en largeur.
+constexpr int kZoomMin = 80;
+constexpr int kZoomMax = 200;
+constexpr int kZoomStep = 10;
 
 qreal plateau(qreal along) {
     // Starts quickly and lands softly: a card thrown onto a table does not
@@ -79,6 +187,9 @@ void TableView::watch(const Rami *game) {
     m_chosen.clear();
     m_glow.clear();
     m_flights.clear();
+    m_handWas.clear();
+    m_slideFrom.clear();
+    m_slideAlong = 1.0;
     relayout();
     update();
 }
@@ -99,6 +210,10 @@ void TableView::clearChosen() {
 void TableView::say(const QString &line) {
     m_line = line;
     m_trouble = false;
+    // La ligne change au moment précis où le tour passe: c'est l'occasion de
+    // remettre l'horloge en marche pour que les flèches se mettent à battre.
+    // Elle s'arrête d'elle-même s'il n'y a rien à animer.
+    wake();
     update();
 }
 
@@ -135,8 +250,84 @@ void TableView::stopAnimations() {
     update();
 }
 
+QRectF TableView::arrowBox(const QRectF &card) const {
+    // Treize pixels entre la pointe et la carte, et la flèche à sa hauteur.
+    //
+    // Réglée sur la boîte de la carte, qui est la même pour les deux tas, et
+    // non sur ce qui dépasse autour -- l'empilement de la pioche, le bord de
+    // la carte sous la défausse. Les régler là-dessus a été essayé: comme un
+    // dessin de dos et un dessin de face ne laissent pas la même marge
+    // blanche au bord de leur image, cela ne rapproche rien et écarte les
+    // deux flèches de trois pixels pour de bon.
+    const qreal from = m_stacks.left() + 2.0;
+    return QRectF(from, card.center().y() - 13.0, card.left() - 13.0 - from, 26.0);
+}
+
+bool TableView::beckoning() const {
+    if (!m_game || m_game->seatCount() < 2) return false;
+    if (m_game->phase() != Phase::Draw) return false;
+    if (!m_game->seat(m_game->turn()).human()) return false;
+    return m_game->stockLeft() > 0 || !m_game->pile().isEmpty();
+}
+
+QRect TableView::beckonArea() const {
+    if (!m_game) return QRect();
+    QRectF area;
+    if (m_game->stockLeft() > 0) area = area.united(arrowBox(m_stockBox));
+    if (!m_game->pile().isEmpty()) area = area.united(arrowBox(m_pileBox));
+    if (area.isNull()) return QRect();
+    return area.adjusted(-kBeckonSwing - 3.0, -3.0, kBeckonSwing + 3.0, 3.0).toAlignedRect();
+}
+
+void TableView::noteTakenBack(const QVector<int> &cardIds) {
+    if (!m_game || cardIds.isEmpty()) return;
+
+    // Les cartes sont déjà rentrées en main: la disposition d'abord, pour
+    // savoir où chacune s'est rangée, puis chacune repart de la place
+    // qu'elle tenait sur le rail.
+    relayout();
+
+    for (int id : cardIds) {
+        const QRectF leaves = m_poseWas.value(id);
+        if (leaves.isNull()) continue;
+        QRectF to;
+        Card flying;
+        for (const Spot &spot : m_handBoxes) {
+            if (spot.id != id) continue;
+            to = spot.box;
+        }
+        int me = -1;
+        for (int at = 0; at < m_game->seatCount(); ++at) {
+            if (m_game->seat(at).human()) me = at;
+        }
+        if (to.isNull() || me < 0) continue;
+        const Card *held = findCard(m_game->seat(me).hand, id);
+        if (!held) continue;
+        flying = *held;
+
+        Flight flight;
+        flight.card = flying;
+        flight.faceUp = true;
+        flight.size = leaves.size();
+        flight.from = leaves.topLeft();
+        flight.to = to.topLeft();
+        flight.grow = to.size();
+        flight.speed = kFlightSpeed;
+        m_flights.append(flight);
+        m_glow[id] = 1.0;
+    }
+    wake();
+}
+
+bool TableView::inFlight(int cardId) const {
+    for (const Flight &flight : m_flights) {
+        if (flight.card.id == cardId) return true;
+    }
+    return false;
+}
+
 void TableView::wake() {
-    if (!m_ticker->isActive()) m_ticker->start();
+    if (m_ticker && !m_ticker->isActive()) m_ticker->start();
 }
 
 QPointF TableView::seatAnchor(int at) const {
@@ -152,10 +343,29 @@ void TableView::noteDiscard(int seat, const Card &card) {
     Flight flight;
     flight.card = card;
     flight.faceUp = true;
-    flight.size = m_pileBox.size();
-    flight.from = seatAnchor(seat) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
     flight.to = m_pileBox.topLeft();
-    flight.speed = 0.075;
+    flight.speed = kFlightSpeed;
+
+    // La vôtre part de la place qu'elle tenait dans votre main.
+    //
+    // seatAnchor() ne connaît que les plaques d'en face, et la vôtre n'en est
+    // pas une: pour vous elle rendait le milieu de la rangée, d'où aucune
+    // carte n'était jamais partie. La disposition de la main n'est pas encore
+    // refaite à cet instant, la place de la carte y est donc toujours.
+    QRectF leaves;
+    if (m_game && m_game->seat(seat).human()) leaves = m_handWas.value(card.id);
+    if (leaves.isNull()) {
+        flight.size = m_pileBox.size();
+        flight.from =
+            seatAnchor(seat) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
+    } else {
+        // Et elle rétrécit en chemin, la main étant dessinée plus grand que
+        // les deux tas -- l'inverse exact du voyage qu'elle a fait en venant.
+        flight.size = leaves.size();
+        flight.from = leaves.topLeft();
+        flight.grow = m_pileBox.size();
+    }
+
     m_flights.append(flight);
     m_glow[card.id] = 1.0;
     wake();
@@ -182,8 +392,7 @@ void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
             flight.size = (fromPile ? m_pileBox : m_stockBox).size();
             flight.from = (fromPile ? m_pileBox : m_stockBox).topLeft();
             flight.to = landing.topLeft();
-            // Un peu plus lent qu'une défausse: celle-là, on veut la suivre.
-            flight.speed = 0.048;
+            flight.speed = kFlightSpeed;
             flight.grow = landing.size();
             m_flights.append(flight);
         }
@@ -201,13 +410,75 @@ void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
     flight.size = m_pileBox.size();
     flight.from = (fromPile ? m_pileBox : m_stockBox).topLeft();
     flight.to = seatAnchor(seat) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
-    flight.speed = 0.072;
+    flight.speed = kFlightSpeed;
     m_flights.append(flight);
     wake();
 }
 
 void TableView::noteLaid(const QVector<int> &cardIds) {
     for (int id : cardIds) m_glow[id] = 1.0;
+    if (!m_game) {
+        wake();
+        return;
+    }
+
+    // La disposition d'abord: la combinaison est sur le tapis, c'est là
+    // qu'on va chercher la place de chacune de ses cartes.
+    relayout();
+
+    for (int id : cardIds) {
+        QRectF to;
+        Card flying;
+        int owner = -1;
+        for (const Spot &spot : m_meldBoxes) {
+            const Meld *meld = m_game->meldById(spot.id);
+            if (!meld) continue;
+            for (int k = 0; k < meld->cards.size(); ++k) {
+                if (meld->cards.at(k).id != id) continue;
+                to = meldCardBox(spot.box, k);
+                flying = meld->cards.at(k);
+                owner = meld->owner;
+            }
+        }
+        // Une pose qui n'est pas encore descendue sur le tapis attend sur le
+        // rail: c'est là qu'il faut aller la chercher. Poser se fait en deux
+        // temps -- la main vers le rail, puis le rail vers le tapis -- et les
+        // deux méritent d'être vus.
+        if (to.isNull()) {
+            for (const Spot &spot : m_poseBoxes) {
+                const Meld *meld = m_game->meldById(spot.id);
+                if (!meld) continue;
+                for (int k = 0; k < meld->cards.size(); ++k) {
+                    if (meld->cards.at(k).id != id) continue;
+                    to = poseCardBox(spot.box, k);
+                    flying = meld->cards.at(k);
+                    owner = meld->owner;
+                }
+            }
+        }
+        if (to.isNull() || owner < 0 || owner >= m_game->seatCount()) continue;
+
+        // D'où elle vient, et c'est tout l'intérêt: une carte qui part de la
+        // plaque de Zéphyr dit que c'est Zéphyr qui l'a posée, ce qu'un tapis
+        // qui se remplit tout seul ne disait pas.
+        Flight flight;
+        flight.card = flying;
+        flight.faceUp = true;
+        flight.to = to.topLeft();
+        flight.grow = to.size();
+        flight.speed = kLaySpeed;
+
+        const QRectF leaves = m_handWas.value(id);
+        if (m_game->seat(owner).human() && !leaves.isNull()) {
+            flight.size = leaves.size();
+            flight.from = leaves.topLeft();
+        } else {
+            flight.size = m_pileBox.size();
+            flight.from =
+                seatAnchor(owner) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
+        }
+        m_flights.append(flight);
+    }
     wake();
 }
 
@@ -232,12 +503,62 @@ void TableView::tick() {
         }
     }
 
-    update();
-    if (!busy) m_ticker->stop();
+    if (m_slideAlong < 1.0) {
+        m_slideAlong += kFlightSpeed;
+        if (m_slideAlong >= 1.0) {
+            m_slideAlong = 1.0;
+            m_slideFrom.clear();
+        }
+        busy = true;
+    }
+
+    const bool nudging = beckoning();
+    if (nudging) {
+        m_beckon += kBeckonSpeed;
+        if (m_beckon > 2.0 * M_PI) m_beckon -= 2.0 * M_PI;
+    }
+
+    if (busy) {
+        update();
+    } else if (nudging) {
+        // Rien d'autre ne bouge: on ne redemande que les deux flèches, pour
+        // qu'un tour passé à réfléchir ne repeigne pas tout le tapis soixante
+        // fois par seconde.
+        update(beckonArea());
+    } else {
+        update();
+        m_ticker->stop();
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Où tout se place.
+
+void TableView::setZoom(int percent) {
+    const int now = qBound(kZoomMin, percent, kZoomMax);
+    if (now == m_zoom) return;
+    m_zoom = now;
+    // Les images mises à l'échelle sont gardées par taille: en changer toutes
+    // les tailles d'un coup laisse derrière soi un cache qui ne resservira
+    // plus.
+    if (const CardSet *set = CardDecks::instance().current()) set->forgetDrawings();
+    relayout();
+    update();
+    Q_EMIT zoomChanged(now);
+}
+
+void TableView::wheelEvent(QWheelEvent *event) {
+    // Ctrl et la molette, comme partout ailleurs. La molette seule est
+    // laissée tranquille: on la pousse sans y penser en jouant, et une table
+    // qui change de taille toute seule serait une mauvaise surprise.
+    if (!event->modifiers().testFlag(Qt::ControlModifier)) {
+        QWidget::wheelEvent(event);
+        return;
+    }
+    const int turn = event->angleDelta().y();
+    if (turn != 0) setZoom(m_zoom + (turn > 0 ? kZoomStep : -kZoomStep));
+    event->accept();
+}
 
 void TableView::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
@@ -245,12 +566,18 @@ void TableView::resizeEvent(QResizeEvent *event) {
 }
 
 void TableView::relayout() {
+    // Les places d'avant ne valent plus rien si la table change de forme.
+    if (m_slideAlong >= 1.0) m_slideFrom.clear();
     const QRectF all = QRectF(rect()).adjusted(kMargin, kMargin, -kMargin, -kMargin);
     if (all.width() < 80 || all.height() < 80) return;
 
+    // Les deux bornes de chaque bande sont tirées par le zoom, pas seulement
+    // la première: sans cela, à cent pour cent rien ne bouge -- c'est voulu --
+    // mais au-delà la bande reste et la carte déborde.
+    const qreal z = m_zoom / 100.0;
     const qreal seats = std::min(kSeatsHeight, all.height() * 0.22);
-    const qreal hand = std::min(kHandHeight, all.height() * 0.26);
-    const qreal rail = std::min(kRailHeight, all.height() * 0.12);
+    const qreal hand = std::min(kHandHeight * z, all.height() * 0.26 * z);
+    const qreal rail = std::min(kRailHeight * z, all.height() * 0.12 * z);
 
     m_seatsRow = QRectF(all.left(), all.top(), all.width(), seats);
     m_handRow = QRectF(all.left(), all.bottom() - hand, all.width(), hand);
@@ -258,7 +585,7 @@ void TableView::relayout() {
 
     const qreal middleTop = m_seatsRow.bottom() + kGap;
     const qreal middleHeight = m_rail.top() - kGap - middleTop;
-    const qreal stacks = std::min(kStacksWidth, all.width() * 0.22);
+    const qreal stacks = std::min(kStacksWidth * z, all.width() * 0.22 * z);
     m_tapis = QRectF(all.left(), middleTop, all.width() - stacks - kGap,
                      std::max(60.0, middleHeight));
     m_stacks = QRectF(m_tapis.right() + kGap, middleTop, stacks, std::max(60.0, middleHeight));
@@ -269,8 +596,8 @@ void TableView::relayout() {
 
     // La pioche et la défausse, l'une sous l'autre dans la colonne de droite,
     // avec de la place sous elles pour votre propre plaque.
-    const qreal cardHeight = std::min(104.0, std::max(56.0, m_stacks.height() * 0.30));
-    const QSizeF card = cardSizeForHeight(cardHeight);
+    const qreal cardHeight = std::min(104.0 * z, std::max(56.0 * z, m_stacks.height() * 0.30));
+    const QSizeF card = cardWithin(cardHeight, m_stacks.width() - 10.0);
     const qreal left = m_stacks.left() + (m_stacks.width() - card.width()) / 2.0;
     const qreal labels = 17.0;
     m_stockBox = QRectF(left, m_stacks.top() + labels, card.width(), card.height());
@@ -315,7 +642,8 @@ void TableView::layoutMelds() {
     // The cards come down in size until the whole tapis fits. Two passes at
     // most in practice, but the loop is cheap and the alternative is a tapis
     // that runs off the bottom of the cloth.
-    for (qreal height = 56.0; height >= 26.0; height -= 4.0) {
+    const qreal z = m_zoom / 100.0;
+    for (qreal height = kMeldTall * z; height >= kMeldShort * z; height -= 4.0 * z) {
         const QSizeF card = cardSizeForHeight(height);
         const qreal bar = 5.0;
         const qreal pad = 5.0;
@@ -350,7 +678,41 @@ void TableView::layoutMelds() {
             return;
         }
     }
-    m_meldHeight = 26.0;
+    m_meldHeight = kMeldShort * z;
+}
+
+QRectF TableView::meldCardBox(const QRectF &spot, int index) const {
+    const QSizeF card = cardSizeForHeight(m_meldHeight);
+    return QRectF(spot.left() + 11.0 + card.width() * kMeldStep * index,
+                  spot.center().y() - card.height() / 2.0, card.width(), card.height());
+}
+
+QRectF TableView::handBoxNow(int id, const QRectF &box) const {
+    const auto slid = m_slideFrom.constFind(id);
+    if (slid == m_slideFrom.constEnd()) return box;
+    QRectF now = box;
+    now.moveLeft(slid->left() + (box.left() - slid->left()) * plateau(m_slideAlong));
+    return now;
+}
+
+QRectF TableView::poseCardBox(const QRectF &spot, int index) const {
+    const QSizeF card = cardSizeForHeight(spot.height());
+    return QRectF(spot.left() + card.width() * kMeldStep * index, spot.top(),
+                  card.width(), card.height());
+}
+
+QRectF TableView::handSlot(int index, int count) const {
+    if (count <= 0 || index < 0 || index >= count) return QRectF();
+    const qreal z = m_zoom / 100.0;
+    const qreal height = std::min(m_handRow.height() - kLift - 6.0, 118.0 * z);
+    const QSizeF card = cardSizeForHeight(std::max(52.0, height));
+    const qreal step = count > 1 ? std::min(card.width() + 7.0,
+                                            (m_handRow.width() - card.width()) / (count - 1))
+                                 : 0.0;
+    const qreal span = card.width() + step * (count - 1);
+    const qreal left = m_handRow.left() + std::max(0.0, (m_handRow.width() - span) / 2.0);
+    const qreal top = m_handRow.bottom() - card.height();
+    return QRectF(left + step * index, top, card.width(), card.height());
 }
 
 void TableView::layoutHand() {
@@ -365,31 +727,58 @@ void TableView::layoutHand() {
     if (me < 0) return;
 
     const Seat &mine = m_game->seat(me);
-    const qreal height = std::min(m_handRow.height() - kLift - 6.0, 118.0);
-    const QSizeF card = cardSizeForHeight(std::max(52.0, height));
     const int count = mine.hand.size();
-    if (count > 0) {
-        const qreal step = count > 1 ? std::min(card.width() + 7.0,
-                                                (m_handRow.width() - card.width()) / (count - 1))
-                                     : 0.0;
-        const qreal span = card.width() + step * (count - 1);
-        const qreal left = m_handRow.left() + std::max(0.0, (m_handRow.width() - span) / 2.0);
-        const qreal top = m_handRow.bottom() - card.height();
-        for (int i = 0; i < count; ++i) {
-            m_handBoxes.append(
-                {mine.hand.at(i).id, QRectF(left + step * i, top, card.width(), card.height())});
+
+    // D'où chaque carte part, si elle bouge.
+    //
+    // Plutôt qu'un cas par coup -- une place qui s'ouvre pour la pioche, une
+    // qui se referme sur la défausse, plusieurs d'un coup sur une pose -- la
+    // main se compare simplement à ce qu'elle était: toute carte qui change
+    // de place y glisse. Un coup qui la remanie est alors animé sans que rien
+    // ici ait à savoir lequel c'était.
+    //
+    // Sauf quand c'est la fenêtre qui a changé de taille: là, les cartes sont
+    // à leur place, c'est la place qui a bougé, et la faire glisser à chaque
+    // pixel de la poignée ne ferait que traîner derrière la souris.
+    const bool sameRow = m_handRow == m_handRowWas;
+    QHash<int, QRectF> moving;
+    for (int i = 0; i < count; ++i) {
+        const int id = mine.hand.at(i).id;
+        const QRectF box = handSlot(i, count);
+        m_handBoxes.append({id, box});
+        const auto before = m_handWas.constFind(id);
+        if (sameRow && before != m_handWas.constEnd() &&
+            std::abs(before->left() - box.left()) > 0.5) {
+            moving.insert(id, *before);
         }
+        m_handWas.insert(id, box);
     }
+    m_handRowWas = m_handRow;
+    if (!moving.isEmpty()) {
+        m_slideFrom = moving;
+        m_slideAlong = 0.0;
+        // Et l'horloge, sans quoi rien n'avance: ranger sa main après avoir
+        // pioché ne fait voler aucune carte, donc personne d'autre ne la
+        // remet en marche -- et la main restait dessinée là où elle était
+        // pendant que le pointage, lui, visait déjà les nouvelles places.
+        wake();
+    }
+
+    const qreal z = m_zoom / 100.0;
 
     // La pose en cours, sur le rail: smaller, and to the left of the line of
     // commentary, because it is yours and it is not finished.
     if (mine.waiting.isEmpty()) return;
-    const QSizeF small = cardSizeForHeight(std::min(44.0, m_rail.height() - 10.0));
+    const QSizeF small = cardSizeForHeight(std::min(kPoseTall * z, m_rail.height() - 10.0));
     qreal x = m_rail.left() + 8.0;
     for (const Meld &meld : mine.waiting) {
         const qreal width = small.width() + small.width() * kMeldStep * (meld.cards.size() - 1);
-        m_poseBoxes.append({meld.id, QRectF(x, m_rail.center().y() - small.height() / 2.0, width,
-                                            small.height())});
+        const QRectF spot(x, m_rail.center().y() - small.height() / 2.0, width,
+                          small.height());
+        m_poseBoxes.append({meld.id, spot});
+        for (int k = 0; k < meld.cards.size(); ++k) {
+            m_poseWas.insert(meld.cards.at(k).id, poseCardBox(spot, k));
+        }
         x += width + 12.0;
     }
 }
@@ -532,11 +921,13 @@ void TableView::paintStacks(QPainter *painter) {
     if (left <= 0) {
         drawCardSlot(painter, m_stockBox, scheme, tr("vide"));
     } else {
-        const int layers = std::min(3, std::max(1, left / 6 + 1));
+        const int layers = stockLayersFor(left);
         for (int i = layers - 1; i >= 0; --i) {
             CardLook look;
             look.lit = i == 0 && m_hoverStock && drawing;
-            drawCardBack(painter, m_stockBox.translated(-1.6 * i, -1.6 * i), scheme, look);
+            drawCardBack(painter,
+                         m_stockBox.translated(-kStockLayerStep * i, -kStockLayerStep * i),
+                         scheme, look);
         }
     }
     QFont count = plainFont(painter);
@@ -553,29 +944,38 @@ void TableView::paintStacks(QPainter *painter) {
     painter->drawText(QRectF(m_stacks.left(), m_pileBox.top() - 17.0, m_stacks.width(), 15.0),
                       Qt::AlignCenter, tr("Défausse"));
     const QVector<Card> &pile = m_game->pile();
-    if (pile.isEmpty()) {
+    // Même chose ici: la carte qu'on vient de jeter est posée sur le tas
+    // avant d'avoir fini d'y voler. Tant qu'elle vole, le tas se montre tel
+    // qu'il était -- sans elle.
+    int shown = pile.size() - 1;
+    if (shown >= 0 && inFlight(pile.at(shown).id)) --shown;
+    if (shown < 0) {
         drawCardSlot(painter, m_pileBox, scheme, tr("vide"));
     } else {
-        if (pile.size() > 1) {
+        if (shown >= 1) {
             CardLook under;
             under.dimmed = true;
-            drawCardFace(painter, m_pileBox.translated(3.0, -3.0), pile.at(pile.size() - 2),
-                         scheme, under);
+            drawCardFace(painter, m_pileBox.translated(kPileUnderStep, -kPileUnderStep),
+                         pile.at(shown - 1), scheme, under);
         }
         CardLook look;
         look.lit = m_hoverPile && drawing;
-        look.glow = m_glow.value(pile.last().id, 0.0);
-        drawCardFace(painter, m_pileBox, pile.last(), scheme, look);
+        look.glow = m_glow.value(pile.at(shown).id, 0.0);
+        drawCardFace(painter, m_pileBox, pile.at(shown), scheme, look);
     }
 
-    // Le tour de piste pendant lequel on peut cliquer.
+    // Ce qu'on peut prendre, montré du doigt. La flèche tient dans la marge
+    // que la carte laisse à sa gauche dans la colonne.
     if (drawing) {
-        QColor ring = scheme.gold;
-        ring.setAlpha(190);
-        painter->setPen(QPen(ring, 2.2, Qt::DashLine));
-        painter->setBrush(Qt::NoBrush);
-        if (left > 0) painter->drawRoundedRect(m_stockBox.adjusted(-4, -4, 4, 4), 9, 9);
-        if (!pile.isEmpty()) painter->drawRoundedRect(m_pileBox.adjusted(-4, -4, 4, 4), 9, 9);
+        QColor ink = scheme.gold;
+        ink.setAlpha(235);
+        const qreal nudge = std::sin(m_beckon) * kBeckonSwing;
+        if (left > 0) {
+            drawTurnArrow(painter, arrowBox(m_stockBox).translated(nudge, 0.0), ink);
+        }
+        if (!pile.isEmpty()) {
+            drawTurnArrow(painter, arrowBox(m_pileBox).translated(nudge, 0.0), ink);
+        }
     }
 
     // Et votre propre plaque, sous les deux tas.
@@ -674,13 +1074,14 @@ void TableView::paintMelds(QPainter *painter) {
                                         spot.box.height() - 8.0),
                                  2, 2);
 
-        qreal x = spot.box.left() + 11.0;
-        const qreal top = spot.box.center().y() - card.height() / 2.0;
-        for (const Card &held : meld->cards) {
+        for (int k = 0; k < meld->cards.size(); ++k) {
+            const Card &held = meld->cards.at(k);
+            // Sa place l'attend, vide, tant qu'elle est en chemin: c'est ce
+            // qui fait qu'on voit la combinaison se remplir.
+            if (inFlight(held.id)) continue;
             CardLook look;
             look.glow = m_glow.value(held.id, 0.0);
-            drawCardFace(painter, QRectF(x, top, card.width(), card.height()), held, scheme, look);
-            x += card.width() * kMeldStep;
+            drawCardFace(painter, meldCardBox(spot.box, k), held, scheme, look);
         }
     }
 }
@@ -695,17 +1096,15 @@ void TableView::paintRail(QPainter *painter) {
     qreal textLeft = m_rail.left() + 6.0;
 
     if (!m_poseBoxes.isEmpty() && me >= 0) {
-        const QSizeF card = cardSizeForHeight(m_poseBoxes.first().box.height());
         for (const Spot &spot : m_poseBoxes) {
             const Meld *meld = m_game->meldById(spot.id);
             if (!meld) continue;
-            qreal x = spot.box.left();
-            for (const Card &held : meld->cards) {
+            for (int k = 0; k < meld->cards.size(); ++k) {
+                const Card &held = meld->cards.at(k);
+                if (inFlight(held.id)) continue;
                 CardLook look;
                 look.glow = m_glow.value(held.id, 0.0);
-                drawCardFace(painter, QRectF(x, spot.box.top(), card.width(), card.height()), held,
-                             scheme, look);
-                x += card.width() * kMeldStep;
+                drawCardFace(painter, poseCardBox(spot.box, k), held, scheme, look);
             }
         }
         // Combien il manque, parce que c'est la seule question.
@@ -752,11 +1151,14 @@ void TableView::paintHand(QPainter *painter) {
     for (const Spot &spot : m_handBoxes) {
         const Card *card = findCard(mine.hand, spot.id);
         if (!card) continue;
+        // Celle qui vole est déjà rangée dans la main: on lui laisse sa place
+        // vide le temps du vol, plutôt que de la montrer ici et en chemin.
+        if (inFlight(spot.id)) continue;
         CardLook look;
         look.chosen = m_chosen.contains(spot.id);
         look.lit = m_hovered == spot.id;
         look.glow = m_glow.value(spot.id, 0.0);
-        QRectF box = spot.box;
+        QRectF box = handBoxNow(spot.id, spot.box);
         if (look.chosen) box.translate(0, -kLift);
         else if (look.lit) box.translate(0, -6.0);
         drawCardFace(painter, box, *card, scheme, look);
@@ -807,7 +1209,7 @@ int TableView::cardAt(const QPointF &where) const {
     // the one you meant.
     for (int i = m_handBoxes.size() - 1; i >= 0; --i) {
         const int id = m_handBoxes.at(i).id;
-        QRectF box = m_handBoxes.at(i).box;
+        QRectF box = handBoxNow(id, m_handBoxes.at(i).box);
         // Une carte soulevée se clique là où elle est, pas là où elle était.
         if (m_chosen.contains(id)) box.translate(0, -kLift);
         if (box.contains(where)) return id;

@@ -20,6 +20,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSignalBlocker>
+#include <QSlider>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -35,9 +36,6 @@ constexpr int kSectionGap = 20;
 // La hauteur d'un aperçu de dos. Assez grand pour qu'un motif se reconnaisse,
 // assez petit pour que les dos d'un jeu tiennent sur une ligne.
 constexpr int kBackHeight = 92;
-
-// La proportion du coin arrondi d'une carte, la même que celle du tapis.
-constexpr qreal kCornerPart = 0.085;
 
 QCheckBox *switchRow(QWidget *parent, const QString &text, bool on) {
     auto *box = new QCheckBox(text, parent);
@@ -120,8 +118,7 @@ QPixmap backPreview(const CardSet *set, int at, const QSizeF &box) {
         return tile;
     }
 
-    const qreal corner =
-        std::max(2.0, std::min(where.width(), where.height()) * kCornerPart);
+    const qreal corner = cardCornerFor(where);
     QPainterPath shape;
     shape.addRoundedRect(where, corner, corner);
     painter.setPen(Qt::NoPen);
@@ -239,6 +236,43 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     chrome.fields->addWidget(m_deckNote);
     chrome.fields->addSpacing(10);
 
+    auto *zoomRow = new QHBoxLayout;
+    zoomRow->setSpacing(10);
+    auto *zoomLabel = new QLabel(tr("Taille des cartes :"), this);
+    zoomLabel->setPalette(ink);
+    m_zoom = new QSlider(Qt::Horizontal, this);
+    m_zoom->setRange(80, 200);
+    m_zoom->setSingleStep(10);
+    m_zoom->setPageStep(10);
+    m_zoom->setTickInterval(10);
+    m_zoom->setValue(qBound(80, m_settings.zoom, 200));
+    m_zoom->setFixedWidth(220);
+    m_zoomNote = new QLabel(this);
+    markHintLabel(m_zoomNote);
+    auto sayZoom = [this] {
+        // Arrondi au cran: la poignée se pose entre deux sans cela.
+        const int at = int(std::round(m_zoom->value() / 10.0)) * 10;
+        m_zoomNote->setText(at == 100 ? tr("%1 % — la taille d'origine").arg(at)
+                                      : tr("%1 %").arg(at));
+    };
+    connect(m_zoom, &QSlider::valueChanged, this, sayZoom);
+    sayZoom();
+    zoomRow->addWidget(zoomLabel);
+    zoomRow->addWidget(m_zoom);
+    zoomRow->addWidget(m_zoomNote);
+    zoomRow->addStretch();
+    chrome.fields->addLayout(zoomRow);
+    chrome.fields->addSpacing(4);
+    auto *zoomWhy = new QLabel(
+        tr("Un jeu installé apporte des images d'une finesse donnée : agrandies, "
+           "les figures posées sur le tapis se lisent. Ctrl et la molette font la "
+           "même chose pendant la partie."),
+        this);
+    zoomWhy->setWordWrap(true);
+    markHintLabel(zoomWhy);
+    chrome.fields->addWidget(zoomWhy);
+    chrome.fields->addSpacing(12);
+
     auto *backLabel = new QLabel(tr("Dos :"), this);
     backLabel->setPalette(ink);
     chrome.fields->addWidget(backLabel);
@@ -307,7 +341,7 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     describeTargets();
-    resize(700, 648);
+    resize(700, 772);
 }
 
 void SettingsDialog::fillDecks() {
@@ -337,9 +371,9 @@ void SettingsDialog::fillBacks() {
     QSignalBlocker quiet(m_backs);
     m_backs->clear();
 
-    const qreal aspect = (set && set->aspect() > 0.35 && set->aspect() < 1.60) ? set->aspect()
-                                                                              : kCardRatio;
-    const QSizeF box(kBackHeight * aspect, kBackHeight);
+    // La même règle que le tapis: la vignette est exactement la carte que la
+    // table dessinera, proportion et largeur comprises.
+    const QSizeF box = cardSizeForHeight(kBackHeight);
 
     if (!set || set->backCount() == 0) {
         // Un seul aperçu, celui que le programme dessine -- et rien à choisir.
@@ -410,5 +444,6 @@ GameSettings SettingsDialog::settings() const {
     chosen.autoSort = m_autoSort->isChecked();
     chosen.offerHints = m_offerHints->isChecked();
     chosen.celebrate = m_celebrate->isChecked();
+    chosen.zoom = int(std::round(m_zoom->value() / 10.0)) * 10;
     return chosen;
 }

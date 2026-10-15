@@ -79,6 +79,10 @@ TablePage::TablePage(QWidget *parent) : QWidget(parent) {
     connect(m_view, &TableView::meldRightPressed, this, &TablePage::onMeldRightPressed);
     connect(m_view, &TableView::cardDoubleClicked, this, &TablePage::onCardDoubleClicked);
     connect(m_view, &TableView::chosenChanged, this, &TablePage::updateActions);
+    connect(m_view, &TableView::zoomChanged, this, [this](int percent) {
+        m_settings.zoom = percent;
+        Q_EMIT zoomChanged(percent);
+    });
 
     connect(m_board, &ScoreBoard::goOn, this, [this] {
         m_board->hideBoard();
@@ -207,6 +211,7 @@ void TablePage::startMatch(const GameSettings &settings) {
     m_board->hideBoard();
     m_victory->stop();
     m_beat->stop();
+    m_view->setZoom(m_settings.zoom);
     m_view->stopAnimations();
     m_watch.clear();
     m_handCounted = false;
@@ -237,6 +242,7 @@ void TablePage::applySettings(const GameSettings &settings) {
     m_settings.tableId = table;
     m_settings.targetId = target;
     m_hint->setVisible(m_settings.offerHints);
+    m_view->setZoom(m_settings.zoom);
     updateActions();
 }
 
@@ -562,12 +568,23 @@ void TablePage::doLayOff() {
 }
 
 void TablePage::doTakeBack() {
+    // Quelles cartes vont revenir: relevées avant, puisque après la reprise
+    // la pose n'existe plus et que c'est d'elle qu'elles repartent.
+    const int me = mySeat();
+    QVector<int> coming;
+    if (me >= 0) {
+        for (const Meld &meld : m_game->seat(me).waiting) {
+            for (const Card &card : meld.cards) coming.append(card.id);
+        }
+    }
+
     QString why;
     if (!m_game->takeBackPose(&why)) {
         grumble(why);
         return;
     }
     if (m_settings.autoSort) sort(false);
+    m_view->noteTakenBack(coming);
     sayWhatToDo();
 }
 

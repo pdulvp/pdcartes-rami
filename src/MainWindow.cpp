@@ -70,6 +70,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_table = new TablePage(this);
     connect(m_table, &TablePage::stateChanged, this, &MainWindow::updateTopBar);
     connect(m_table, &TablePage::wantsMenu, this, &MainWindow::showMenu);
+    // La molette sur le tapis change la taille des cartes: écrite tout de
+    // suite, comme tout le reste de ce que la fenêtre retient.
+    connect(m_table, &TablePage::zoomChanged, this, [this](int percent) {
+        m_settings.zoom = percent;
+        writeSettings();
+    });
 
     m_pages = new QStackedWidget(this);
     m_pages->addWidget(m_picker);
@@ -375,6 +381,7 @@ void MainWindow::readSettings() {
     m_settings.offerHints = settings.value(QStringLiteral("aide/conseil"), true).toBool();
     m_settings.celebrate = settings.value(QStringLiteral("aide/feu"), true).toBool();
     m_settings.pace = qBound(0, settings.value(QStringLiteral("aide/rythme"), 1).toInt(), 2);
+    m_settings.zoom = qBound(80, settings.value(QStringLiteral("aide/zoom"), 100).toInt(), 200);
     setDarkMode(settings.value(QStringLiteral("look/sombre"), false).toBool());
 }
 
@@ -386,5 +393,6 @@ void MainWindow::writeSettings() {
     settings.setValue(QStringLiteral("aide/conseil"), m_settings.offerHints);
     settings.setValue(QStringLiteral("aide/feu"), m_settings.celebrate);
     settings.setValue(QStringLiteral("aide/rythme"), m_settings.pace);
+    settings.setValue(QStringLiteral("aide/zoom"), m_settings.zoom);
     settings.setValue(QStringLiteral("look/sombre"), darkMode());
 }
