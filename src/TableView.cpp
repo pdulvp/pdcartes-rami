@@ -8,6 +8,7 @@
 #include "CardDeck.h"
 
 #include <QFontMetricsF>
+#include <QLineF>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QPainter>
@@ -49,6 +50,42 @@ constexpr qreal kPoseTall = 62.0;
 // Poser reste un peu plus posé, et l'est pour tout le monde pareil.
 constexpr qreal kFlightSpeed = 0.072;
 constexpr qreal kLaySpeed = 0.055;
+
+// Votre pioche, seule, prend le temps de se retourner -- et ce temps-là suit
+// la distance qu'elle a à couvrir.
+//
+// Une allure donnée en part du trajet par image fait arriver tous les vols
+// en autant d'images, quelle que soit leur longueur: la carte qui se range
+// à côté de la pioche et celle qui traverse toute la main mettent le même
+// temps, donc la seconde va trois ou quatre fois plus vite. C'est justement
+// celle-là qu'on rate -- elle file trop pour qu'on voie le demi-tour, alors
+// que la courte, elle, allait bien.
+//
+// La durée est donc un fond plus tant de millisecondes par largeur de table
+// parcourue -- rapportée à la largeur, pour que le réglage tienne quelle que
+// soit la taille de la fenêtre.
+//
+// Les deux nombres sont pris sur la table elle-même. La pioche est en haut à
+// droite et la main en bas, si bien que la descente compte autant que
+// l'écart: à 1220 sur 850, la case la plus proche est déjà à 582 pixels et
+// la plus lointaine à 1202, soit le double et non le quintuple.
+//
+//     à côté de la pioche    582 px    242 ms    38 px par image
+//     au milieu              772 px    269 ms    46
+//     à l'autre bout       1 202 px    330 ms    58
+//
+// Celle d'à côté garde les 242 ms qui allaient bien. Celle du bout prend le
+// tiers de plus qu'il lui faut pour qu'on voie le demi-tour -- pas davantage:
+// à une demi-seconde elle traînait, et une pioche qu'on attend est pire
+// qu'une pioche qu'on voit mal. L'écart de vitesse apparente passe ainsi du
+// simple au double à une fois et demie, ce qui suffit à ne plus se voir.
+//
+// C'est le seul vol réglé ainsi: les autres gardent l'allure unique de la
+// table, qui est ce qui l'empêche de se remarquer.
+constexpr qreal kDrawMsBase = 159.0;
+constexpr qreal kDrawMsPerWidth = 173.0;
+constexpr qreal kDrawMsLeast = 200.0;
+constexpr qreal kDrawMsMost = 380.0;
 
 constexpr qreal kBeckonSwing = 3.0;
 constexpr qreal kBeckonSpeed = 0.07;
@@ -139,6 +176,14 @@ constexpr qreal kLift = 18.0;
 constexpr int kZoomMin = 80;
 constexpr int kZoomMax = 200;
 constexpr int kZoomStep = 10;
+
+// L'allure d'une pioche qui a `reach` pixels à couvrir sur une table large
+// de `across`.
+qreal drawSpeedFor(qreal reach, qreal across) {
+    const qreal part = across > 1.0 ? std::clamp(reach / across, 0.0, 2.0) : 0.5;
+    const qreal ms = std::clamp(kDrawMsBase + kDrawMsPerWidth * part, kDrawMsLeast, kDrawMsMost);
+    return qreal(kFrameMs) / ms;
+}
 
 qreal plateau(qreal along) {
     // Starts quickly and lands softly: a card thrown onto a table does not
@@ -389,10 +434,20 @@ void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
             Flight flight;
             flight.card = card;
             flight.faceUp = true;
+            // De la pioche, elle se retourne en chemin: elle était de dos sur
+            // le tas et vous ne savez ce que c'est qu'une fois en main. De la
+            // défausse, il n'y a rien à retourner -- elle était face en haut,
+            // et c'est pour ça que vous l'avez prise.
+            flight.flips = !fromPile;
             flight.size = (fromPile ? m_pileBox : m_stockBox).size();
             flight.from = (fromPile ? m_pileBox : m_stockBox).topLeft();
             flight.to = landing.topLeft();
-            flight.speed = kFlightSpeed;
+            // Le temps de voir la carte se retourner, d'autant plus qu'elle
+            // va loin; de la défausse il n'y a rien à retourner, et elle va
+            // à l'allure de la table.
+            flight.speed = flight.flips
+                               ? drawSpeedFor(QLineF(flight.from, flight.to).length(), width())
+                               : kFlightSpeed;
             flight.grow = landing.size();
             m_flights.append(flight);
         }
@@ -632,8 +687,11 @@ void TableView::layoutMelds() {
     m_meldBoxes.clear();
     if (!m_game) return;
 
-    // Par joueur, pour que le tapis se lise: twenty combinations in a heap
-    // say nothing, the same twenty in six groups say who is where.
+    // Groupées par poseur, pour que le tapis se lise: vingt combinaisons en
+    // vrac ne disent rien, les mêmes vingt en six blocs se parcourent. Le
+    // bloc ne dit plus de qui il est -- une combinaison posée n'appartient à
+    // personne -- il dit seulement qu'elles sont arrivées ensemble, ce qui
+    // suffit à ne pas les lire comme un tas.
     QVector<Meld> order = m_game->table();
     std::stable_sort(order.begin(), order.end(),
                      [](const Meld &a, const Meld &b) { return a.owner < b.owner; });
@@ -645,7 +703,6 @@ void TableView::layoutMelds() {
     const qreal z = m_zoom / 100.0;
     for (qreal height = kMeldTall * z; height >= kMeldShort * z; height -= 4.0 * z) {
         const QSizeF card = cardSizeForHeight(height);
-        const qreal bar = 5.0;
         const qreal pad = 5.0;
         const qreal rowHeight = card.height() + pad * 2;
         QVector<Spot> laid;
@@ -655,7 +712,7 @@ void TableView::layoutMelds() {
         int lastOwner = -2;
         for (const Meld &meld : order) {
             const qreal width =
-                bar + pad * 2 + card.width() + card.width() * kMeldStep * (meld.cards.size() - 1);
+                pad * 2 + card.width() + card.width() * kMeldStep * (meld.cards.size() - 1);
             // A new player starts on a new row when there is not much left of
             // this one, so that a group is not split for the sake of a card.
             const bool fresh = meld.owner != lastOwner;
@@ -683,7 +740,9 @@ void TableView::layoutMelds() {
 
 QRectF TableView::meldCardBox(const QRectF &spot, int index) const {
     const QSizeF card = cardSizeForHeight(m_meldHeight);
-    return QRectF(spot.left() + 11.0 + card.width() * kMeldStep * index,
+    // Six: le petit pas de garde, là où il y en avait onze pour laisser
+    // passer le trait du poseur.
+    return QRectF(spot.left() + 6.0 + card.width() * kMeldStep * index,
                   spot.center().y() - card.height() / 2.0, card.width(), card.height());
 }
 
@@ -1055,7 +1114,6 @@ void TableView::paintMelds(QPainter *painter) {
     for (const Spot &spot : m_meldBoxes) {
         const Meld *meld = m_game->meldById(spot.id);
         if (!meld) continue;
-        const QColor mine = rivalColour(m_game->seat(meld->owner).hue);
         const bool lit = m_hoveredMeld == spot.id;
 
         QPainterPath shape;
@@ -1065,17 +1123,14 @@ void TableView::paintMelds(QPainter *painter) {
         painter->setPen(Qt::NoPen);
         painter->fillPath(shape, bed);
         painter->setBrush(Qt::NoBrush);
-        painter->setPen(QPen(lit ? scheme.gold : blendColours(mine, scheme.feltEdge, 0.3),
+        // Le liseré est celui de la table, et non celui de qui a posé: une
+        // combinaison sur le tapis n'appartient plus à personne. Les cartes
+        // qui y sont ne comptent pour personne à la fin de la manche, et
+        // n'importe qui peut la compléter -- la teinter aux couleurs de son
+        // premier poseur promettait un propriétaire qui n'existe pas.
+        painter->setPen(QPen(lit ? scheme.gold : blendColours(scheme.trim, scheme.feltEdge, 0.3),
                              lit ? 2.0 : 1.0));
         painter->drawPath(shape);
-
-        // Le trait du propriétaire, à gauche: whose combination this is, said
-        // in their own colour, which is the only way a tapis of twenty reads.
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(mine);
-        painter->drawRoundedRect(QRectF(spot.box.left() + 2.0, spot.box.top() + 4.0, 4.0,
-                                        spot.box.height() - 8.0),
-                                 2, 2);
 
         for (int k = 0; k < meld->cards.size(); ++k) {
             const Card &held = meld->cards.at(k);
@@ -1195,6 +1250,25 @@ void TableView::paintFlights(QPainter *painter) {
         // Une carte lancée tourne un peu, et se redresse en arrivant.
         painter->translate(box.center());
         painter->rotate((1.0 - along) * 14.0);
+
+        if (flight.flips) {
+            // Le demi-tour. La largeur apparente est le cosinus de l'angle,
+            // ce qui est exactement ce que fait une carte qu'on retourne
+            // entre deux doigts: pleine de dos, nulle de profil, pleine de
+            // face. Jamais tout à fait nulle, pour qu'il reste la tranche à
+            // voir au moment où elle passe.
+            const qreal turned = std::cos(along * M_PI);
+            painter->scale(std::max(0.03, std::abs(turned)), 1.0);
+            painter->translate(-box.center());
+            if (turned > 0.0) {
+                drawCardBack(painter, box, scheme);
+            } else {
+                drawCardFace(painter, box, flight.card, scheme);
+            }
+            painter->restore();
+            continue;
+        }
+
         painter->translate(-box.center());
         if (flight.faceUp) {
             drawCardFace(painter, box, flight.card, scheme);

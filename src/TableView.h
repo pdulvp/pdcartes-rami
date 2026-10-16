@@ -104,6 +104,10 @@ private:
     struct Flight {
         Card card;
         bool faceUp = true;
+        // Le demi-tour: la carte part de dos, passe de profil à mi-chemin et
+        // arrive face en haut. Réservé à votre pioche -- c'est le seul moment
+        // du jeu où une carte se retourne pour vous.
+        bool flips = false;
         QPointF from;
         QPointF to;
         QSizeF size;

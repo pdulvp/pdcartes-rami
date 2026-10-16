@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QFontMetricsF>
+#include <QHash>
 #include <QPainter>
 #include <QPainterPath>
 #include <QRadialGradient>
@@ -50,6 +51,95 @@ struct Weave {
 Weave &weave() {
     static Weave kept;
     return kept;
+}
+
+// Les dos dessinés, gardés en images.
+//
+// Le treillis est une cinquantaine de diagonales rognées à un coin arrondi,
+// et un dos n'est jamais seul à l'écran: il y en a un sur la pioche, un sur
+// la défausse et un par tas de cartes en face. Redessiné à chaque repaint il
+// coûte plus cher qu'une figure -- deux fois plus, mesuré -- alors comme le
+// treillis du tapis il est fait une fois par taille puis recopié.
+//
+// Rangés par taille et par état, et jetés en bloc quand le jeu de couleurs
+// change, puisque c'est lui qui les colore.
+struct Backs {
+    QHash<quint64, QPixmap> tiles;
+    int hue = -1;
+    bool dark = false;
+};
+
+Backs &backs() {
+    static Backs kept;
+    return kept;
+}
+
+// Le corps d'un dos dessiné: tout sauf l'ombre dessous et le halo dessus,
+// qui dépendent du coup qu'on est en train de jouer et non de la carte.
+const QPixmap &drawnBack(const QSizeF &wanted, const Palette &scheme, bool lit) {
+    static const QPixmap nothing;
+    const QSize size = wanted.toSize();
+    if (size.width() < 3 || size.height() < 5) return nothing;
+
+    Backs &kept = backs();
+    if (kept.hue != scheme.hue || kept.dark != darkMode()) {
+        kept.tiles.clear();
+        kept.hue = scheme.hue;
+        kept.dark = darkMode();
+    }
+
+    const quint64 key = (quint64(size.width()) << 32) | (quint64(size.height()) << 1) |
+                        quint64(lit ? 1 : 0);
+    const auto found = kept.tiles.constFind(key);
+    if (found != kept.tiles.constEnd()) return *found;
+
+    // Un repaint se sert de cinq ou six tailles; la molette du zoom en
+    // apporte une nouvelle à chaque cran. Passé de quoi tenir largement une
+    // table, on repart de zéro plutôt que de garder toutes celles qu'on a
+    // traversées.
+    if (kept.tiles.size() > 64) kept.tiles.clear();
+
+    QPixmap tile(size);
+    tile.fill(Qt::transparent);
+    QPainter painter(&tile);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const QRectF box(0.0, 0.0, size.width(), size.height());
+    const qreal corner = cardCornerFor(box);
+    QPainterPath shape;
+    shape.addRoundedRect(box, corner, corner);
+
+    QColor back = scheme.cardBack;
+    if (lit) back = blendColours(back, QColor(Qt::white), 0.18);
+    painter.setPen(Qt::NoPen);
+    painter.fillPath(shape, back);
+
+    // Le dos: a white margin and a lattice inside it, which is what the back
+    // of a card has looked like since there were backs on cards.
+    const QRectF panel = box.adjusted(box.width() * 0.085, box.width() * 0.085,
+                                      -box.width() * 0.085, -box.width() * 0.085);
+    painter.setPen(QPen(blendColours(back, QColor(Qt::white), 0.45), 1.0));
+    painter.setBrush(Qt::NoBrush);
+    if (panel.width() > 6 && panel.height() > 6) {
+        painter.drawRoundedRect(panel, corner * 0.55, corner * 0.55);
+
+        painter.save();
+        QPainterPath clip;
+        clip.addRoundedRect(panel, corner * 0.55, corner * 0.55);
+        painter.setClipPath(clip);
+        painter.setPen(QPen(scheme.cardBackInk, 1.0));
+        const qreal pitch = std::max(4.0, box.width() * 0.17);
+        for (qreal at = -panel.height(); at < panel.width() + panel.height(); at += pitch) {
+            painter.drawLine(QPointF(panel.left() + at, panel.top()),
+                             QPointF(panel.left() + at + panel.height(), panel.bottom()));
+            painter.drawLine(QPointF(panel.left() + at, panel.bottom()),
+                             QPointF(panel.left() + at + panel.height(), panel.top()));
+        }
+        painter.restore();
+    }
+    painter.end();
+
+    return kept.tiles.insert(key, tile).value();
 }
 
 // Un symbole dessiné, pas écrit.
@@ -597,54 +687,28 @@ void drawCardBack(QPainter *painter, const QRectF &box, const Palette &scheme,
         painter->fillPath(cast, shade);
     }
 
-    QColor back = scheme.cardBack;
-    if (look.lit) back = blendColours(back, QColor(Qt::white), 0.18);
-    painter->fillPath(shape, back);
-
     // Le dos choisi dans les réglages, s'il y en a un, à la place du treillis.
     QPixmap art;
     if (const CardSet *set = CardDecks::instance().current()) {
         art = set->backImage(CardDecks::instance().chosenBack(), box.size().toSize());
     }
-    if (!art.isNull()) {
+
+    if (art.isNull()) {
+        // Le treillis, recopié plutôt que redessiné.
+        const QPixmap &tile = drawnBack(box.size(), scheme, look.lit);
+        if (!tile.isNull()) painter->drawPixmap(box.topLeft(), tile);
+    } else {
+        // La carte du jeu installé peut être transparente par endroits: le
+        // corps dessous, puis l'image par-dessus.
+        QColor back = scheme.cardBack;
+        if (look.lit) back = blendColours(back, QColor(Qt::white), 0.18);
+        painter->fillPath(shape, back);
+
         painter->save();
         painter->setClipPath(shape);
         QRectF where(0, 0, art.width(), art.height());
         where.moveCenter(box.center());
         painter->drawPixmap(where.topLeft(), art);
-        painter->restore();
-        if (look.glow > 0.005) {
-            QColor halo = scheme.gold;
-            halo.setAlphaF(std::clamp(look.glow, 0.0, 1.0) * 0.9);
-            painter->setPen(QPen(halo, std::max(2.0, box.width() * 0.055)));
-            painter->setBrush(Qt::NoBrush);
-            painter->drawPath(shape);
-        }
-        painter->restore();
-        return;
-    }
-
-    // Le dos: a white margin and a lattice inside it, which is what the back
-    // of a card has looked like since there were backs on cards.
-    const QRectF panel = box.adjusted(box.width() * 0.085, box.width() * 0.085,
-                                      -box.width() * 0.085, -box.width() * 0.085);
-    painter->setPen(QPen(blendColours(back, QColor(Qt::white), 0.45), 1.0));
-    painter->setBrush(Qt::NoBrush);
-    if (panel.width() > 6 && panel.height() > 6) {
-        painter->drawRoundedRect(panel, corner * 0.55, corner * 0.55);
-
-        painter->save();
-        QPainterPath clip;
-        clip.addRoundedRect(panel, corner * 0.55, corner * 0.55);
-        painter->setClipPath(clip);
-        painter->setPen(QPen(scheme.cardBackInk, 1.0));
-        const qreal pitch = std::max(4.0, box.width() * 0.17);
-        for (qreal at = -panel.height(); at < panel.width() + panel.height(); at += pitch) {
-            painter->drawLine(QPointF(panel.left() + at, panel.top()),
-                              QPointF(panel.left() + at + panel.height(), panel.bottom()));
-            painter->drawLine(QPointF(panel.left() + at, panel.bottom()),
-                              QPointF(panel.left() + at + panel.height(), panel.top()));
-        }
         painter->restore();
     }
 
