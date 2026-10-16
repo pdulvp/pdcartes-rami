@@ -1,6 +1,7 @@
 #include "CardArt.h"
 
 #include "CardDeck.h"
+#include "TableLook.h"
 
 #include <QCoreApplication>
 #include <QFontMetricsF>
@@ -688,9 +689,12 @@ void drawCardBack(QPainter *painter, const QRectF &box, const Palette &scheme,
     }
 
     // Le dos choisi dans les réglages, s'il y en a un, à la place du treillis.
+    //
+    // Demandé à TableLook et non à la cartothèque: le dos ne vient pas
+    // forcément du jeu des faces, et c'est TableLook qui sait d'où.
     QPixmap art;
-    if (const CardSet *set = CardDecks::instance().current()) {
-        art = set->backImage(CardDecks::instance().chosenBack(), box.size().toSize());
+    if (const CardSet *set = backCards()) {
+        art = set->backImage(backIndex(), box.size().toSize());
     }
 
     if (art.isNull()) {

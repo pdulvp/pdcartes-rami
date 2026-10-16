@@ -31,7 +31,8 @@ class QVBoxLayout;
 // bandes d'images l'une sous l'autre faisaient à elles seules une page plus
 // haute que la boîte, et ce sont de toute façon deux questions -- à quoi
 // ressemblent les cartes qu'on tient, et à quoi ressemblent celles qu'on voit
-// en face.
+// en face. Chacune des deux pages a donc sa liste de jeux: rien n'oblige le
+// dos à venir du jeu des faces.
 //
 // Ce qui appartient à un profil ou à un adversaire en particulier n'est pas
 // ici mais sur la chose elle-même, au menu d'ouverture: on renomme un profil
@@ -62,6 +63,9 @@ private:
     // pouvoir la réécrire.
     void dressLists();
     void fillDecks();
+    // La liste des jeux dont le dos peut être tiré: les mêmes, plus « celui du
+    // jeu de cartes » en tête, qui est le cas ordinaire.
+    void fillBackDecks();
     void fillBacks();
     void describeDeck();
 
@@ -75,6 +79,7 @@ private:
     QComboBox *m_deck = nullptr;
     QSlider *m_zoom = nullptr;
     QLabel *m_zoomNote = nullptr;
+    QComboBox *m_backDeck = nullptr;
     QListWidget *m_backs = nullptr;
     // Les figures du jeu choisi: une bande qu'on regarde, et qui n'est pas une
     // liste -- on ne choisit pas une carte, on choisit le jeu entier.

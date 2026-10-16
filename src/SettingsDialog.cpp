@@ -448,6 +448,8 @@ void SettingsDialog::buildCardsPage() {
 
     connect(m_deck, &QComboBox::currentIndexChanged, this, [this] {
         rememberDeck(m_deck->currentData().toString());
+        // Le dos suit peut-être: « celui du jeu de cartes » vient de désigner
+        // un autre jeu.
         fillBacks();
         describeDeck();
         m_faces->update();
@@ -457,6 +459,19 @@ void SettingsDialog::buildCardsPage() {
 void SettingsDialog::buildBacksPage() {
     QVBoxLayout *rows = addPage(tr("Les dos"), tr("Les dos"));
     QWidget *page = m_pages->widget(m_pages->count() - 1);
+
+    // Sa propre liste de jeux. Un jeu vient d'habitude avec ses dos et on les
+    // prend avec lui -- c'est la première entrée, et c'est le cas ordinaire --
+    // mais rien ne l'oblige: des figures d'un jeu et le dos d'un autre font un
+    // jeu qui n'existe pas et qui se tient très bien.
+    auto *deckRow = new QHBoxLayout;
+    deckRow->setSpacing(8);
+    deckRow->addWidget(fieldLabel(page, tr("Dos du jeu :")));
+    m_backDeck = new QComboBox(page);
+    deckRow->addWidget(m_backDeck, 1);
+    deckRow->addStretch();
+    rows->addLayout(deckRow);
+    rows->addSpacing(10);
 
     // Les dos se choisissent sur l'image plutôt que sur leur nom: « Treillis »
     // ne dit pas à quoi un dos ressemble, et c'est la seule chose qu'on veut
@@ -490,6 +505,10 @@ void SettingsDialog::buildBacksPage() {
                  "appartient au profil, comme le jeu de cartes.")));
     rows->addStretch(1);
 
+    connect(m_backDeck, &QComboBox::currentIndexChanged, this, [this] {
+        rememberBackDeck(m_backDeck->currentData().toString());
+        fillBacks();
+    });
     connect(m_backs, &QListWidget::currentItemChanged, this,
             [](QListWidgetItem *now, QListWidgetItem *) {
                 if (!now) return;
@@ -619,14 +638,31 @@ void SettingsDialog::fillDecks() {
         m_deck->addItem(label, entry.id);
         if (entry.id == chosen) m_deck->setCurrentIndex(m_deck->count() - 1);
     }
+    fillBackDecks();
     fillBacks();
     describeDeck();
 }
 
+void SettingsDialog::fillBackDecks() {
+    if (!m_backDeck) return;
+    const QString chosen = backDeckId();
+
+    QSignalBlocker quiet(m_backDeck);
+    m_backDeck->clear();
+    // En tête, et choisi quand rien n'est écrit: le dos suit les faces.
+    m_backDeck->addItem(tr("Celui du jeu de cartes"), QString());
+    for (const DeckEntry &entry : CardDecks::instance().entries()) {
+        m_backDeck->addItem(entry.name, entry.id);
+        if (!chosen.isEmpty() && entry.id == chosen) {
+            m_backDeck->setCurrentIndex(m_backDeck->count() - 1);
+        }
+    }
+}
+
 void SettingsDialog::fillBacks() {
     if (!m_backs) return;
-    CardDecks &decks = CardDecks::instance();
-    const CardSet *set = decks.current();
+    // Celui d'où le dos est tiré, qui n'est pas forcément celui des faces.
+    const CardSet *set = backCards();
 
     // Muet pendant qu'on le remplit: sans cela, la première vignette posée se
     // ferait choisir et écrirait son numéro par-dessus celui qui est gardé.
@@ -647,7 +683,7 @@ void SettingsDialog::fillBacks() {
         return;
     }
 
-    const int chosen = decks.chosenBack();
+    const int chosen = backIndex();
     for (int at = 0; at < set->backCount(); ++at) {
         auto *item =
             new QListWidgetItem(QIcon(backPreview(set, at, box)), set->backName(at), m_backs);
