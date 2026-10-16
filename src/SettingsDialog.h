@@ -5,6 +5,7 @@
 #include <QDialog>
 #include <QVector>
 
+class CardStrip;
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
@@ -75,6 +76,9 @@ private:
     QSlider *m_zoom = nullptr;
     QLabel *m_zoomNote = nullptr;
     QListWidget *m_backs = nullptr;
+    // Les figures du jeu choisi: une bande qu'on regarde, et qui n'est pas une
+    // liste -- on ne choisit pas une carte, on choisit le jeu entier.
+    CardStrip *m_faces = nullptr;
     QLabel *m_deckNote = nullptr;
     QVector<QToolButton *> m_felts;
     GameSettings m_settings;

@@ -43,6 +43,14 @@ constexpr int kSectionRowHeight = 30;
 // assez petit pour que les dos d'un jeu tiennent sur une ligne.
 constexpr int kBackHeight = 92;
 
+// Et celle des figures. Plus courte que les dos: il y en a huit sur la ligne
+// et il faut qu'elles tiennent, là où un dos est seul à dire ce qu'il est.
+constexpr int kFaceHeight = 78;
+constexpr qreal kFaceGap = 5.0;
+
+// L'air entre les cartes et le bord du panneau qui les porte.
+constexpr int kStripPad = 9;
+
 QCheckBox *switchRow(QWidget *parent, const QString &text, bool on) {
     auto *box = new QCheckBox(text, parent);
     box->setChecked(on);
@@ -153,7 +161,108 @@ QPixmap backPreview(const CardSet *set, int at, const QSizeF &box) {
     return tile;
 }
 
+// La main d'exemple.
+//
+// Le joker d'abord, parce que c'est la carte où les jeux diffèrent le plus --
+// et au rami c'est celle qui coûte vingt-cinq points, donc celle qu'on
+// regarde. Puis l'as et les trois figures, qui sont les dessins ; puis quatre
+// nombres, qui sont la mise en page des pips.
+//
+// Huit cartes à couleur, soit les quatre couleurs deux fois chacune: le joker
+// n'en consomme pas, n'en ayant pas. Neuf cartes suffisent à dire à quoi un
+// jeu ressemble, et la quatorzaine qu'on tient vraiment en main n'y tiendrait
+// pas assez grande pour qu'on la lise.
+QVector<Card> sampleHand() {
+    static const int ranks[] = {kAs, kRoi, kDame, kValet, 10, 7, 5, 3};
+    static const Suit suits[] = {Suit::Pique, Suit::Coeur, Suit::Carreau, Suit::Trefle};
+    QVector<Card> hand;
+
+    Card joker;
+    joker.id = 0;
+    joker.rank = kJoker;
+    hand.append(joker);
+
+    for (int i = 0; i < 8; ++i) {
+        Card card;
+        card.id = i + 1;    // seulement pour qu'elle soit valide: rien ne la pointe
+        card.rank = ranks[i];
+        card.suit = suits[i % 4];
+        hand.append(card);
+    }
+    return hand;
+}
+
 } // namespace
+
+// Les figures du jeu choisi, posées côte à côte.
+//
+// La même idée que les dos, et pour la même raison: le nom d'un jeu ne dit pas
+// à quoi ses cartes ressemblent, et c'est la seule chose qu'on veuille en
+// savoir. Mais on n'en choisit pas une -- c'est le jeu entier qu'on prend dans
+// la liste au-dessus -- alors la bande se regarde et ne se clique pas: ni
+// survol, ni sélection, ni passage au clavier.
+//
+// Dessinée plutôt que mise dans une liste: une QListWidget dont rien n'est
+// sélectionnable est une liste qui ment sur ce qu'elle est, et il n'y a ici
+// qu'une rangée d'images à peindre.
+class CardStrip : public QWidget {
+public:
+    explicit CardStrip(QWidget *parent = nullptr) : QWidget(parent), m_hand(sampleHand()) {
+        setFocusPolicy(Qt::NoFocus);
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setFixedHeight(kFaceHeight + 2 * kStripPad);
+    }
+
+    QSize sizeHint() const override {
+        const QSizeF card = cardSizeForHeight(kFaceHeight);
+        const qreal wide = card.width() * m_hand.size() + kFaceGap * (m_hand.size() - 1);
+        return QSize(int(std::ceil(wide)) + 2 * kStripPad, height());
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override {
+        const Palette &scheme = currentPalette();
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.setRenderHint(QPainter::TextAntialiasing, true);
+
+        // Le même panneau que la liste des dos, pour que les deux bandes
+        // soient visiblement deux bandes de la même sorte.
+        const QRectF panel = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+        QPainterPath shape;
+        shape.addRoundedRect(panel, 8, 8);
+        painter.setPen(Qt::NoPen);
+        painter.fillPath(shape, scheme.field);
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(scheme.edge, 1.0));
+        painter.drawPath(shape);
+
+        const int count = m_hand.size();
+        if (count <= 0) return;
+
+        // La hauteur qu'on voudrait, et celle qui tient. Un jeu installé
+        // apporte sa propre proportion -- les CARDS.DLL de Windows sont plus
+        // larges que les cartes dessinées -- et la même rangée de huit y est
+        // plus large d'autant.
+        const qreal room = panel.width() - 2 * kStripPad - kFaceGap * (count - 1);
+        const qreal fits = cardSizeForWidth(room / count).height();
+        const QSizeF card = cardSizeForHeight(std::max(24.0, std::min(qreal(kFaceHeight), fits)));
+
+        const qreal span = card.width() * count + kFaceGap * (count - 1);
+        qreal x = panel.center().x() - span / 2.0;
+        const qreal y = panel.center().y() - card.height() / 2.0;
+
+        CardLook look;
+        look.noShadow = true;   // elles sont sur le corps de la boîte, pas sur le tapis
+        for (const Card &one : m_hand) {
+            drawCardFace(&painter, QRectF(x, y, card.width(), card.height()), one, scheme, look);
+            x += card.width() + kFaceGap;
+        }
+    }
+
+private:
+    QVector<Card> m_hand;
+};
 
 SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     : QDialog(parent), m_settings(settings) {
@@ -297,7 +406,14 @@ void SettingsDialog::buildCardsPage() {
 
     m_deckNote = asideLabel(page, QString());
     rows->addWidget(m_deckNote);
-    rows->addSpacing(12);
+    rows->addSpacing(8);
+
+    // Les figures, tout de suite sous le jeu qu'on vient de choisir: c'est la
+    // réponse à « à quoi celui-là ressemble-t-il », et elle est à sa place
+    // contre la question.
+    m_faces = new CardStrip(page);
+    rows->addWidget(m_faces);
+    rows->addSpacing(14);
 
     auto *zoomRow = new QHBoxLayout;
     zoomRow->setSpacing(10);
@@ -334,6 +450,7 @@ void SettingsDialog::buildCardsPage() {
         rememberDeck(m_deck->currentData().toString());
         fillBacks();
         describeDeck();
+        m_faces->update();
     });
 }
 
@@ -409,9 +526,11 @@ void SettingsDialog::buildFeltPage() {
             dressFelts();
             dressLists();
             // Les vignettes des dos sont dessinées aux couleurs du tapis: le
-            // treillis que le programme dessine en est fait, et le fond sur
-            // lequel une carte transparente est posée aussi.
+            // treillis que le programme dessine en est fait, le fond sur
+            // lequel une carte transparente est posée aussi, et le papier des
+            // figures dessinées avec son encre.
             fillBacks();
+            if (m_faces) m_faces->update();
         });
         m_felts.append(swatch);
         feltRow->addWidget(swatch);
