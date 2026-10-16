@@ -29,6 +29,9 @@ public:
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    // La ligne d'état se recoupe quand sa propre largeur change, et c'est
+    // elle seule qui sait quand: voir elideSubtitle().
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     QWidget *buildTopBar();
@@ -39,9 +42,9 @@ private:
     void openSettings();
 
     // Le profil se tient dans la bande du haut: la plaque dit sous quel nom
-    // on joue, et l'ouvre. Changer de profil pendant une partie n'a pas de
-    // sens -- l'expérience des six est comptée sur celui qui a commencé la
-    // manche -- alors les entrées qui en changent s'éteignent le temps du jeu.
+    // on joue, et l'ouvre d'un clic. Elle disparaît le temps de la partie --
+    // on ne change pas de profil en cours de route, l'expérience des six
+    // étant comptée sur celui qui a commencé la manche.
     void showProfileMenu();
     void renameProfile(int slot);
     void askForgetProfile(int slot);
@@ -55,6 +58,11 @@ private:
     void updateTopBar();
     // La ligne d'état est ce qui cède quand la barre est trop courte: elle est
     // la seule chose là-haut dont on peut couper la fin sans rien perdre.
+    //
+    // Elle se coupe d'après la largeur qu'elle a, et cette largeur-là n'est
+    // connue qu'une fois la bande redisposée -- bien après qu'on a écrit
+    // dedans. C'est donc son propre redimensionnement qui déclenche la
+    // coupe, et non le moment où le texte arrive.
     void setSubtitle(const QString &text);
     void elideSubtitle();
 

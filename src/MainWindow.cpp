@@ -14,6 +14,7 @@
 #include "Tables.h"
 
 #include <QAction>
+#include <QEvent>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QMenu>
@@ -123,6 +124,8 @@ QWidget *MainWindow::buildTopBar() {
     // score coupé se lit comme un autre score -- « 106 pts » devenait
     // « 06 pts ».
     m_subtitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    // Elle se recoupe elle-même quand la bande lui donne une autre largeur.
+    m_subtitle->installEventFilter(this);
     m_profileChip = new ProfileChip(m_topBar);
     connect(m_profileChip, &ProfileChip::clicked, this, &MainWindow::showProfileMenu);
 
@@ -227,11 +230,8 @@ void MainWindow::showProfileMenu() {
     QMenu menu(this);
     dressMenu(&menu);
 
-    // En cours de partie on ne change pas de profil: l'expérience des six est
-    // comptée sur celui qui a commencé la manche, et la changer en route la
-    // donnerait au mauvais. Renommer reste permis -- c'est un nom, pas une
-    // partie.
-    const bool playing = m_pages->currentIndex() == kTablePage;
+    // Rien à éteindre pour cause de partie en cours: la plaque qui ouvre ce
+    // menu n'est à l'écran qu'au menu d'ouverture.
     const int here = currentProfile();
     QVector<QAction *> switches;
     for (int slot = 1; slot <= kProfileCount; ++slot) {
@@ -247,18 +247,13 @@ void MainWindow::showProfileMenu() {
         QAction *pick = menu.addAction(line);
         pick->setCheckable(true);
         pick->setChecked(slot == here);
-        pick->setEnabled(!playing && slot != here);
+        pick->setEnabled(slot != here);
         switches.append(pick);
-    }
-    if (playing) {
-        QAction *why = menu.addAction(tr("Le profil ne change pas en cours de partie"));
-        why->setEnabled(false);
     }
 
     menu.addSeparator();
     QAction *rename = menu.addAction(tr("Renommer…"));
     QAction *forget = menu.addAction(tr("Tout oublier sur ce profil"));
-    forget->setEnabled(!playing);
 
     // Sous la plaque et alignée sur son bord gauche, comme un menu déroulant.
     const QAction *chosen = menu.exec(m_profileChip->mapToGlobal(
@@ -396,6 +391,9 @@ void MainWindow::updateTopBar() {
     m_menuButton->setVisible(playing);
     m_againButton->setVisible(playing);
     m_score->setVisible(playing);
+    // La plaque du profil s'efface le temps de la partie: on n'en change pas
+    // en cours de route, et la place est mieux employée par le score.
+    m_profileChip->setVisible(!playing);
 
     m_profileChip->reread();
 
@@ -439,7 +437,21 @@ void MainWindow::elideSubtitle() {
     if (!m_subtitle) return;
     const QFontMetrics metrics(m_subtitle->font());
     const int room = std::max(60, m_subtitle->width());
-    m_subtitle->setText(metrics.elidedText(m_subtitleText, Qt::ElideRight, room));
+    const QString cut = metrics.elidedText(m_subtitleText, Qt::ElideRight, room);
+    // Rien à faire si la coupe ne change pas -- et surtout, ne pas réécrire
+    // pour rien: réécrire relance la mise en place, qui nous rappellerait.
+    if (cut == m_subtitle->text()) return;
+    m_subtitle->setText(cut);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+    // La ligne d'état est écrite avant que la bande soit redisposée: entrer
+    // en partie fait paraître trois boutons et disparaître la plaque du
+    // profil, et la ligne était coupée d'après la largeur qu'elle avait
+    // avant. Elle le restait jusqu'au premier coup joué, qui repassait par
+    // updateTopBar() avec une bande enfin en place.
+    if (watched == m_subtitle && event->type() == QEvent::Resize) elideSubtitle();
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event) {
