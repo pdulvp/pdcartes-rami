@@ -75,6 +75,13 @@ private:
 
     void sort(bool byRank);
     void doLay();
+    // Ce qui attend devant un joueur, carte par carte. Relevé avant de poser,
+    // parce que la pose qui ouvre le vide d'un coup.
+    QVector<int> waitingCards(int seat) const;
+    // Ce qui vient d'arriver sur le tapis: la combinaison posée, et tout ce
+    // qui attendait avec elle quand c'est elle qui ouvre.
+    QVector<int> landedCards(int seat, const QVector<int> &laid,
+                             const QVector<int> &waitingBefore, bool wasOpen) const;
     void doLayOff();
     void doTakeBack();
     void doDiscard();

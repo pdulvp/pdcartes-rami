@@ -51,6 +51,15 @@ constexpr qreal kPoseTall = 62.0;
 constexpr qreal kFlightSpeed = 0.072;
 constexpr qreal kLaySpeed = 0.055;
 
+// Ce qu'une combinaison attend que la précédente ait pris d'avance, en part
+// du trajet.
+//
+// Ouvrir met toute la pose sur le tapis d'un coup -- souvent trois
+// combinaisons -- et trois volées parties ensemble ne se lisent pas: on voit
+// le tapis se remplir sans voir ce qui s'y pose. L'une après l'autre, on
+// suit. À 0,055 par image, 0,45 fait une demi-douzaine d'images entre deux.
+constexpr qreal kLayStagger = 0.45;
+
 // Votre pioche, seule, prend le temps de se retourner -- et ce temps-là suit
 // la distance qu'elle a à couvrir.
 //
@@ -496,10 +505,15 @@ void TableView::noteLaid(const QVector<int> &cardIds) {
     // qu'on va chercher la place de chacune de ses cartes.
     relayout();
 
+    // Les combinaisons dans l'ordre où elles arrivent: chacune attend que la
+    // précédente soit partie.
+    QVector<int> order;
+
     for (int id : cardIds) {
         QRectF to;
         Card flying;
         int owner = -1;
+        int which = -1;
         for (const Spot &spot : m_meldBoxes) {
             const Meld *meld = m_game->meldById(spot.id);
             if (!meld) continue;
@@ -508,6 +522,7 @@ void TableView::noteLaid(const QVector<int> &cardIds) {
                 to = meldCardBox(spot.box, k);
                 flying = meld->cards.at(k);
                 owner = meld->owner;
+                which = meld->id;
             }
         }
         // Une pose qui n'est pas encore descendue sur le tapis attend sur le
@@ -523,6 +538,7 @@ void TableView::noteLaid(const QVector<int> &cardIds) {
                     to = poseCardBox(spot.box, k);
                     flying = meld->cards.at(k);
                     owner = meld->owner;
+                    which = meld->id;
                 }
             }
         }
@@ -531,12 +547,18 @@ void TableView::noteLaid(const QVector<int> &cardIds) {
         // D'où elle vient, et c'est tout l'intérêt: une carte qui part de la
         // plaque de Zéphyr dit que c'est Zéphyr qui l'a posée, ce qu'un tapis
         // qui se remplit tout seul ne disait pas.
+        if (which >= 0 && !order.contains(which)) order.append(which);
+
         Flight flight;
         flight.card = flying;
         flight.faceUp = true;
         flight.to = to.topLeft();
         flight.grow = to.size();
         flight.speed = kLaySpeed;
+        // Négatif: la carte est en vol et n'est donc dessinée nulle part,
+        // mais elle n'a pas encore quitté sa plaque. Voir paintFlights().
+        const qsizetype rank = std::max(qsizetype(0), order.indexOf(which));
+        flight.along = -kLayStagger * qreal(rank);
 
         const QRectF leaves = m_handWas.value(id);
         if (m_game->seat(owner).human() && !leaves.isNull()) {
@@ -1260,6 +1282,9 @@ void TableView::paintHand(QPainter *painter) {
 void TableView::paintFlights(QPainter *painter) {
     const Palette &scheme = currentPalette();
     for (const Flight &flight : m_flights) {
+        // Elle attend que sa combinaison parte: elle est encore dans la main
+        // ou sur la plaque de qui la pose, et n'a rien à montrer en chemin.
+        if (flight.along < 0.0) continue;
         const qreal along = plateau(flight.along);
         const QPointF at = flight.from + (flight.to - flight.from) * along;
         // Les deux tas et la main ne sont pas à la même échelle, alors une

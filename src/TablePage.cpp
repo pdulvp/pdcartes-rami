@@ -366,10 +366,13 @@ void TablePage::playRival() {
         if (done) m_view->noteDrawn(at, true, top);
         break;
     }
-    case Move::Lay:
+    case Move::Lay: {
+        const bool wasOpen = m_game->seat(at).opened;
+        const QVector<int> waiting = waitingCards(at);
         done = m_game->lay(move.cards, &why);
-        if (done) m_view->noteLaid(move.cards);
+        if (done) m_view->noteLaid(landedCards(at, move.cards, waiting, wasOpen));
         break;
+    }
     case Move::LayOff:
         if (!move.cards.isEmpty()) {
             done = m_game->layOff(move.cards.first(), move.meldId, &why);
@@ -533,14 +536,41 @@ void TablePage::sort(bool byRank) {
     m_view->refresh();
 }
 
+QVector<int> TablePage::waitingCards(int seat) const {
+    QVector<int> ids;
+    for (const Meld &meld : m_game->seat(seat).waiting) {
+        for (const Card &card : meld.cards) ids.append(card.id);
+    }
+    return ids;
+}
+
+// Poser une combinaison avant d'avoir ouvert ne la met pas sur le tapis: elle
+// attend devant son joueur, et c'est celle qui atteint cinquante-et-un qui
+// les y fait toutes descendre d'un coup. N'animer que la dernière laissait
+// les autres paraître sur le tapis sans être venues de nulle part -- et comme
+// on ouvre rarement avec une seule combinaison, c'était le cas ordinaire.
+QVector<int> TablePage::landedCards(int seat, const QVector<int> &laid,
+                                    const QVector<int> &waitingBefore, bool wasOpen) const {
+    if (wasOpen || seat < 0 || !m_game->seat(seat).opened) return laid;
+    // Celles qui attendaient d'abord: elles ont été posées avant, et elles
+    // arrivent dans cet ordre-là.
+    QVector<int> all = waitingBefore;
+    all.append(laid);
+    return all;
+}
+
 void TablePage::doLay() {
     const QVector<int> chosen = m_view->chosen();
+    const int me = mySeat();
+    const bool wasOpen = me >= 0 && m_game->seat(me).opened;
+    const QVector<int> waiting = me >= 0 ? waitingCards(me) : QVector<int>();
+
     QString why;
     if (!m_game->lay(chosen, &why)) {
         grumble(why);
         return;
     }
-    m_view->noteLaid(chosen);
+    m_view->noteLaid(landedCards(me, chosen, waiting, wasOpen));
     m_view->clearChosen();
     sayWhatToDo();
 }
