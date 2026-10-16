@@ -67,6 +67,9 @@ void RivalCard::leaveEvent(QEvent *) {
 void RivalCard::paintEvent(QPaintEvent *) {
     const Palette &scheme = currentPalette();
     const Rival &who = rivalById(m_rivalId);
+    // Le nom qu'il porte sur ce profil. Le médaillon en prend l'initiale, si
+    // bien que le rebaptiser redessine sa pastille.
+    const QString called = rivalName(m_rivalId);
     const Learning learning = learningFor(who.id);
     const Level level = levelOf(learning.xp);
     const QColor mine = rivalColour(who.hue);
@@ -94,7 +97,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
     const QRectF inner = box.adjusted(kPad, kPad, -kPad, -kPad);
     const qreal disc = std::min(inner.height() * 0.72, 56.0);
     drawRivalEmblem(&painter, QRectF(inner.left(), inner.top(), disc, disc), who.emblem,
-                    who.name, mine, blendColours(scheme.surface, mine, 0.14));
+                    called, mine, blendColours(scheme.surface, mine, 0.14));
 
     const qreal left = inner.left() + disc + 12.0;
     const qreal wide = inner.right() - left;
@@ -106,7 +109,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
     painter.setPen(scheme.surfaceText);
     const QFontMetricsF nameMetrics(name);
     painter.drawText(QRectF(left, inner.top(), wide, nameMetrics.height()),
-                     Qt::AlignLeft | Qt::AlignVCenter, who.name);
+                     Qt::AlignLeft | Qt::AlignVCenter, called);
 
     // Le niveau, en pastille, dans sa couleur.
     QFont pill = plainFont(&painter);

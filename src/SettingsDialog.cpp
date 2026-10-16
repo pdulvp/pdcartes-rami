@@ -138,30 +138,6 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
 
     const DialogChrome chrome = applyDialogChrome(this, tr("Réglages"));
 
-    // --- La longueur de la partie.
-    chrome.fields->addWidget(dialogSectionHeading(this, tr("La longueur de la partie")));
-    chrome.fields->addSpacing(kHeadingGap);
-
-    m_targets = new QButtonGroup(this);
-    auto *lengths = new QHBoxLayout;
-    lengths->setSpacing(18);
-    int at = 0;
-    for (const Target &target : targets()) {
-        auto *button = choiceRow(this, target.name);
-        button->setChecked(target.id == m_settings.targetId);
-        m_targets->addButton(button, at++);
-        lengths->addWidget(button);
-        connect(button, &QRadioButton::toggled, this, [this] { describeTargets(); });
-    }
-    lengths->addStretch();
-    chrome.fields->addLayout(lengths);
-    chrome.fields->addSpacing(4);
-    m_targetNote = new QLabel(this);
-    m_targetNote->setWordWrap(true);
-    markHintLabel(m_targetNote);
-    chrome.fields->addWidget(m_targetNote);
-    chrome.fields->addSpacing(kSectionGap);
-
     // --- Pendant la partie.
     chrome.fields->addWidget(dialogSectionHeading(this, tr("Pendant la partie")));
     chrome.fields->addSpacing(kHeadingGap);
@@ -340,8 +316,10 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    describeTargets();
-    resize(700, 772);
+    // Raccourcie d'autant que la longueur de la partie en occupait: elle se
+    // choisit au menu d'ouverture, au-dessus des tables dont elle change le
+    // compte.
+    resize(700, 660);
 }
 
 void SettingsDialog::fillDecks() {
@@ -419,27 +397,10 @@ void SettingsDialog::describeDeck() {
     m_deckNote->setText(says.trimmed());
 }
 
-void SettingsDialog::describeTargets() {
-    const int which = m_targets->checkedId();
-    if (which < 0 || which >= targets().size()) return;
-    const Target &target = targets().at(which);
-    const TableKind &table = tableKindById(m_settings.tableId);
-    const int points = targetPointsFor(target, table.seats);
-
-    if (points <= 0) {
-        m_targetNote->setText(tr("Une seule donne."));
-        return;
-    }
-    m_targetNote->setText(tr("%1 à la table « %2 » : %3 points. Le but s'ajuste à la "
-                             "table. Le moins de points l'emporte.")
-                              .arg(target.name, table.name.toLower())
-                              .arg(points));
-}
-
 GameSettings SettingsDialog::settings() const {
+    // La longueur de la partie se choisit au menu d'ouverture, au-dessus des
+    // tables dont elle change le compte: ce qui est ici vaut pour toutes.
     GameSettings chosen = m_settings;
-    const int target = m_targets->checkedId();
-    if (target >= 0 && target < targets().size()) chosen.targetId = targets().at(target).id;
     chosen.pace = qBound(0, m_paces->checkedId(), 2);
     chosen.autoSort = m_autoSort->isChecked();
     chosen.offerHints = m_offerHints->isChecked();

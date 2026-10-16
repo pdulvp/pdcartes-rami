@@ -10,28 +10,25 @@ class QPushButton;
 class RivalCard;
 class TileButton;
 
-// Le menu d'ouverture: le profil sous lequel on joue, les cinq tables, et les
-// six adversaires.
+// Le menu d'ouverture: la longueur de la partie, les cinq tables, et les six
+// adversaires.
 //
 // Il n'y a ni bouton « nouvelle partie » ni boîte de dialogue à traverser:
-// presser une table est ce qui lance la partie, parce que choisir combien on
-// sera est le seul choix qu'une nouvelle partie demande. Tout le reste de la
-// page est là pour répondre à la question d'avant: contre qui, et sont-ils
-// devenus meilleurs depuis la dernière fois.
+// presser une table est ce qui lance la partie. Ce qui se choisit avant est
+// donc au-dessus d'elles -- la longueur, qui change le compte écrit dans leur
+// coin -- et ce qui répond à « contre qui » est en dessous.
 //
-// Ce qui se faisait d'un profil et d'un adversaire se fait donc ici, sur la
-// chose elle-même, plutôt que dans les réglages: un profil se renomme d'un
-// double clic, et un clic droit -- sur un profil ou sur un adversaire --
-// ouvre le reste. Les réglages ne gardent que ce qui vaut pour toute la
-// partie.
+// Le profil n'est plus ici: il se tient dans la bande du haut, où il reste
+// visible pendant la partie. Ce qui se fait d'un adversaire se fait sur lui,
+// d'un clic droit, plutôt que dans les réglages.
 class TablePicker : public QWidget {
     Q_OBJECT
 
 public:
     explicit TablePicker(QWidget *parent = nullptr);
 
-    // La longueur de partie choisie dans les réglages, écrite sur les tuiles
-    // pour qu'elle ne soit pas une surprise.
+    // La longueur gardée d'une fois sur l'autre, posée sur les plaques au
+    // démarrage. Le choix se fait ensuite ici, et remonte par targetChosen().
     void setTarget(const QString &targetId);
 
     // Qui a été invité. Les sièges qui restent vont aux moins joués.
@@ -43,33 +40,31 @@ public:
 
 Q_SIGNALS:
     void tableChosen(const QString &id);
-    void profileChosen(int slot);
-    // Le nom d'un profil, ou ce qu'il a joué, vient de changer: la bande du
-    // haut porte le nom et doit le relire.
-    void profileChanged();
-
-protected:
-    // Les gestes sur les plaques de profil: le double clic renomme, le clic
-    // droit ouvre le menu. Un filtre, plutôt qu'un bouton dérivé pour deux
-    // événements que QPushButton ne rapporte pas.
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    // La longueur vient de changer: la fenêtre la garde dans ses réglages.
+    void targetChosen(const QString &id);
 
 private:
-    void dressProfiles();
+    void dressLengths();
 
-    void showProfileMenu(int slot, const QPoint &where);
-    void renameProfile(int slot);
-    void askForgetProfile(int slot);
-
+    void renameRival(const QString &rivalId);
     void showRivalMenu(RivalCard *card, const QPoint &where);
     void askResetRival(const QString &rivalId);
 
     QLabel *m_title = nullptr;
     QLabel *m_subtitle = nullptr;
-    QLabel *m_profileNote = nullptr;
+    QLabel *m_lengthNote = nullptr;
     QLabel *m_rivalNote = nullptr;
     QLabel *m_footer = nullptr;
-    QVector<QPushButton *> m_profiles;
+    // Une plaque de longueur: le bouton, et les deux lignes qu'il porte.
+    // Deux étiquettes plutôt qu'un texte à deux lignes, parce qu'un bouton
+    // n'a qu'une encre et qu'un corps de texte, et qu'il en faut deux de
+    // chaque -- le nom, puis ce qu'il veut dire, plus petit et plus clair.
+    struct LengthPlaque {
+        QPushButton *button = nullptr;
+        QLabel *name = nullptr;
+        QLabel *blurb = nullptr;
+    };
+    QVector<LengthPlaque> m_lengths;
     QVector<TileButton *> m_tiles;
     QVector<RivalCard *> m_cards;
     QString m_targetId;

@@ -29,17 +29,14 @@ public:
     GameSettings settings() const;
 
 private:
-    void describeTargets();
     void fillDecks();
     void fillBacks();
     void describeDeck();
 
-    QButtonGroup *m_targets = nullptr;
     QButtonGroup *m_paces = nullptr;
     QCheckBox *m_autoSort = nullptr;
     QCheckBox *m_offerHints = nullptr;
     QCheckBox *m_celebrate = nullptr;
-    QLabel *m_targetNote = nullptr;
     QComboBox *m_deck = nullptr;
     QSlider *m_zoom = nullptr;
     QLabel *m_zoomNote = nullptr;

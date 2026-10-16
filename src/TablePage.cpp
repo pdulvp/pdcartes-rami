@@ -199,7 +199,9 @@ QVector<SeatSpec> TablePage::chooseSeats(const TableKind &table) const {
         const Rival &rival = rivalById(id);
         SeatSpec spec;
         spec.rivalId = rival.id;
-        spec.name = rival.name;
+        // Le nom donné sur ce profil, et non celui d'usine: c'est celui-là
+        // qui est sur sa plaque et dans tout ce qui se dit de lui.
+        spec.name = rivalName(rival.id);
         spec.hue = rival.hue;
         seats.append(spec);
     }

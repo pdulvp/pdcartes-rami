@@ -6,6 +6,7 @@
 #include <QString>
 
 class QLabel;
+class ProfileChip;
 class QStackedWidget;
 class QToolButton;
 class TablePicker;
@@ -36,6 +37,16 @@ private:
     void startSameTableAgain();
     void showMenu();
     void openSettings();
+
+    // Le profil se tient dans la bande du haut: la plaque dit sous quel nom
+    // on joue, et l'ouvre. Changer de profil pendant une partie n'a pas de
+    // sens -- l'expérience des six est comptée sur celui qui a commencé la
+    // manche -- alors les entrées qui en changent s'éteignent le temps du jeu.
+    void showProfileMenu();
+    void renameProfile(int slot);
+    void askForgetProfile(int slot);
+    void profileChanged();
+
     void openHelp();
     void toggleDark();
 
@@ -57,7 +68,7 @@ private:
     QWidget *m_topBar = nullptr;
     QLabel *m_title = nullptr;
     QLabel *m_subtitle = nullptr;
-    QLabel *m_profile = nullptr;
+    ProfileChip *m_profileChip = nullptr;
     QLabel *m_score = nullptr;
     QToolButton *m_menuButton = nullptr;
     QToolButton *m_againButton = nullptr;

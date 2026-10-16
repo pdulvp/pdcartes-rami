@@ -57,6 +57,22 @@ struct Learning {
 Learning learningFor(const QString &rivalId);
 Learning learningFor(const QString &rivalId, int slot);
 
+// Le nom sous lequel on joue contre lui, sur ce profil-là.
+//
+// Les six restent les six: même couleur, même emblème, même cerveau, même
+// expérience. Seul le nom change, et il change par profil, comme tout ce qui
+// appartient à un profil -- la table du dimanche peut avoir ses habitués
+// sans que celle de la semaine les connaisse. Sans nom donné, c'est celui
+// avec lequel il est arrivé.
+QString rivalName(const QString &rivalId);
+QString rivalName(const QString &rivalId, int slot);
+void setRivalName(const QString &rivalId, const QString &name);
+void clearRivalName(const QString &rivalId);
+
+// Au plus long qu'un nom donné puisse être: il faut qu'il tienne sur la
+// plaque, à côté de la pastille du niveau.
+inline constexpr int kRivalNameLength = 18;
+
 // Counted at the end of each manche. `place` is nought for whoever came out
 // best; `wentOut` is true for the one who got rid of their last card, which
 // is worth more than coming second by a little.

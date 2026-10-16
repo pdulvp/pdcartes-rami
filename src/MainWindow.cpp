@@ -2,15 +2,21 @@
 
 #include "DialogChrome.h"
 #include "HelpDialog.h"
+#include "MenuStyle.h"
+#include "NameDialog.h"
 #include "Palette.h"
+#include "ProfileChip.h"
 #include "Profiles.h"
 #include "Rami.h"
 #include "SettingsDialog.h"
 #include "TablePicker.h"
 #include "Tables.h"
 
+#include <QAction>
 #include <QFontMetrics>
 #include <QHBoxLayout>
+#include <QMenu>
+#include <QMessageBox>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QSettings>
@@ -63,9 +69,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_picker = new TablePicker(this);
     m_picker->setTarget(m_settings.targetId);
     connect(m_picker, &TablePicker::tableChosen, this, &MainWindow::startGame);
-    connect(m_picker, &TablePicker::profileChosen, this, [this] { updateTopBar(); });
+    connect(m_picker, &TablePicker::targetChosen, this, [this](const QString &id) {
+        m_settings.targetId = id;
+        writeSettings();
+    });
     // Un profil renommé depuis le menu: la bande du haut porte son nom.
-    connect(m_picker, &TablePicker::profileChanged, this, &MainWindow::updateTopBar);
 
     m_table = new TablePage(this);
     connect(m_table, &TablePage::stateChanged, this, &MainWindow::updateTopBar);
@@ -112,7 +120,8 @@ QWidget *MainWindow::buildTopBar() {
     // score coupé se lit comme un autre score -- « 106 pts » devenait
     // « 06 pts ».
     m_subtitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    m_profile = new QLabel(m_topBar);
+    m_profileChip = new ProfileChip(m_topBar);
+    connect(m_profileChip, &ProfileChip::clicked, this, &MainWindow::showProfileMenu);
 
     m_score = new QLabel(m_topBar);
     QFont counter = m_score->font();
@@ -148,7 +157,7 @@ QWidget *MainWindow::buildTopBar() {
     across->addWidget(m_title);
     across->addSpacing(12);
     across->addWidget(m_subtitle, 1);
-    across->addWidget(m_profile);
+    across->addWidget(m_profileChip);
     across->addSpacing(14);
     across->addWidget(m_score);
     across->addSpacing(16);
@@ -209,6 +218,93 @@ void MainWindow::openSettings() {
     updateTopBar();
 }
 
+void MainWindow::showProfileMenu() {
+    QMenu menu(this);
+    dressMenu(&menu);
+
+    // En cours de partie on ne change pas de profil: l'expérience des six est
+    // comptée sur celui qui a commencé la manche, et la changer en route la
+    // donnerait au mauvais. Renommer reste permis -- c'est un nom, pas une
+    // partie.
+    const bool playing = m_pages->currentIndex() == kTablePage;
+    const int here = currentProfile();
+    QVector<QAction *> switches;
+    for (int slot = 1; slot <= kProfileCount; ++slot) {
+        const ProfileRecord record = profileRecord(slot);
+        QString line = record.name;
+        if (record.matchesPlayed > 0) {
+            line += tr("  —  %1 parties, %2 gagnées")
+                        .arg(record.matchesPlayed)
+                        .arg(record.matchesWon);
+        } else {
+            line += tr("  —  aucune partie encore");
+        }
+        QAction *pick = menu.addAction(line);
+        pick->setCheckable(true);
+        pick->setChecked(slot == here);
+        pick->setEnabled(!playing && slot != here);
+        switches.append(pick);
+    }
+    if (playing) {
+        QAction *why = menu.addAction(tr("Le profil ne change pas en cours de partie"));
+        why->setEnabled(false);
+    }
+
+    menu.addSeparator();
+    QAction *rename = menu.addAction(tr("Renommer…"));
+    QAction *forget = menu.addAction(tr("Tout oublier sur ce profil"));
+    forget->setEnabled(!playing);
+
+    // Sous la plaque et alignée sur son bord gauche, comme un menu déroulant.
+    const QAction *chosen = menu.exec(m_profileChip->mapToGlobal(
+        QPoint(0, m_profileChip->height() + 4)));
+    if (!chosen) return;
+
+    const int picked = switches.indexOf(const_cast<QAction *>(chosen));
+    if (picked >= 0) {
+        setCurrentProfile(picked + 1);
+        profileChanged();
+        m_picker->reread();
+        return;
+    }
+    if (chosen == rename) {
+        renameProfile(here);
+    } else if (chosen == forget) {
+        askForgetProfile(here);
+    }
+}
+
+void MainWindow::renameProfile(int slot) {
+    NameDialog dialog(tr("Renommer"), tr("Le nom de ce profil :"),
+                      tr("Chaque profil garde ses parties et sa propre expérience des six "
+                         "adversaires."),
+                      profileName(slot), kProfileNameLength, this);
+    if (dialog.exec() != QDialog::Accepted) return;
+    // Un nom vide rendrait la plaque muette: on garde alors l'ancien.
+    if (dialog.name().isEmpty()) return;
+    setProfileName(slot, dialog.name());
+    profileChanged();
+}
+
+void MainWindow::askForgetProfile(int slot) {
+    const ProfileRecord record = profileRecord(slot);
+    const auto answer = QMessageBox::question(
+        this, tr("Ramisol"),
+        tr("Effacer les parties de « %1 » et remettre les six adversaires à leur "
+           "niveau de départ ?")
+            .arg(record.name),
+        QMessageBox::Cancel | QMessageBox::Yes);
+    if (answer != QMessageBox::Yes) return;
+    forgetProfile(slot);
+    profileChanged();
+    m_picker->reread();
+}
+
+void MainWindow::profileChanged() {
+    m_profileChip->reread();
+    updateTopBar();
+}
+
 void MainWindow::openHelp() {
     HelpDialog dialog(this);
     dialog.exec();
@@ -257,7 +353,7 @@ void MainWindow::applyColours() {
 
     inkLabel(m_title, scheme.accent);
     inkLabel(m_subtitle, scheme.hint);
-    inkLabel(m_profile, scheme.hint);
+    m_profileChip->update();
     inkLabel(m_score, scheme.accent);
 
     m_darkButton->setToolTip(darkMode() ? tr("Couleurs claires") : tr("Couleurs sombres"));
@@ -290,7 +386,7 @@ void MainWindow::updateTopBar() {
     m_againButton->setVisible(playing);
     m_score->setVisible(playing);
 
-    m_profile->setText(tr("profil : %1").arg(profileName(currentProfile())));
+    m_profileChip->reread();
 
     if (!playing) {
         setSubtitle(tr("Le rami, sur tapis vert"));

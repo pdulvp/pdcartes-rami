@@ -52,6 +52,10 @@ add_executable(ramisol
     # Palette et DialogChrome sont dans la cartothèque.
     src/TileButton.cpp
     src/TileButton.h
+    src/ProfileChip.cpp
+    src/ProfileChip.h
+    src/MenuStyle.cpp
+    src/MenuStyle.h
     # The cards themselves: what they are, what they are worth, and how they
     # are drawn. Nothing below this line knows the rules.
     src/Cards.cpp
@@ -92,6 +96,8 @@ add_executable(ramisol
     src/TablePicker.h
     src/SettingsDialog.cpp
     src/SettingsDialog.h
+    src/NameDialog.cpp
+    src/NameDialog.h
     src/HelpDialog.cpp
     src/HelpDialog.h
 )

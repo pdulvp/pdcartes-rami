@@ -71,6 +71,34 @@ Learning learningFor(const QString &rivalId) {
     return learningFor(rivalId, currentProfile());
 }
 
+QString rivalName(const QString &rivalId, int slot) {
+    const Rival &who = rivalById(rivalId);
+    const QString called =
+        QSettings().value(rivalKey(slot, who.id, QStringLiteral("nom"))).toString().trimmed();
+    return called.isEmpty() ? who.name : called;
+}
+
+QString rivalName(const QString &rivalId) { return rivalName(rivalId, currentProfile()); }
+
+void setRivalName(const QString &rivalId, const QString &name) {
+    const Rival &who = rivalById(rivalId);
+    const QString called = name.trimmed().left(kRivalNameLength);
+    // Lui rendre son nom d'origine, c'est n'en avoir donné aucun: on efface
+    // plutôt que d'écrire la même chose, pour que « a-t-il été rebaptisé »
+    // ait une réponse et une seule.
+    if (called.isEmpty() || called == who.name) {
+        clearRivalName(rivalId);
+        return;
+    }
+    QSettings().setValue(rivalKey(currentProfile(), who.id, QStringLiteral("nom")), called);
+}
+
+void clearRivalName(const QString &rivalId) {
+    const Rival &who = rivalById(rivalId);
+    QSettings().remove(rivalKey(currentProfile(), who.id, QStringLiteral("nom")));
+}
+
+
 void noteRivalHand(const QString &rivalId, int place, int seats, bool wentOut) {
     const Rival &who = rivalById(rivalId);
     const int slot = currentProfile();
@@ -118,7 +146,14 @@ void resetRival(const QString &rivalId) {
     const Rival &who = rivalById(rivalId);
     const int slot = currentProfile();
     QSettings settings;
+    // Le nom qu'on lui a donné n'est pas de l'expérience: le remettre au
+    // niveau avec lequel il est arrivé ne le débaptise pas.
+    const QString called =
+        settings.value(rivalKey(slot, who.id, QStringLiteral("nom"))).toString();
     settings.remove(QStringLiteral("profil/%1/rival/%2").arg(slot).arg(who.id));
+    if (!called.trimmed().isEmpty()) {
+        settings.setValue(rivalKey(slot, who.id, QStringLiteral("nom")), called);
+    }
 }
 
 Level levelOf(int xp) {
