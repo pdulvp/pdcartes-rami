@@ -10,6 +10,7 @@
 #include "Rami.h"
 #include "SettingsDialog.h"
 #include "TablePicker.h"
+#include "TableLook.h"
 #include "Tables.h"
 
 #include <QAction>
@@ -64,7 +65,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle(tr("Ramisol"));
 
     readSettings();
-    setCurrentPalette(tableKindById(m_settings.tableId).hue);
+    // Le tapis du profil, et ses cartes: tous deux lui appartiennent.
+    setCurrentPalette(feltHue());
+    applyProfileLook();
 
     m_picker = new TablePicker(this);
     m_picker->setTarget(m_settings.targetId);
@@ -182,11 +185,6 @@ void MainWindow::startGame(const QString &tableId) {
     m_settings.tableId = kind.id;
     m_settings.invited = m_picker->invited();
 
-    // La couleur de la table d'abord, pour que le tapis soit de la bonne
-    // couleur au moment où il apparaît plutôt qu'une image plus tard.
-    setCurrentPalette(kind.hue);
-    applyColours();
-
     m_table->startMatch(m_settings);
     m_pages->setCurrentIndex(kTablePage);
     m_table->setFocus();
@@ -208,9 +206,16 @@ void MainWindow::showMenu() {
 
 void MainWindow::openSettings() {
     SettingsDialog dialog(m_settings, this);
-    if (dialog.exec() != QDialog::Accepted) return;
+    const bool kept = dialog.exec() == QDialog::Accepted;
+    // La teinte s'essaie en direct dans la boîte: acceptée elle reste, et
+    // annulée c'est celle du profil qui revient. Dans les deux cas la fenêtre
+    // se repeint, puisque dans les deux cas elle a pu changer en chemin.
+    setCurrentPalette(kept ? dialog.settings().hue : feltHue());
+    applyColours();
+    if (!kept) return;
 
     m_settings = dialog.settings();
+    setFeltHue(m_settings.hue);
     writeSettings();
     m_table->applySettings(m_settings);
     m_picker->setTarget(m_settings.targetId);
@@ -263,6 +268,12 @@ void MainWindow::showProfileMenu() {
     const int picked = switches.indexOf(const_cast<QAction *>(chosen));
     if (picked >= 0) {
         setCurrentProfile(picked + 1);
+        // Le tapis, le jeu et le dos appartiennent au profil: ils changent
+        // avec lui, sans quoi on jouerait la partie suivante avec le goût du
+        // précédent.
+        setCurrentPalette(feltHue());
+        applyProfileLook();
+        applyColours();
         profileChanged();
         m_picker->reread();
         return;
@@ -479,6 +490,9 @@ void MainWindow::readSettings() {
     m_settings.pace = qBound(0, settings.value(QStringLiteral("aide/rythme"), 1).toInt(), 2);
     m_settings.zoom = qBound(80, settings.value(QStringLiteral("aide/zoom"), 100).toInt(), 200);
     setDarkMode(settings.value(QStringLiteral("look/sombre"), false).toBool());
+    // La teinte du drap n'est pas rangée là: elle appartient au profil, et
+    // c'est TableLook qui la garde sous lui.
+    m_settings.hue = feltHue();
 }
 
 void MainWindow::writeSettings() {

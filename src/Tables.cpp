@@ -8,11 +8,11 @@ namespace {
 
 const QVector<TableKind> &builtTables() {
     static const QVector<TableKind> kinds = {
-        {QStringLiteral("deux"), QCoreApplication::translate("tables", "Tête-à-tête"), 2, 168},
-        {QStringLiteral("trois"), QCoreApplication::translate("tables", "À trois"), 3, 196},
-        {QStringLiteral("quatre"), QCoreApplication::translate("tables", "À quatre"), 4, 142},
-        {QStringLiteral("cinq"), QCoreApplication::translate("tables", "À cinq"), 5, 32},
-        {QStringLiteral("six"), QCoreApplication::translate("tables", "À six"), 6, 348},
+        {QStringLiteral("deux"), QCoreApplication::translate("tables", "Tête-à-tête"), 2},
+        {QStringLiteral("trois"), QCoreApplication::translate("tables", "À trois"), 3},
+        {QStringLiteral("quatre"), QCoreApplication::translate("tables", "À quatre"), 4},
+        {QStringLiteral("cinq"), QCoreApplication::translate("tables", "À cinq"), 5},
+        {QStringLiteral("six"), QCoreApplication::translate("tables", "À six"), 6},
     };
     return kinds;
 }

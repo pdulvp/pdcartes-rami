@@ -124,7 +124,6 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         auto *tile = new TileButton(page);
         tile->setText(kind.name);
         tile->setSeats(kind.seats);
-        tile->setTileHue(kind.hue);
         tile->setTileSize(kTableTile);
         const QString id = kind.id;
         connect(tile, &TileButton::clicked, this, [this, id] { Q_EMIT tableChosen(id); });

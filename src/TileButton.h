@@ -22,11 +22,6 @@ public:
     // longueur demande, ce genre de chose.
     void setCorner(const QString &corner);
 
-    // La teinte dans laquelle la tuile est peinte, qui est ce qui permet à
-    // cinq tables d'être côte à côte chacune dans sa couleur. Sans teinte, la
-    // tuile porte celle que le jeu porte.
-    void setTileHue(int hue);
-
     void setTileSize(const QSize &size);
 
     QSize sizeHint() const override;
@@ -43,7 +38,6 @@ protected:
 private:
     QString m_corner;
     int m_seats = 4;
-    int m_hue = -1;
     QSize m_tileSize = QSize(206, 176);
     bool m_hovered = false;
 };

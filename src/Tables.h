@@ -11,14 +11,14 @@
 // of the hundred and eight cards are dealt out before the first turn, and
 // what is thrown away is almost the only place to get anything.
 //
-// Each table has a colour of its own, the way each pavage of the démineur
-// does, so that a table for six looks like a table for six before a card is
-// dealt.
+// Elles sont toutes du même drap: la couleur du tapis est un goût, elle se
+// choisit dans les réglages et appartient au profil -- voir TableLook.h. Une
+// table de six n'est pas d'une autre couleur qu'une table de deux, elle est
+// seulement plus pleine.
 struct TableKind {
     QString id;
     QString name;
     int seats;      // you included
-    int hue;
 };
 
 const QVector<TableKind> &tableKinds();

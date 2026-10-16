@@ -70,6 +70,8 @@ add_executable(ramisol
     src/Melds.h
     src/Tables.cpp
     src/Tables.h
+    src/TableLook.cpp
+    src/TableLook.h
     src/Rami.cpp
     src/Rami.h
     # The six around the table: who they are, what they have learnt, and how

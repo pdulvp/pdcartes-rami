@@ -4,6 +4,7 @@
 #include "CardDeck.h"
 #include "DialogChrome.h"
 #include "Palette.h"
+#include "TableLook.h"
 #include "Tables.h"
 
 #include <QApplication>
@@ -289,11 +290,54 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
                  blendColours(scheme.field, scheme.accent, 0.18).name(),
                  scheme.accent.name()));
     chrome.fields->addWidget(m_backs);
+    // Un peu plus que l'écart ordinaire: la liste des dos porte un cadre, et
+    // un titre posé juste dessous a l'air d'y appartenir.
+    chrome.fields->addSpacing(kSectionGap + 10);
+
+    // --- Le tapis.
+    chrome.fields->addWidget(dialogSectionHeading(this, tr("Le tapis")));
+    chrome.fields->addSpacing(kHeadingGap);
+
+    auto *feltRow = new QHBoxLayout;
+    feltRow->setSpacing(8);
+    for (const FeltColour &felt : feltColours()) {
+        auto *swatch = new QToolButton(this);
+        swatch->setCursor(Qt::PointingHandCursor);
+        swatch->setFocusPolicy(Qt::NoFocus);
+        swatch->setToolTip(felt.name);
+        swatch->setFixedSize(58, 40);
+        const int hue = felt.hue;
+        connect(swatch, &QToolButton::clicked, this, [this, hue] {
+            if (m_settings.hue == hue) return;
+            m_settings.hue = hue;
+            // Essayée en vrai: la boîte est elle-même peinte aux couleurs du
+            // tapis, alors changer la teinte se voit tout de suite plutôt
+            // qu'une fois la boîte refermée.
+            setCurrentPalette(hue);
+            refreshDialogChrome(this);
+            dressFelts();
+        });
+        m_felts.append(swatch);
+        feltRow->addWidget(swatch);
+    }
+    feltRow->addStretch();
+    chrome.fields->addLayout(feltRow);
+    chrome.fields->addSpacing(4);
+
+    auto *feltNote = new QLabel(
+        tr("La couleur du drap, et de tout ce qui va avec. Elle ne dépend pas du nombre "
+           "de joueurs, et chaque profil garde la sienne."),
+        this);
+    feltNote->setWordWrap(true);
+    markHintLabel(feltNote);
+    chrome.fields->addWidget(feltNote);
     chrome.fields->addStretch(1);
+
+    dressFelts();
 
     fillDecks();
     connect(m_deck, &QComboBox::currentIndexChanged, this, [this] {
-        CardDecks::instance().choose(m_deck->currentData().toString());
+        rememberDeck(m_deck->currentData().toString());
         fillBacks();
         describeDeck();
     });
@@ -301,7 +345,7 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
             [](QListWidgetItem *now, QListWidgetItem *) {
                 if (!now) return;
                 const int which = now->data(Qt::UserRole).toInt();
-                if (which >= 0) CardDecks::instance().chooseBack(which);
+                if (which >= 0) rememberBack(which);
             });
 
     // --- Le pied.
@@ -316,10 +360,29 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    // Raccourcie d'autant que la longueur de la partie en occupait: elle se
-    // choisit au menu d'ouverture, au-dessus des tables dont elle change le
-    // compte.
-    resize(700, 660);
+    // La hauteur qu'il faut aux quatre sections. La longueur de la partie est
+    // partie au menu d'ouverture, le tapis est arrivé ici: à peu de chose
+    // près, la boîte y retrouve sa taille.
+    resize(700, 800);
+}
+
+void SettingsDialog::dressFelts() {
+    for (int i = 0; i < m_felts.size() && i < feltColours().size(); ++i) {
+        const FeltColour &felt = feltColours().at(i);
+        // Chaque pastille porte le drap qu'elle propose, pas une case de
+        // couleur: c'est le tapis qu'on choisit, avec sa bordure et son
+        // ombre, et c'est lui qu'il faut montrer.
+        const Palette scheme = paletteForHue(felt.hue, darkMode());
+        const bool mine = felt.hue == m_settings.hue;
+        m_felts.at(i)->setStyleSheet(
+            QStringLiteral("QToolButton { border-radius: 8px; background: %1;"
+                           " border: %2px solid %3; }"
+                           "QToolButton:hover { border: 2px solid %4; }")
+                .arg(scheme.felt.name())
+                .arg(mine ? 3 : 1)
+                .arg(mine ? currentPalette().accent.name() : scheme.feltEdge.name(),
+                     currentPalette().accent.name()));
+    }
 }
 
 void SettingsDialog::fillDecks() {
@@ -401,6 +464,7 @@ GameSettings SettingsDialog::settings() const {
     // La longueur de la partie se choisit au menu d'ouverture, au-dessus des
     // tables dont elle change le compte: ce qui est ici vaut pour toutes.
     GameSettings chosen = m_settings;
+    chosen.hue = m_settings.hue;
     chosen.pace = qBound(0, m_paces->checkedId(), 2);
     chosen.autoSort = m_autoSort->isChecked();
     chosen.offerHints = m_offerHints->isChecked();

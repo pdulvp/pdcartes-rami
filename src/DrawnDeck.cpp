@@ -4,7 +4,7 @@
 #include "CardSet.h"
 #include "Cards.h"
 #include "Palette.h"
-#include "Tables.h"
+#include "TableLook.h"
 
 #include <QBuffer>
 #include <QCoreApplication>
@@ -50,7 +50,7 @@ QByteArray renderOne(const Card &card, bool back) {
 bool exportDrawnDeck(const QString &path, QString *why) {
     // Les cartes dessinées prennent la teinte de la table : on en fige une.
     setDarkMode(false);
-    setCurrentPalette(tableKindById(defaultTableId()).hue);
+    setCurrentPalette(defaultFeltHue());
 
     CardSet set;
     set.name = QCoreApplication::translate("drawn", "Le jeu dessiné");

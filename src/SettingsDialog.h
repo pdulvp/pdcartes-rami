@@ -8,6 +8,7 @@ class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QLabel;
+class QToolButton;
 class QListWidget;
 class QSlider;
 
@@ -29,6 +30,7 @@ public:
     GameSettings settings() const;
 
 private:
+    void dressFelts();
     void fillDecks();
     void fillBacks();
     void describeDeck();
@@ -42,5 +44,6 @@ private:
     QLabel *m_zoomNote = nullptr;
     QListWidget *m_backs = nullptr;
     QLabel *m_deckNote = nullptr;
+    QVector<QToolButton *> m_felts;
     GameSettings m_settings;
 };

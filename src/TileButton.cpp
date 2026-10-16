@@ -113,11 +113,6 @@ void TileButton::setCorner(const QString &corner) {
     update();
 }
 
-void TileButton::setTileHue(int hue) {
-    m_hue = hue;
-    update();
-}
-
 void TileButton::setTileSize(const QSize &size) {
     m_tileSize = size;
     setMinimumSize(size);
@@ -141,7 +136,7 @@ void TileButton::leaveEvent(QEvent *event) {
 }
 
 void TileButton::paintEvent(QPaintEvent *) {
-    const Palette scheme = m_hue >= 0 ? paletteForHue(m_hue, darkMode()) : currentPalette();
+    const Palette &scheme = currentPalette();
     const bool lit = m_hovered || hasFocus();
 
     QPainter painter(this);

@@ -1,5 +1,7 @@
 #include "TablePage.h"
 
+#include "TableLook.h"
+
 #include "CardArt.h"
 #include "Palette.h"
 #include "Profiles.h"
@@ -169,7 +171,7 @@ QVector<SeatSpec> TablePage::chooseSeats(const TableKind &table) const {
     // la vôtre plutôt qu'une attente.
     SeatSpec you;
     you.name = tr("Vous");
-    you.hue = table.hue;
+    you.hue = feltHue();
     seats.append(you);
 
     const int wanted = std::max(0, table.seats - 1);

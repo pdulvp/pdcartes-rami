@@ -26,6 +26,7 @@ struct GameSettings {
     bool celebrate = true;      // le feu d'artifice à la fin
     int pace = 1;               // 0 posé, 1 normal, 2 vif : le temps de réflexion
     int zoom = 100;             // la taille des cartes, en pour cent
+    int hue = 142;              // la couleur du drap, choisie et gardée par profil
     QVector<QString> invited;   // les adversaires demandés, les autres au tour de rôle
 };
 
