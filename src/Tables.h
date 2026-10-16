@@ -17,7 +17,6 @@
 struct TableKind {
     QString id;
     QString name;
-    QString blurb;
     int seats;      // you included
     int hue;
 };

@@ -8,17 +8,11 @@ namespace {
 
 const QVector<TableKind> &builtTables() {
     static const QVector<TableKind> kinds = {
-        {QStringLiteral("deux"), QCoreApplication::translate("tables", "Tête-à-tête"),
-         QCoreApplication::translate("tables", "Deux mains, une pioche profonde"), 2, 168},
-        {QStringLiteral("trois"), QCoreApplication::translate("tables", "À trois"),
-         QCoreApplication::translate("tables", "La table la plus franche"), 3, 196},
-        {QStringLiteral("quatre"), QCoreApplication::translate("tables", "À quatre"),
-         QCoreApplication::translate("tables", "Le rami tel qu'on le joue"), 4, 142},
-        {QStringLiteral("cinq"), QCoreApplication::translate("tables", "À cinq"),
-         QCoreApplication::translate("tables", "La défausse devient précieuse"), 5, 32},
-        {QStringLiteral("six"), QCoreApplication::translate("tables", "À six"),
-         QCoreApplication::translate("tables", "Tout le monde est là, la pioche est courte"),
-         6, 348},
+        {QStringLiteral("deux"), QCoreApplication::translate("tables", "Tête-à-tête"), 2, 168},
+        {QStringLiteral("trois"), QCoreApplication::translate("tables", "À trois"), 3, 196},
+        {QStringLiteral("quatre"), QCoreApplication::translate("tables", "À quatre"), 4, 142},
+        {QStringLiteral("cinq"), QCoreApplication::translate("tables", "À cinq"), 5, 32},
+        {QStringLiteral("six"), QCoreApplication::translate("tables", "À six"), 6, 348},
     };
     return kinds;
 }

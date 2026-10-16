@@ -2,14 +2,13 @@
 
 #include <QAbstractButton>
 
-// Un grand bouton avec une image, un nom et une ligne d'explication.
+// Un grand bouton avec une image et un nom.
 //
 // Le jeu est un jeu : ce qui le lance doit être une chose qu'on montre du
-// doigt, pas une ligne dans une liste déroulante. Un seul widget sert aux
-// deux endroits où ces boutons-là sont voulus -- les cinq tables du menu
-// d'ouverture, chacune dans sa couleur, et les quatre longueurs de partie
-// dans les réglages -- parce que la seule différence entre eux est ce qui est
-// dessiné dans la moitié du haut.
+// doigt, pas une ligne dans une liste déroulante. Les cinq tables du menu
+// d'ouverture, chacune dans sa couleur, et rien d'autre -- les longueurs de
+// partie, qui s'en servaient aussi, sont passées aux boutons radio des
+// réglages.
 class TileButton : public QAbstractButton {
     Q_OBJECT
 
@@ -18,9 +17,6 @@ public:
 
     // La petite table dessinée sur la tuile, et combien de places elle a.
     void setSeats(int seats);
-
-    // La ligne sous le nom, plus petite et plus claire.
-    void setBlurb(const QString &blurb);
 
     // Un chiffre dans le coin: le nombre de points qu'une partie de cette
     // longueur demande, ce genre de chose.
@@ -45,7 +41,6 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 private:
-    QString m_blurb;
     QString m_corner;
     int m_seats = 4;
     int m_hue = -1;

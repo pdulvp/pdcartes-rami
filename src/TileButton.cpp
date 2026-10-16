@@ -17,11 +17,26 @@ constexpr qreal kCorner = 14.0;
 constexpr int kArtHeight = 86;
 constexpr int kPadding = 14;
 
+// L'air entre le portrait de la table et son nom. Large, parce qu'il n'y a
+// plus que ces deux choses sur la tuile et que les serrer l'une contre
+// l'autre en haut laisserait la moitié basse vide.
+constexpr qreal kArtToName = 16.0;
+
+// Le rapport du drap, largeur sur hauteur.
+//
+// Tenu plutôt que tiré de la place disponible: la hauteur du portrait est
+// plafonnée et sa largeur suivait celle de la tuile, si bien que le même
+// ovale était rond sur une tuile étroite et en flaque sur une large. Une
+// table se reconnaît à sa forme; elle ne change pas avec le cadre.
+constexpr qreal kClothRatio = 1.35;
+
 // La petite table: un ovale de drap, des places autour, et un tas au milieu.
 // Ce n'est pas la table qu'on va jouer -- c'est son portrait, et ce qu'il
 // dit, c'est combien on sera.
 void paintLittleTable(QPainter *painter, const QRectF &box, int seats, const Palette &scheme) {
-    const QRectF cloth = box.adjusted(box.width() * 0.16, 4.0, -box.width() * 0.16, -4.0);
+    const qreal clothHeight = box.height() - 8.0;
+    QRectF cloth(0.0, 0.0, std::min(box.width(), clothHeight * kClothRatio), clothHeight);
+    cloth.moveCenter(box.center());
     if (cloth.width() < 20 || cloth.height() < 20) return;
 
     painter->save();
@@ -59,7 +74,14 @@ void paintLittleTable(QPainter *painter, const QRectF &box, int seats, const Pal
         place.moveCenter(at);
         painter->save();
         painter->translate(at);
-        painter->rotate(-angle * 180.0 / M_PI - 90.0);
+        // Face à la table: chaque place s'aligne sur le rayon qui va du
+        // milieu jusqu'à elle. Deux raisons de le prendre là plutôt que de
+        // reprendre `angle` -- il était compté à l'envers, et le drap est un
+        // ovale et non un rond, si bien que l'angle qui a servi à poser la
+        // place n'est pas la direction où elle se trouve. On tient ses cartes
+        // face à soi, et personne n'est assis en travers.
+        const QPointF away = at - cloth.center();
+        painter->rotate(std::atan2(away.y(), away.x()) * 180.0 / M_PI - 90.0);
         painter->translate(-at);
         if (i == 0) {
             painter->setPen(Qt::NoPen);
@@ -83,11 +105,6 @@ TileButton::TileButton(QWidget *parent) : QAbstractButton(parent) {
 
 void TileButton::setSeats(int seats) {
     m_seats = seats;
-    update();
-}
-
-void TileButton::setBlurb(const QString &blurb) {
-    m_blurb = blurb;
     update();
 }
 
@@ -153,28 +170,25 @@ void TileButton::paintEvent(QPaintEvent *) {
     painter.drawPath(shape);
 
     const QRectF inner = box.adjusted(kPadding, kPadding, -kPadding, -kPadding);
-    const QRectF art(inner.left(), inner.top(), inner.width(),
-                     std::min(qreal(kArtHeight), inner.height() * 0.52));
-    paintLittleTable(&painter, art, m_seats, scheme);
 
     QFont name = font();
     name.setBold(true);
     if (name.pointSizeF() > 0) name.setPointSizeF(name.pointSizeF() * 1.08);
+    const QFontMetricsF nameMetrics(name);
+
+    // Le portrait et le nom, pris ensemble et posés au milieu de la hauteur.
+    const qreal artHeight = std::min(qreal(kArtHeight), inner.height() * 0.52);
+    const qreal together = artHeight + kArtToName + nameMetrics.height();
+    const qreal top = inner.top() + std::max(0.0, (inner.height() - together) / 2.0);
+
+    const QRectF art(inner.left(), top, inner.width(), artHeight);
+    paintLittleTable(&painter, art, m_seats, scheme);
+
     painter.setFont(name);
     painter.setPen(scheme.surfaceText);
-    const QFontMetricsF nameMetrics(name);
-    const QRectF nameBox(inner.left(), art.bottom() + 6, inner.width(), nameMetrics.height());
-    painter.drawText(nameBox, Qt::AlignHCenter | Qt::AlignVCenter, text());
-
-    if (!m_blurb.isEmpty()) {
-        QFont aside = font();
-        if (aside.pointSizeF() > 0) aside.setPointSizeF(std::max(7.0, aside.pointSizeF() - 1.4));
-        painter.setFont(aside);
-        painter.setPen(scheme.hint);
-        const QRectF blurbBox(inner.left(), nameBox.bottom() + 2, inner.width(),
-                              inner.bottom() - nameBox.bottom() - 2);
-        painter.drawText(blurbBox, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, m_blurb);
-    }
+    painter.drawText(
+        QRectF(inner.left(), art.bottom() + kArtToName, inner.width(), nameMetrics.height()),
+        Qt::AlignHCenter | Qt::AlignVCenter, text());
 
     if (!m_corner.isEmpty()) {
         QFont badge = font();

@@ -130,7 +130,6 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     for (const TableKind &kind : tableKinds()) {
         auto *tile = new TileButton(page);
         tile->setText(kind.name);
-        tile->setBlurb(kind.blurb);
         tile->setSeats(kind.seats);
         tile->setTileHue(kind.hue);
         tile->setTileSize(kTableTile);
