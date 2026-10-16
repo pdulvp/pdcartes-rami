@@ -96,6 +96,21 @@ constexpr qreal kBeckonSpeed = 0.07;
 constexpr qreal kStockLayerStep = 1.6;
 constexpr qreal kPileUnderStep = 3.0;
 
+// L'air entre les deux tas, sous le mot qui annonce chacun.
+//
+// Il en faut plus qu'il n'y paraît: le compte de la pioche s'écrit sous elle
+// et le mot « défausse » au-dessus de l'autre, si bien que l'écart porte deux
+// lignes de texte et non pas une. À dix-huit, la seconde commençait au pixel
+// où la première finissait et les deux tas n'en faisaient qu'un.
+constexpr qreal kStackGap = 36.0;
+
+// Ce dont votre plaque se retire des bords de sa colonne.
+//
+// Les deux cartes sont centrées et laissent déjà large de chaque côté; la
+// plaque, elle, prenait toute la largeur et venait buter contre le bord de
+// la fenêtre, à la marge près.
+constexpr qreal kPlaqueInset = 13.0;
+
 int stockLayersFor(int left) { return std::min(3, std::max(1, left / 6 + 1)); }
 constexpr qreal kHandHeight = 134.0;
 constexpr qreal kMargin = 14.0;
@@ -656,7 +671,16 @@ void TableView::relayout() {
     const qreal left = m_stacks.left() + (m_stacks.width() - card.width()) / 2.0;
     const qreal labels = 17.0;
     m_stockBox = QRectF(left, m_stacks.top() + labels, card.width(), card.height());
-    m_pileBox = QRectF(left, m_stockBox.bottom() + labels + 18.0, card.width(), card.height());
+    // L'écart se resserre quand la colonne est courte, au lieu de pousser
+    // votre plaque dehors: sur une petite fenêtre, deux tas un peu proches
+    // valent mieux qu'un score qu'on ne voit plus. Ce qu'il faut sous eux,
+    // c'est la hauteur des deux cartes, les deux lignes de titre, l'air sous
+    // la défausse et de quoi poser la plaque.
+    const qreal spare =
+        m_stacks.height() - (labels * 2.0 + card.height() * 2.0 + 20.0 + 44.0);
+    const qreal stackGap = std::clamp(spare, 18.0, kStackGap);
+    m_pileBox =
+        QRectF(left, m_stockBox.bottom() + labels + stackGap, card.width(), card.height());
 }
 
 void TableView::layoutSeats() {
@@ -1048,7 +1072,8 @@ void TableView::paintStacks(QPainter *painter) {
     if (me < 0) return;
     const qreal top = m_pileBox.bottom() + 20.0;
     if (m_stacks.bottom() - top < 44.0) return;
-    const QRectF plaque(m_stacks.left(), top, m_stacks.width(),
+    const QRectF plaque(m_stacks.left() + kPlaqueInset, top,
+                        m_stacks.width() - kPlaqueInset * 2.0,
                         std::min(72.0, m_stacks.bottom() - top));
     const Seat &mine = m_game->seat(me);
     const QColor colour = rivalColour(currentPalette().hue);
