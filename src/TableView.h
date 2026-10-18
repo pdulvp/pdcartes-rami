@@ -46,7 +46,11 @@ public:
     // flying to the défausse, and a ring that fades on whatever was played.
     void noteDiscard(int seat, const Card &card);
     void noteDrawn(int seat, bool fromPile, const Card &card);
-    void noteLaid(const QVector<int> &cardIds);
+    // `by` est le joueur qui les pose, quand ce n'est pas celui à qui la
+    // combinaison appartient: compléter la combinaison d'un adversaire fait
+    // partir la carte de votre main, et non de sa plaque à lui. Laissé à -1,
+    // c'est le propriétaire de la combinaison qui la joue.
+    void noteLaid(const QVector<int> &cardIds, int by = -1);
     // La pose reprise en main: les cartes repartent du rail vers la main.
     void noteTakenBack(const QVector<int> &cardIds);
     void stopAnimations();

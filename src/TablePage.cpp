@@ -370,13 +370,13 @@ void TablePage::playRival() {
         const bool wasOpen = m_game->seat(at).opened;
         const QVector<int> waiting = waitingCards(at);
         done = m_game->lay(move.cards, &why);
-        if (done) m_view->noteLaid(landedCards(at, move.cards, waiting, wasOpen));
+        if (done) m_view->noteLaid(landedCards(at, move.cards, waiting, wasOpen), at);
         break;
     }
     case Move::LayOff:
         if (!move.cards.isEmpty()) {
             done = m_game->layOff(move.cards.first(), move.meldId, &why);
-            if (done) m_view->noteLaid(move.cards);
+            if (done) m_view->noteLaid(move.cards, at);
         }
         break;
     case Move::BuyJoker:
@@ -570,7 +570,7 @@ void TablePage::doLay() {
         grumble(why);
         return;
     }
-    m_view->noteLaid(landedCards(me, chosen, waiting, wasOpen));
+    m_view->noteLaid(landedCards(me, chosen, waiting, wasOpen), me);
     m_view->clearChosen();
     sayWhatToDo();
 }
@@ -588,7 +588,7 @@ void TablePage::doLayOff() {
         bool done = false;
         for (const Meld &meld : m_game->table()) {
             if (m_game->layOff(cardId, meld.id, &lastWhy)) {
-                m_view->noteLaid({cardId});
+                m_view->noteLaid({cardId}, mySeat());
                 ++placed;
                 done = true;
                 break;
@@ -710,7 +710,7 @@ void TablePage::onMeldPressed(int meldId) {
     int placed = 0;
     for (int cardId : chosen) {
         if (m_game->layOff(cardId, meldId, &why)) {
-            m_view->noteLaid({cardId});
+            m_view->noteLaid({cardId}, mySeat());
             ++placed;
         }
     }

@@ -495,7 +495,7 @@ void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
     wake();
 }
 
-void TableView::noteLaid(const QVector<int> &cardIds) {
+void TableView::noteLaid(const QVector<int> &cardIds, int by) {
     for (int id : cardIds) m_glow[id] = 1.0;
     if (!m_game) {
         wake();
@@ -561,14 +561,19 @@ void TableView::noteLaid(const QVector<int> &cardIds) {
         const qsizetype rank = std::max(qsizetype(0), order.indexOf(which));
         flight.along = -kLayStagger * qreal(rank);
 
+        // Celui qui la joue, qui n'est pas forcément celui à qui la
+        // combinaison appartient: une carte mise sur la combinaison d'un
+        // adversaire part de la main de qui la met.
+        const int player = (by >= 0 && by < m_game->seatCount()) ? by : owner;
+
         const QRectF leaves = m_handWas.value(id);
-        if (m_game->seat(owner).human() && !leaves.isNull()) {
+        if (m_game->seat(player).human() && !leaves.isNull()) {
             flight.size = leaves.size();
             flight.from = leaves.topLeft();
         } else {
             flight.size = m_pileBox.size();
             flight.from =
-                seatAnchor(owner) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
+                seatAnchor(player) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
         }
         m_flights.append(flight);
     }
