@@ -251,6 +251,17 @@ int chooseDiscard(const Rami &game, int at, const Skill &skill, const Watch &wat
         return loose.at(QRandomGenerator::global()->bounded(loose.size())).id;
     }
 
+    // And not the card just taken off the défausse. Reaching for a card and
+    // throwing it straight back leaves the turn exactly where it started --
+    // nothing laid, nothing drawn, the same card on top -- and two hands
+    // doing it to each other never get anywhere. Allowed only when there is
+    // genuinely nothing else to throw.
+    const int justTaken = game.drewFromPile() ? game.lastDrawn().id : -1;
+    bool somethingElse = false;
+    for (const Card &card : loose) {
+        if (!card.joker() && card.id != justTaken) somethingElse = true;
+    }
+
     int chosen = loose.first().id;
     qreal lowest = 0.0;
     bool first = true;
@@ -258,6 +269,7 @@ int chooseDiscard(const Rami &game, int at, const Skill &skill, const Watch &wat
         // Never, under any circumstances, the joker: twenty-five points
         // thrown away, and handed to whoever is next.
         if (card.joker()) continue;
+        if (somethingElse && card.id == justTaken) continue;
 
         QVector<Card> without;
         for (const Card &other : loose) {
@@ -291,6 +303,21 @@ bool wantsPile(const Rami &game, int at, const Skill &skill, const Watch &watch)
 
     // Nobody passes up a joker.
     if (top.joker()) return true;
+
+    // A hand down to its last cards cannot use a combination that is one card
+    // away: laying one of three takes four cards, because one has to be left
+    // to throw. So from there the only card worth reaching for is one that
+    // goes straight onto the tapis -- and taking it for the pair it makes is
+    // taking it to throw it again, which at two players is a manche that
+    // never ends: both hands pass the same card back and forth and neither
+    // ever reaches the pioche.
+    if (seat.hand.size() + 1 < 4) {
+        Meld grown;
+        for (const Meld &meld : game.table()) {
+            if (canExtend(meld, top, &grown)) return true;
+        }
+        return false;
+    }
 
     QVector<Card> with = seat.hand;
     with.append(top);
