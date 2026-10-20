@@ -1,4 +1,5 @@
 build/
 build-win/
-docs/plans/plan.md
+docs/plans/*
+!docs/plans/README.md
 aqtinstall.log
