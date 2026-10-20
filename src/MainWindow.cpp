@@ -174,7 +174,7 @@ QWidget *MainWindow::buildTopBar() {
     across->addWidget(m_settingsButton);
     across->addWidget(m_darkButton);
 
-    connect(m_menuButton, &QToolButton::clicked, this, &MainWindow::showMenu);
+    connect(m_menuButton, &QToolButton::clicked, this, &MainWindow::askLeaveMatch);
     connect(m_againButton, &QToolButton::clicked, this, &MainWindow::startSameTableAgain);
     connect(m_helpButton, &QToolButton::clicked, this, &MainWindow::openHelp);
     connect(m_settingsButton, &QToolButton::clicked, this, &MainWindow::openSettings);
@@ -205,6 +205,21 @@ void MainWindow::showMenu() {
     m_picker->reread();
     m_pages->setCurrentIndex(kMenuPage);
     updateTopBar();
+}
+
+void MainWindow::askLeaveMatch() {
+    // La feuille de marque, elle, a déjà posé la question: elle appelle
+    // showMenu() directement. Ici c'est le joueur qui s'en va de lui-même,
+    // au milieu d'une donne -- et une partie quittée ne se reprend pas.
+    const Phase phase = m_table->game()->phase();
+    if (m_table->playing() && phase != Phase::MatchOver) {
+        const auto answer = QMessageBox::question(
+            this, tr("Ramisol"),
+            tr("La partie en cours sera perdue. Revenir au menu ?"),
+            QMessageBox::Cancel | QMessageBox::Yes);
+        if (answer != QMessageBox::Yes) return;
+    }
+    showMenu();
 }
 
 void MainWindow::openSettings() {
@@ -463,7 +478,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     switch (event->key()) {
     case Qt::Key_Escape:
         if (m_pages->currentIndex() == kTablePage) {
-            showMenu();
+            askLeaveMatch();
             return;
         }
         break;

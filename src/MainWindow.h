@@ -39,6 +39,9 @@ private:
     void startGame(const QString &tableId);
     void startSameTableAgain();
     void showMenu();
+    // Le geste du joueur qui quitte la table: on s'assure qu'il le veut,
+    // puisque la partie en cours ne se reprend pas.
+    void askLeaveMatch();
     void openSettings();
 
     // Le profil se tient dans la bande du haut: la plaque dit sous quel nom
