@@ -6,6 +6,7 @@
 #include "MenuStyle.h"
 #include "NameDialog.h"
 #include "RivalCard.h"
+#include "RivalSheet.h"
 #include "Rivals.h"
 #include "Tables.h"
 #include "TileButton.h"
@@ -149,12 +150,14 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     for (const Rival &rival : rivals()) {
         auto *card = new RivalCard(rival.id, page);
         card->setPickable(true);
-        card->setToolTip(tr("Cliquer pour inviter %1 à la table ; clic droit pour le "
-                            "remettre à son niveau de départ.")
+        card->setToolTip(tr("Cliquer pour inviter %1 à la table ; double clic pour sa fiche, "
+                            "clic droit pour le petit menu.")
                              .arg(rivalName(rival.id)));
         connect(card, &RivalCard::invitedChanged, this, [this] { reread(); });
         connect(card, &RivalCard::menuWanted, this,
                 [this, card](const QPoint &where) { showRivalMenu(card, where); });
+        connect(card, &RivalCard::sheetWanted, this,
+                [this, card] { showRivalSheet(card->rivalId()); });
         grid->addWidget(card, at / 3, at % 3);
         m_cards.append(card);
         ++at;
@@ -193,19 +196,22 @@ void TablePicker::showRivalMenu(RivalCard *card, const QPoint &where) {
     QAction *invite = menu.addAction(card->invited() ? tr("Ne pas inviter %1").arg(called)
                                                      : tr("Inviter %1 à la table").arg(called));
     menu.addSeparator();
+    QAction *sheet = menu.addAction(tr("Sa fiche…"));
     QAction *rename = menu.addAction(tr("Renommer…"));
     menu.addSeparator();
-    QAction *reset = menu.addAction(tr("Niveau de départ"));
+    QAction *reset = menu.addAction(tr("Remettre son expérience à zéro"));
     // Rien à remettre quand il n'a rien appris: l'entrée le dit en étant
     // éteinte, plutôt qu'en posant une question dont la réponse ne fait rien.
-    reset->setEnabled(learning.xp > who.startXp);
-    reset->setToolTip(tr("Remettre %1 au niveau avec lequel il arrive, sur ce profil "
-                         "seulement")
+    reset->setEnabled(learning.xp > 0 || learning.handsPlayed > 0);
+    reset->setToolTip(tr("Ses quatre expériences et son palmarès repartent de zéro, sur ce "
+                         "profil seulement. Il garde son nom et ce qu'il est.")
                           .arg(called));
 
     const QAction *chosen = menu.exec(where);
     if (chosen == invite) {
         card->setInvited(!card->invited());
+    } else if (chosen == sheet) {
+        showRivalSheet(who.id);
     } else if (chosen == rename) {
         renameRival(who.id);
     } else if (chosen == reset) {
@@ -226,6 +232,13 @@ void TablePicker::renameRival(const QString &rivalId) {
     reread();
 }
 
+void TablePicker::showRivalSheet(const QString &rivalId) {
+    RivalSheet sheet(rivalId, this);
+    connect(&sheet, &RivalSheet::changed, this, [this] { reread(); });
+    sheet.exec();
+    reread();
+}
+
 void TablePicker::askResetRival(const QString &rivalId) {
     const Rival &who = rivalById(rivalId);
     const auto answer = QMessageBox::question(
@@ -236,7 +249,7 @@ void TablePicker::askResetRival(const QString &rivalId) {
             .arg(levelName(levelOf(who.startXp)).toLower(), profileName(currentProfile())),
         QMessageBox::Cancel | QMessageBox::Yes);
     if (answer != QMessageBox::Yes) return;
-    resetRival(rivalId);
+    resetRivalExperience(rivalId);
     reread();
 }
 
@@ -299,7 +312,8 @@ void TablePicker::reread() {
     const QVector<QString> who = invited();
     QStringList names;
     for (const QString &id : who) names.append(rivalName(id));
-    const QString gesture = tr(" Un clic droit remet un adversaire à son niveau de départ.");
+    const QString gesture = tr(" Un double clic ouvre sa fiche : ce qu'il est, ce qu'il a "
+                               "appris, et de quoi le remettre à zéro.");
     if (names.isEmpty()) {
         m_rivalNote->setText(tr("Les places vont aux moins joués. Cliquez sur une carte pour "
                                 "inviter quelqu'un.") +

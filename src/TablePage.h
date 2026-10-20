@@ -72,6 +72,8 @@ private:
     void onHandFinished();
     void onMatchFinished();
     void playRival();
+    void forgetDeeds();
+    void noteTakenFromPile(int at);
 
     void sort(bool byRank);
     void doLay();
@@ -118,6 +120,11 @@ private:
     GameSettings m_settings;
     QVector<Skill> m_skills;
     Watch m_watch;
+    // Ce que chacun a fait de ses compétences dans la manche en cours, et de
+    // qui vient la carte sur la défausse -- pour savoir à qui une carte
+    // reprise a coûté quelque chose.
+    QVector<Deeds> m_deeds;
+    int m_pileFrom = -1;
     QTimer *m_beat = nullptr;
     int m_movesThisTurn = 0;
     bool m_handCounted = false;

@@ -91,6 +91,15 @@ public:
     // the turn ends. True while one is still in hand.
     bool owesJoker(int at) const;
 
+    // Lequel, au juste.
+    //
+    // Il en faut le compte exact, et pas seulement l'existence: une main qui
+    // tient deux jokers en place un, et si ce n'est pas celui qui est dû le
+    // tour ne peut toujours pas finir -- ni poser, ni jeter. Savoir lequel
+    // est la seule façon d'en sortir, et c'est aussi ce qu'il faut pour
+    // conseiller le joueur.
+    QVector<int> jokerDebt(int at) const;
+
     // What was drawn this turn, so the table can make it glow, and where from.
     Card lastDrawn() const { return m_lastDrawn; }
     bool drewFromPile() const { return m_drewFromPile; }
@@ -115,6 +124,23 @@ public:
     bool takeBackPose(QString *why = nullptr);
     bool takeBackMeld(int meldId, QString *why = nullptr);
     bool takeBackCard(int cardId, QString *why = nullptr);
+
+    // Combien de tours cette manche a déjà pris.
+    //
+    // La seule horloge d'une manche qui avance quoi qu'il arrive. La pioche
+    // n'en est pas une: deux joueurs qui se servent tous les deux de la
+    // défausse ne l'entament jamais, et une manche peut tourner ainsi sans
+    // que rien ne s'épuise. Un cerveau qui attend son heure a besoin de
+    // savoir qu'elle est passée.
+    int turnsPlayed() const { return m_turnsPlayed; }
+
+    // Une pose a-t-elle été reprise en main ce tour-ci ?
+    //
+    // Un joueur qui vient de ramasser sa pose ne la réétale pas dans le même
+    // tour: il la garde et il jette. Le fait est ici parce qu'il appartient au
+    // tour, et parce que sans lui un cerveau qui n'a pas appris à compter
+    // avant d'ouvrir repose indéfiniment ce qu'il vient de reprendre.
+    bool poseTakenBack() const { return m_tookBack; }
 
     // La combinaison de la pose en cours où se trouve cette carte, ou -1.
     int poseMeldOf(int cardId) const;
@@ -165,6 +191,8 @@ private:
 
     Card m_lastDrawn;
     bool m_drewFromPile = false;
+    bool m_tookBack = false;
+    int m_turnsPlayed = 0;
     // The jokers bought back this turn and not yet laid, by card identity.
     QVector<int> m_jokerDebt;
 };

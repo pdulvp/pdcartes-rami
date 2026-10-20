@@ -48,6 +48,7 @@ private:
 
     void renameRival(const QString &rivalId);
     void showRivalMenu(RivalCard *card, const QPoint &where);
+    void showRivalSheet(const QString &rivalId);
     void askResetRival(const QString &rivalId);
 
     QLabel *m_title = nullptr;

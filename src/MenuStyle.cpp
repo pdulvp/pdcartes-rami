@@ -4,6 +4,7 @@
 
 #include <QMenu>
 #include <QString>
+#include <QToolButton>
 
 void dressMenu(QMenu *menu) {
     if (!menu) return;
@@ -17,4 +18,33 @@ void dressMenu(QMenu *menu) {
                        "QMenu::separator { height: 1px; background: %3; margin: 5px 8px; }")
             .arg(scheme.surface.name(), scheme.surfaceText.name(), scheme.edge.name(),
                  scheme.accent.name(), scheme.accentText.name(), scheme.hint.name()));
+}
+
+QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QString &fallback,
+                        const QString &tip) {
+    const Palette &scheme = currentPalette();
+    auto *button = new QToolButton(parent);
+    button->setToolTip(tip);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setFocusPolicy(Qt::NoFocus);
+    button->setIconSize(QSize(17, 17));
+
+    const QIcon icon = tintedIcon(iconNames, scheme.surfaceText);
+    if (icon.isNull()) {
+        button->setText(fallback);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    } else {
+        button->setIcon(icon);
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setFixedSize(32, 30);
+    }
+    button->setStyleSheet(QStringLiteral("QToolButton { background: %1; color: %2;"
+                                         " border: 1px solid %3; border-radius: 6px;"
+                                         " padding: 4px 7px; }"
+                                         "QToolButton:hover { border: 1px solid %4; }"
+                                         "QToolButton:pressed { background: %5; }")
+                              .arg(scheme.field.name(), scheme.surfaceText.name(),
+                                   scheme.edge.name(), scheme.accent.name(),
+                                   blendColours(scheme.field, scheme.accent, 0.18).name()));
+    return button;
 }

@@ -9,49 +9,17 @@
 
 // Comment un adversaire décide.
 //
-// A level is not a number multiplied into a strength somewhere. It is a list
-// of things a player does or does not do, and each of them is a thing you can
-// watch happen across the table:
+// Ce qu'il sait faire est dit ailleurs: les huit compétences, leurs niveaux
+// et ce que chacun vaut sont dans RivalSkills.h, et ce qu'il en a sur ce
+// profil-là est dans Rivals.h. Ici, on ne fait que jouer -- on reçoit un
+// Skill, qui est la liste de ce que ce joueur-là fait ou ne fait pas, et on
+// en tire le coup à jouer maintenant.
 //
-//   lire sa main      A beginner reads their hand greedily -- biggest
-//                     combination first, then whatever still fits -- and so
-//                     genuinely fails to see an opening that three small
-//                     combinations would have made. From intermédiaire up the
-//                     hand is read exactly, every way at once, and nothing is
-//                     missed.
-//   la défausse       A beginner takes the card on the défausse only when it
-//                     finishes a combination there and then. The better ones
-//                     take it for a combination that is one card away, and
-//                     weigh it against what the pioche is likely to hold.
-//   ce qu'on garde    A beginner throws whatever is worth the most, which is
-//                     how a beginner throws away the card they needed. The
-//                     better ones price a card by what it is doing in the
-//                     hand as well as by what it costs.
-//   ce qu'on donne    An expert will not hand you a card that goes straight
-//                     onto something already on the tapis, and remembers
-//                     which cards you have taken off the défausse -- so the
-//                     eight you are plainly collecting is the one card that
-//                     never comes round.
-//   le joker          Only an expert bothers to buy a joker back out of a
-//                     combination.
-//   la bourde         And on top of all of it, a beginner simply plays the
-//                     wrong card now and then. One move in three or so at the
-//                     very bottom, and none at all at the very top.
-
-struct Skill {
-    qreal mastery = 0.0;
-    qreal blunder = 0.0;         // how often the wrong move is made on purpose
-    bool thorough = false;       // reads the hand exactly rather than greedily
-    bool watches = false;        // remembers everything that has gone face up
-    bool guardsFeed = false;     // will not throw what the tapis is waiting for
-    bool buysJokers = false;
-    qreal layoffSight = 1.0;     // how often a card that fits is spotted
-    qreal pileThreshold = 2.0;   // how much better the défausse has to look
-    qreal potentialWeight = 1.0; // how much a combination one card away is worth
-};
-
-Skill skillFor(int xp);
-Skill bestSkill();               // what the hint button thinks with
+// La seule chose qui compte dans ce fichier: un niveau n'est pas un
+// coefficient multiplié quelque part. C'est une liste de choses qu'un joueur
+// fait ou ne fait pas, et chacune se voit arriver de l'autre côté de la
+// table -- la main lue trop vite, la carte qu'on ne vous donne pas, le joker
+// racheté, la bourde.
 
 // Ce qui est passé sous les yeux de tout le monde.
 //

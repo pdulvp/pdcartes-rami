@@ -33,10 +33,14 @@ public:
 Q_SIGNALS:
     void invitedChanged();
     void menuWanted(const QPoint &where);
+    // Double clic: on veut sa fiche. La carte ne sait pas la dresser -- c'est
+    // la page qui l'ouvre, comme pour le menu.
+    void sheetWanted();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;

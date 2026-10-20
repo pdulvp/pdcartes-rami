@@ -76,6 +76,8 @@ add_executable(ramisol
     src/Rami.h
     # The six around the table: who they are, what they have learnt, and how
     # they decide.
+    src/RivalSkills.cpp
+    src/RivalSkills.h
     src/Rivals.cpp
     src/Rivals.h
     src/Profiles.cpp
@@ -94,6 +96,10 @@ add_executable(ramisol
     # The opening menu and the two dialogs.
     src/RivalCard.cpp
     src/RivalCard.h
+    src/RivalSheet.cpp
+    src/RivalSheet.h
+    src/SkillRow.cpp
+    src/SkillRow.h
     src/TablePicker.cpp
     src/TablePicker.h
     src/SettingsDialog.cpp
@@ -110,6 +116,34 @@ add_dependencies(ramisol build-version)
 target_link_libraries(ramisol PRIVATE cartotheque Qt6::Widgets)
 
 install(TARGETS ramisol RUNTIME DESTINATION bin)
+
+# L'arène : le moteur et les cerveaux sans l'écran, pour mesurer.
+#
+# Elle ne s'installe pas et ne se lance pas toute seule -- c'est un instrument,
+# qu'on fait tourner avant et après avoir touché à Brain.cpp pour voir si les
+# manches finissent encore. Elle ne lie que Qt6::Core, ce qui est la preuve
+# qu'elle cherche: tout ce qu'elle compile ne sait pas qu'il y a une fenêtre.
+add_executable(ramisol-arene EXCLUDE_FROM_ALL
+    src/Arene.cpp
+    src/Cards.cpp
+    src/Cards.h
+    src/Melds.cpp
+    src/Melds.h
+    src/Tables.cpp
+    src/Tables.h
+    src/Rami.cpp
+    src/Rami.h
+    src/RivalSkills.cpp
+    src/RivalSkills.h
+    src/Rivals.cpp
+    src/Rivals.h
+    src/Profiles.cpp
+    src/Profiles.h
+    src/Brain.cpp
+    src/Brain.h
+)
+
+target_link_libraries(ramisol-arene PRIVATE Qt6::Core)
 
 # So a desktop shell can tell which application a window belongs to. The
 # file's name must match the app_id the application sets with

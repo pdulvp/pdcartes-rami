@@ -43,12 +43,15 @@ int Rami::poseValue(int at) const {
     return total;
 }
 
-bool Rami::owesJoker(int at) const {
-    if (at != m_turn) return false;
+bool Rami::owesJoker(int at) const { return !jokerDebt(at).isEmpty(); }
+
+QVector<int> Rami::jokerDebt(int at) const {
+    QVector<int> owed;
+    if (at != m_turn) return owed;
     for (int id : m_jokerDebt) {
-        if (findCard(seat(at).hand, id)) return true;
+        if (findCard(seat(at).hand, id)) owed.append(id);
     }
-    return false;
+    return owed;
 }
 
 void Rami::startMatch(const QVector<SeatSpec> &specs, int targetPoints) {
@@ -82,6 +85,8 @@ void Rami::startHand() {
     m_jokerDebt.clear();
     m_lastDrawn = Card{};
     m_drewFromPile = false;
+    m_tookBack = false;
+    m_turnsPlayed = 0;
 
     for (Seat &seat : m_seats) {
         seat.hand.clear();
@@ -358,6 +363,7 @@ bool Rami::takeBackPose(QString *why) {
         for (const Card &card : meld.cards) seat.hand.append(card);
     }
     seat.waiting.clear();
+    m_tookBack = true;
     sortBySuit(seat.hand);
     Q_EMIT changed();
     return true;
@@ -497,6 +503,8 @@ void Rami::nextTurn() {
     m_phase = Phase::Draw;
     m_lastDrawn = Card{};
     m_drewFromPile = false;
+    m_tookBack = false;
+    ++m_turnsPlayed;
     m_jokerDebt.clear();
     Q_EMIT changed();
     Q_EMIT turnBegan(m_turn);

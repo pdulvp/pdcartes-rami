@@ -94,6 +94,7 @@ TablePage::TablePage(QWidget *parent) : QWidget(parent) {
             startMatch(m_settings);
         } else {
             m_watch.clear();
+            forgetDeeds();
             m_handCounted = false;
             m_game->startHand();
         }
@@ -225,11 +226,13 @@ void TablePage::startMatch(const GameSettings &settings) {
 
     const QVector<SeatSpec> seats = chooseSeats(table);
     m_watch.taken.resize(seats.size());
+    m_deeds.resize(seats.size());
+    forgetDeeds();
 
     m_skills.clear();
     for (const SeatSpec &spec : seats) {
         m_skills.append(spec.rivalId.isEmpty() ? bestSkill()
-                                               : skillFor(learningFor(spec.rivalId).xp));
+                                               : skillFor(spec.rivalId));
     }
 
     m_game->startMatch(seats, targetPointsFor(target, seats.size()));
@@ -334,6 +337,22 @@ void TablePage::onActed(int seat, const QString &tale) {
     if (!tale.isEmpty()) m_view->say(tale);
 }
 
+void TablePage::forgetDeeds() {
+    for (Deeds &deeds : m_deeds) deeds.clear();
+    m_pileFrom = -1;
+}
+
+// Une carte ramassée sur la défausse apprend deux choses à deux joueurs: à
+// celui qui la prend, à regarder la défausse; à celui qui l'avait jetée, à ne
+// pas donner ce qui sert. C'est la seule leçon du jeu qui se donne à deux.
+void TablePage::noteTakenFromPile(int at) {
+    if (at >= 0 && at < m_deeds.size()) m_deeds[at].did(Learned::Memoire);
+    if (m_pileFrom >= 0 && m_pileFrom != at && m_pileFrom < m_deeds.size()) {
+        m_deeds[m_pileFrom].did(Learned::Defausse);
+    }
+    m_pileFrom = -1;
+}
+
 void TablePage::playRival() {
     if (m_game->phase() != Phase::Draw && m_game->phase() != Phase::Build) return;
     const int at = m_game->turn();
@@ -363,24 +382,39 @@ void TablePage::playRival() {
         const Card top = m_game->pileTop();
         m_watch.noteTaken(at, top, m_game->seatCount());
         done = m_game->drawPile(&why);
-        if (done) m_view->noteDrawn(at, true, top);
+        if (done) {
+            m_view->noteDrawn(at, true, top);
+            noteTakenFromPile(at);
+        }
         break;
     }
     case Move::Lay: {
         const bool wasOpen = m_game->seat(at).opened;
         const QVector<int> waiting = waitingCards(at);
         done = m_game->lay(move.cards, &why);
-        if (done) m_view->noteLaid(landedCards(at, move.cards, waiting, wasOpen), at);
+        if (done) {
+            m_view->noteLaid(landedCards(at, move.cards, waiting, wasOpen), at);
+            // Ouvrir est l'affaire de la lecture: c'est là qu'on compte.
+            if (!wasOpen && m_game->seat(at).opened && at < m_deeds.size()) {
+                m_deeds[at].did(Learned::Lecture);
+            }
+        }
         break;
     }
     case Move::LayOff:
         if (!move.cards.isEmpty()) {
             done = m_game->layOff(move.cards.first(), move.meldId, &why);
-            if (done) m_view->noteLaid(move.cards, at);
+            if (done) {
+                m_view->noteLaid(move.cards, at);
+                if (at < m_deeds.size()) m_deeds[at].did(Learned::Maitrise);
+            }
         }
         break;
     case Move::BuyJoker:
-        if (!move.cards.isEmpty()) done = m_game->buyJoker(move.cards.first(), move.meldId, &why);
+        if (!move.cards.isEmpty()) {
+            done = m_game->buyJoker(move.cards.first(), move.meldId, &why);
+            if (done && at < m_deeds.size()) m_deeds[at].did(Learned::Maitrise);
+        }
         break;
     case Move::TakeBack:
         done = m_game->takeBackPose(&why);
@@ -391,7 +425,10 @@ void TablePage::playRival() {
             const Card thrown = card ? *card : Card{};
             m_watch.note(thrown);
             done = m_game->discard(move.cards.first(), &why);
-            if (done) m_view->noteDiscard(at, thrown);
+            if (done) {
+                m_view->noteDiscard(at, thrown);
+                m_pileFrom = at;
+            }
         }
         break;
     case Move::None:
@@ -444,22 +481,51 @@ void TablePage::onHandFinished() {
         return game->seat(a).wentOut && !game->seat(b).wentOut;
     });
 
+    // Ce qu'ils avaient appris avant cette manche, pour pouvoir dire ce
+    // qu'ils viennent d'apprendre.
+    QVector<Pools> before(m_game->seatCount());
+    for (int at = 0; at < m_game->seatCount(); ++at) {
+        const Seat &seat = m_game->seat(at);
+        if (!seat.human()) before[at] = learningFor(seat.rivalId).pools;
+    }
+
     for (int place = 0; place < order.size(); ++place) {
-        const Seat &seat = m_game->seat(order.at(place));
+        const int at = order.at(place);
+        const Seat &seat = m_game->seat(at);
         if (seat.human()) {
             noteHandPlayed(seat.wentOut);
             continue;
         }
-        noteRivalHand(seat.rivalId, place, m_game->seatCount(), seat.wentOut);
+        Deeds deeds = at < m_deeds.size() ? m_deeds.at(at) : Deeds{};
+        // Sortir est l'affaire de la lecture: c'est voir sa main en entier
+        // qui permet de la vider.
+        if (seat.wentOut) deeds.did(Learned::Lecture);
+        noteRivalHand(seat.rivalId, place, m_game->seatCount(), seat.wentOut, deeds);
     }
 
     // Ce qu'ils viennent d'apprendre compte pour la manche suivante, pas pour
     // la prochaine fois qu'on lance le jeu.
+    QStringList learnt;
     for (int at = 0; at < m_game->seatCount() && at < m_skills.size(); ++at) {
         const Seat &seat = m_game->seat(at);
         if (seat.human()) continue;
-        m_skills[at] = skillFor(learningFor(seat.rivalId).xp);
+        m_skills[at] = skillFor(seat.rivalId);
+
+        // Et un rang franchi se dit: un adversaire qui devient meilleur sans
+        // que rien ne le signale est un adversaire dont on croit que le jeu
+        // triche.
+        const Pools after = learningFor(seat.rivalId).pools;
+        for (int i = 0; i < kLearnedCount; ++i) {
+            const Learned which = Learned(i);
+            const int rung = rungOf(after.at(which));
+            if (rung <= rungOf(before.at(at).at(which))) continue;
+            learnt.append(tr("%1 a appris : %2 %3 — %4")
+                              .arg(seat.name, learnedSpec(which).name,
+                                   QStringLiteral("I").repeated(rung + 1),
+                                   learnedSpec(which).says[rung]));
+        }
     }
+    if (!learnt.isEmpty()) m_view->say(learnt.join(QStringLiteral("  ·  ")));
 
     if (m_game->phase() == Phase::MatchOver) return;   // la feuille suit
     m_board->setGeometry(rect());
@@ -522,6 +588,7 @@ void TablePage::onPilePressed() {
         return;
     }
     m_watch.noteTaken(m_game->turn(), top, m_game->seatCount());
+    noteTakenFromPile(m_game->turn());
     if (m_settings.autoSort) sort(false);
     m_view->noteDrawn(m_game->turn(), true, top);
     sayWhatToDo();
@@ -684,6 +751,7 @@ void TablePage::doDiscard() {
         return;
     }
     m_watch.note(thrown);
+    m_pileFrom = me;
     m_view->noteDiscard(me, thrown);
     m_view->clearChosen();
 }

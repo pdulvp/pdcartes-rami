@@ -13,6 +13,58 @@ qreal roll() { return QRandomGenerator::global()->generateDouble(); }
 bool happens(qreal chance) { return roll() < chance; }
 
 // ---------------------------------------------------------------------------
+// Ce qui passe avant la façon de jouer.
+
+// Ce qui presse: la pioche qui s'épuise, ou une main qui se vide -- la sienne
+// comme celle d'en face.
+//
+// C'est la limite de tous les caractères. Un casse-cou qui attendrait son
+// coup pendant que le voisin pose sa dernière carte n'est pas un caractère,
+// c'est une manche qui n'en finit pas; un économe qui mourrait sur ses jokers
+// alors que la manche se joue, pareil. Dès que ça presse, tout le monde joue
+// pour sortir.
+bool pressing(const Rami &game, int at) {
+    if (game.stockLeft() <= 8 || game.reshuffles() > 0) return true;
+    // Six tours de table, et la manche n'est plus jeune: on joue pour sortir,
+    // quel que soit son caractère. C'est la borne qui compte, parce que c'est
+    // la seule qui avance quoi qu'il arrive -- une manche où personne ne
+    // pioche n'épuise rien, et deux joueurs qui s'attendent l'un l'autre
+    // peuvent y tourner sans fin.
+    if (game.turnsPlayed() >= 6 * game.seatCount()) return true;
+    for (int seat = 0; seat < game.seatCount(); ++seat) {
+        if (game.seat(seat).hand.size() <= 4) return true;
+    }
+    Q_UNUSED(at);
+    return false;
+}
+
+// Ce qu'il attend pour ouvrir: les cinquante-et-un, et quelques points de
+// plus s'il est hardi. Mais ce luxe est un luxe de début de manche -- dès que
+// quelqu'un a ouvert, que la pioche est bien entamée ou que ça presse, on
+// prend ce qu'on a.
+int openingBar(const Rami &game, int at, const Skill &skill) {
+    if (skill.openingSlack <= 0) return kOpeningPoints;
+    if (game.stockLeft() <= 24 || pressing(game, at)) return kOpeningPoints;
+    for (int seat = 0; seat < game.seatCount(); ++seat) {
+        if (seat != at && game.seat(seat).opened) return kOpeningPoints;
+    }
+    return kOpeningPoints + skill.openingSlack;
+}
+
+// Sa mémoire, telle qu'elle marche aujourd'hui. Celui qui s'emballe a la
+// mémoire qu'il a: il ne s'en sert pas à tous les coups, ce qui est très
+// exactement « compte les cartes, la plupart du temps ».
+bool remembers(const Skill &skill) { return skill.watches && happens(skill.recall); }
+bool remembersTakes(const Skill &skill) { return skill.readsTakes && happens(skill.recall); }
+
+bool usesJoker(const Meld &meld) {
+    for (const Card &card : meld.cards) {
+        if (card.joker()) return true;
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------------------
 // Ce qu'une main vaut.
 //
 // Three things, added up: the combinations that are already there, what is
@@ -78,7 +130,7 @@ qreal evaluate(const QVector<Card> &hand, const Skill &skill, const Watch &watch
     // door. Afterwards what matters is getting rid of cards.
     qreal worth = plan.points * (opened ? 0.85 : 1.25);
     worth -= plan.deadwood * 0.80;
-    worth += skill.potentialWeight * potentialOf(plan.rest, watch, skill.watches);
+    worth += skill.potentialWeight * potentialOf(plan.rest, watch, remembers(skill));
     return worth;
 }
 
@@ -112,7 +164,9 @@ bool findLayOff(const Rami &game, const Seat &seat, const Skill &skill, Move *ou
             Meld grown;
             if (!canExtend(meld, card, &grown)) continue;
             // A joker is worth keeping for a combination of one's own unless
-            // there is nothing else to do with it.
+            // there is nothing else to do with it -- et un économe ne le
+            // lâche pas même là.
+            if (card.joker() && happens(skill.jokerGrip)) continue;
             chances.append({card.id, meld.id, card.joker() ? 2 : penaltyValue(card) + 10});
         }
     }
@@ -202,7 +256,7 @@ qreal feedRisk(const Rami &game, int at, const Card &card, const Watch &watch,
     // And what they have been picking up. A player who took the nine de cœur
     // off the défausse wants the eight and the ten of it, and the other
     // nines; that is not a guess, it is a card they showed everybody.
-    if (skill.watches) {
+    if (remembersTakes(skill)) {
         for (int seat = 0; seat < watch.taken.size(); ++seat) {
             if (seat == at) continue;
             for (const Card &want : watch.taken.at(seat)) {
@@ -251,6 +305,23 @@ int chooseDiscard(const Rami &game, int at, const Skill &skill, const Watch &wat
         return loose.at(QRandomGenerator::global()->bounded(loose.size())).id;
     }
 
+    // Et quand ça presse, celui qui sait lire une fin de manche se vide des
+    // gros points: ce qui reste en main est ce qu'on paye, et le payer moins
+    // vaut mieux que garder une combinaison qui n'aura pas le temps de se
+    // faire.
+    if (skill.readsEndgame && pressing(game, at)) {
+        int dearest = -1;
+        int cost = -1;
+        for (const Card &card : loose) {
+            if (card.joker()) continue;
+            if (penaltyValue(card) > cost) {
+                cost = penaltyValue(card);
+                dearest = card.id;
+            }
+        }
+        if (dearest >= 0) return dearest;
+    }
+
     // And not the card just taken off the défausse. Reaching for a card and
     // throwing it straight back leaves the turn exactly where it started --
     // nothing laid, nothing drawn, the same card on top -- and two hands
@@ -281,9 +352,15 @@ int chooseDiscard(const Rami &game, int at, const Skill &skill, const Watch &wat
         // Low means "throw this one". What is left behind counts for it, what
         // it would cost to keep counts for it, and what it would be worth to
         // the others counts against it.
+        // Ce qu'on garde et ce qu'on paye pour le garder: un économe tient à
+        // ce qui peut servir et accepte d'en porter les points, un insouciant
+        // fait l'inverse. Les deux poids bougent à l'envers l'un de l'autre,
+        // pour qu'aucune prudence ne soit un gain pur.
         const qreal verdict =
-            -skill.potentialWeight * potentialOf(without, watch, skill.watches) -
-            penaltyValue(card) * 0.70 + feedRisk(game, at, card, watch, skill);
+            -skill.potentialWeight * skill.keepWeight *
+                potentialOf(without, watch, remembers(skill)) -
+            penaltyValue(card) * 0.70 * (2.0 - skill.keepWeight) +
+            feedRisk(game, at, card, watch, skill);
         if (first || verdict < lowest) {
             lowest = verdict;
             chosen = card.id;
@@ -369,31 +446,6 @@ int Watch::unseenCopies(int rank, Suit suit) const {
     return std::max(0, 2 - gone);
 }
 
-Skill skillFor(int xp) {
-    const qreal mastery = masteryOf(xp);
-    Skill skill;
-    skill.mastery = mastery;
-    // Steep at the bottom and flat at the top: the difference between a brand
-    // new player and one who has sat through ten manches should be the thing
-    // you notice, and the difference between two experts should not be luck.
-    skill.blunder = 0.30 * std::pow(1.0 - mastery, 1.6);
-    skill.thorough = xp >= levelFloor(Level::Intermediaire);
-    skill.watches = xp >= levelFloor(Level::Expert);
-    skill.guardsFeed = mastery >= 0.34;
-    skill.buysJokers = xp >= levelFloor(Level::Expert);
-    skill.layoffSight = 0.55 + 0.45 * mastery;
-    skill.pileThreshold = 10.0 - 8.5 * mastery;
-    skill.potentialWeight = 0.22 + 0.78 * mastery;
-    return skill;
-}
-
-Skill bestSkill() {
-    Skill skill = skillFor(kMaxExperience);
-    skill.blunder = 0.0;
-    skill.layoffSight = 1.0;
-    return skill;
-}
-
 Move chooseMove(const Rami &game, int at, const Skill &skill, const Watch &watch) {
     Move move;
     if (at != game.turn()) return move;
@@ -407,28 +459,36 @@ Move chooseMove(const Rami &game, int at, const Skill &skill, const Watch &watch
 
     // A joker bought back has to be put somewhere before anything else: the
     // turn cannot end while it is in hand.
-    if (game.owesJoker(at)) {
+    const QVector<int> owed = game.jokerDebt(at);
+    if (!owed.isEmpty()) {
+        // Celui-là, et pas l'autre. Une main qui tient deux jokers peut très
+        // bien placer celui qu'elle ne devait pas: la dette reste, le tour ne
+        // peut plus finir -- ni poser, ni jeter -- et la manche est perdue
+        // pour tout le monde. C'est arrivé une fois sur mille manches à
+        // l'arène, ce qui est neuf cent quatre-vingt-dix-neuf fois de trop.
         Skill sure = skill;
         sure.layoffSight = 1.0;
-        for (const Card &card : seat.hand) {
-            if (!card.joker()) continue;
+        for (int id : owed) {
+            const Card *joker = findCard(seat.hand, id);
+            if (!joker) continue;
             for (const Meld &meld : game.table()) {
                 Meld grown;
-                if (!canExtend(meld, card, &grown)) continue;
+                if (!canExtend(meld, *joker, &grown)) continue;
                 move.kind = Move::LayOff;
-                move.cards = {card.id};
+                move.cards = {id};
                 move.meldId = meld.id;
                 return move;
             }
         }
-        // Nowhere to put it after all: lay a combination with it in, and if
-        // even that is impossible the table will fall back on a plain throw.
+        // Nowhere to put it after all: lay a combination with it in -- and it
+        // has to be a combination that holds the owed one, for the same
+        // reason.
         for (const Meld &meld : layableMelds(seat.hand, sure, false)) {
-            bool usesJoker = false;
+            bool paysDebt = false;
             for (const Card &card : meld.cards) {
-                if (card.joker()) usesJoker = true;
+                if (owed.contains(card.id)) paysDebt = true;
             }
-            if (!usesJoker) continue;
+            if (!paysDebt) continue;
             if (seat.hand.size() - meld.cards.size() < 1) continue;
             move.kind = Move::Lay;
             move.cards = idsOf(meld);
@@ -442,35 +502,74 @@ Move chooseMove(const Rami &game, int at, const Skill &skill, const Watch &watch
         // picking it all back up, and no sensible player does that on
         // purpose.
         const int already = game.poseValue(at);
-        QVector<Meld> opening = layableMelds(seat.hand, skill, true);
-        int worth = already;
-        for (const Meld &meld : opening) worth += meld.points();
-        if (worth >= kOpeningPoints) {
-            for (const Meld &meld : opening) {
-                if (seat.hand.size() - meld.cards.size() < 1) continue;
-                move.kind = Move::Lay;
-                move.cards = idsOf(meld);
-                return move;
-            }
-        } else if (already > 0) {
-            // A pose begun and not finished. It happens to a beginner and to
-            // nobody else: reading the hand greedily can find fifty-one
-            // points, lay the first combination of them, and then fail to
-            // find the rest in what is left. The pose goes back in the hand,
-            // and the turn is a turn wasted -- which is exactly what the
-            // mistake costs at a real table.
+        const QVector<Meld> opening = layableMelds(seat.hand, skill, true);
+
+        // Ce qui peut vraiment descendre. Il faut qu'il reste une carte à
+        // jeter à la fin du tour: une combinaison qui prendrait la dernière
+        // ne descendra pas, et la compter dans les cinquante-et-un, c'est
+        // poser quarante-cinq points et ne plus pouvoir finir son tour.
+        QVector<Meld> laying;
+        int taken = 0;
+        int sure = already;
+        for (const Meld &meld : opening) {
+            if (seat.hand.size() - taken - meld.cards.size() < 1) continue;
+            laying.append(meld);
+            taken += meld.cards.size();
+            sure += meld.points();
+        }
+
+        // Et ce que la lecture a cru voir, posable ou non. Celui qui n'a pas
+        // appris à compter avant de commencer (Lecture III) se fie à
+        // celui-là: il étale, s'arrête court, et reprend tout -- un tour
+        // perdu, qui est exactement ce que l'étourderie coûte à une vraie
+        // table.
+        int hoped = already;
+        for (const Meld &meld : opening) hoped += meld.points();
+
+        const int worth = skill.countsOpening ? sure : hoped;
+        // Une pose reprise ne se réétale pas dans le même tour.
+        if (worth >= openingBar(game, at, skill) && !laying.isEmpty() &&
+            !game.poseTakenBack()) {
+            move.kind = Move::Lay;
+            move.cards = idsOf(laying.first());
+            return move;
+        }
+
+        // Ce qui ne peut plus finir doit revenir en main: le tour ne se
+        // termine pas sur une pose qui ne fait pas ses cinquante-et-un, et
+        // quand plus rien ne peut descendre, la reprendre est le seul coup
+        // qui reste.
+        if (already > 0 && already < kOpeningPoints) {
             move.kind = Move::TakeBack;
             return move;
         }
+
         move.kind = Move::Discard;
         move.cards = {chooseDiscard(game, at, skill, watch)};
         return move;
     }
 
-    // Open: everything down that can go down.
+    // Open: everything down that can go down -- ou pas tout de suite.
+    const bool urgent = pressing(game, at);
     for (const Meld &meld : layableMelds(seat.hand, skill, false)) {
         if (seat.hand.size() - meld.cards.size() < 1) continue;
         if (happens(skill.blunder * 0.4)) continue;   // and sometimes it is missed
+        // Poser celle-là finit la main: personne ne garde une sortie pour
+        // plus tard, quel que soit son caractère.
+        const bool goingOut = seat.hand.size() - meld.cards.size() <= 1;
+        // Et garder sa pose est un luxe de début de manche, comme attendre
+        // pour ouvrir: passé la moitié de la pioche, tout le monde pose ce
+        // qu'il a. Une manche où deux joueurs se gardent l'un pour l'autre
+        // est une manche qui ne finit pas -- l'arène en a trouvé une sur deux
+        // mille cinq cents, et une sur deux mille cinq cents est une de trop.
+        if (!goingOut && !urgent && game.stockLeft() > 24) {
+            // Un économe ne dépense pas un joker dans une pose qu'il pourrait
+            // faire autrement, et un hardi garde sa pose en main: ce qui est
+            // en main peut encore grossir, et sortir d'un coup vaut mieux que
+            // poser par morceaux. Ni l'un ni l'autre ne tient quand ça presse.
+            if (usesJoker(meld) && happens(skill.jokerGrip)) continue;
+            if (skill.eagerness < 1.0 && happens(1.0 - skill.eagerness)) continue;
+        }
         move.kind = Move::Lay;
         move.cards = idsOf(meld);
         return move;

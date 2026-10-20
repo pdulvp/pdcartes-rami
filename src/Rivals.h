@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RivalSkills.h"
+
 #include <QString>
 #include <QVector>
 
@@ -13,25 +15,15 @@
 // back, so that a table you could beat in March is a table that beats you in
 // June.
 //
-// What they know is a single figure, their expérience, which goes up a little
-// at every manche they sit through and a little more at every one they win.
-// Three names are put on the ranges of it, because "niveau 437" is not
-// something anybody wants to read:
+// Ce qui les distingue est de deux sortes, et c'est RivalSkills.h qui le dit:
+// quatre compétences innées, qui sont ce qu'ils sont et qui ne bougent pas,
+// et quatre compétences acquises, chacune avec son expérience, qui montent en
+// jouant. Ce fichier-ci ne fait que les ranger par profil et les relire --
+// les six sont les mêmes pour tout le monde, ce qu'ils ont vécu appartient au
+// profil sous lequel ils l'ont vécu.
 //
-//     débutant        0 - 199     throws away what it needs, opens late,
-//                                 misreads its own hand
-//     intermédiaire 200 - 599     reads its hand properly, watches the
-//                                 défausse, keeps what might serve
-//     expert        600 - 1200    remembers every card thrown, will not feed
-//                                 you, and buys its jokers back
-//
-// Each of the six is kept per profile, so switching profiles is switching
-// tables -- and each can be put back to the level it came with, one at a
-// time, from the réglages.
-
-enum class Level { Debutant, Intermediaire, Expert };
-
-inline constexpr int kMaxExperience = 1200;
+// Chacun peut être remis à ce qu'il était, un à un, depuis sa fiche: son
+// expérience seule, ou -- et cela lui coûte son expérience -- ce qu'il est.
 
 struct Rival {
     QString id;
@@ -40,6 +32,7 @@ struct Rival {
     int hue;             // their own colour, worn on their plaque and their melds
     int startXp;         // the experience they sit down with, and are restored to
     int emblem;          // which mark is drawn on their medallion, 0-5
+    Innates innate;      // ce qu'il est en arrivant, et ce que la phrase dit
 };
 
 const QVector<Rival> &rivals();
@@ -47,7 +40,8 @@ const Rival &rivalById(const QString &id);
 
 // What one of them has to show for the games played under this profile.
 struct Learning {
-    int xp = 0;
+    Pools pools;         // les quatre expériences, une par compétence acquise
+    int xp = 0;          // leur somme, qui est le niveau affiché
     int handsPlayed = 0;
     int handsWon = 0;
     int matchesPlayed = 0;
@@ -56,6 +50,31 @@ struct Learning {
 
 Learning learningFor(const QString &rivalId);
 Learning learningFor(const QString &rivalId, int slot);
+
+// Ce qu'il est, sur ce profil-là, et la phrase qui va avec.
+Innates rivalInnate(const QString &rivalId);
+Innates rivalInnate(const QString &rivalId, int slot);
+
+// Le changer lui fait tout réapprendre.
+//
+// Les innées règlent la vitesse à laquelle les acquises montent: l'expérience
+// gagnée par un joueur n'est donc pas l'expérience qu'un autre aurait. Changer
+// ce qu'il est remet ses quatre expériences et son palmarès à zéro, et c'est
+// cette fonction qui s'en charge -- pour que les deux ne puissent pas se
+// désolidariser, où qu'on l'appelle. Ne fait rien quand rien ne change.
+void setRivalInnate(const QString &rivalId, const Innates &innate);
+
+// Et le ramener à ce qu'il était en arrivant, ce qui coûte pareil.
+void resetRivalInnate(const QString &rivalId);
+
+// La phrase de sa carte: la sienne tant qu'il est celui qui est arrivé, et
+// celle que ses innées décrivent dès qu'on l'a changé -- une plaque ne doit
+// pas annoncer un joueur qui n'est plus là.
+QString rivalBlurb(const QString &rivalId);
+
+// Ce que son cerveau joue, ici et maintenant.
+Skill skillFor(const QString &rivalId);
+Skill skillFor(const QString &rivalId, int slot);
 
 // Le nom sous lequel on joue contre lui, sur ce profil-là.
 //
@@ -76,23 +95,11 @@ inline constexpr int kRivalNameLength = 18;
 // Counted at the end of each manche. `place` is nought for whoever came out
 // best; `wentOut` is true for the one who got rid of their last card, which
 // is worth more than coming second by a little.
-void noteRivalHand(const QString &rivalId, int place, int seats, bool wentOut);
+void noteRivalHand(const QString &rivalId, int place, int seats, bool wentOut,
+                   const Deeds &deeds);
 void noteRivalMatch(const QString &rivalId, bool won);
 
-// Back to the level this one sits down with, this profile only. The réglages
-// offer it per rival rather than all at once: a player who has made Oriane
-// unbeatable may still want Lulu to stay a beginner.
-void resetRival(const QString &rivalId);
-
-Level levelOf(int xp);
-QString levelName(Level level);
-int levelStars(Level level);           // one, two or three
-int levelFloor(Level level);
-int levelCeiling(Level level);
-
-// Nought to one across the whole range: what the brain is handed, and what
-// the gauge on their card is filled to.
-qreal masteryOf(int xp);
-
-// Nought to one inside the level they are at, for the gauge under the name.
-qreal progressWithin(int xp);
+// Back to the level this one sits down with, this profile only. The fiche
+// offers it per rival rather than all at once: a player who has made Oriane
+// unbeatable may still want Lulu to stay a beginner. Ce qu'il est lui reste.
+void resetRivalExperience(const QString &rivalId);

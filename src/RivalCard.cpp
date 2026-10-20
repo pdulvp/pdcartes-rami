@@ -47,6 +47,15 @@ void RivalCard::mousePressEvent(QMouseEvent *event) {
     setInvited(!m_invited);
 }
 
+void RivalCard::mouseDoubleClickEvent(QMouseEvent *event) {
+    if (event->button() != Qt::LeftButton) return;
+    // Les deux clics ont déjà fait leur office -- invité, puis plus invité --
+    // ce qui laisse la carte comme on l'avait trouvée, et c'est bien ainsi:
+    // ouvrir une fiche n'est pas inviter quelqu'un.
+    Q_EMIT sheetWanted();
+    event->accept();
+}
+
 void RivalCard::contextMenuEvent(QContextMenuEvent *event) {
     // La position à l'écran plutôt que dans la carte: la page qui dresse le
     // menu n'a pas à savoir où la carte se trouve.
@@ -139,7 +148,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
     painter.setPen(scheme.hint);
     const QFontMetricsF asideMetrics(aside);
     painter.drawText(QRectF(left, y, wide, asideMetrics.height()),
-                     Qt::AlignLeft | Qt::AlignVCenter, who.blurb);
+                     Qt::AlignLeft | Qt::AlignVCenter, rivalBlurb(m_rivalId));
     y += asideMetrics.height() + 5.0;
 
     // Les étoiles, la jauge, et le chiffre derrière elles -- parce que la
