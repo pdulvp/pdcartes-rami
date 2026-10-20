@@ -150,9 +150,9 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     for (const Rival &rival : rivals()) {
         auto *card = new RivalCard(rival.id, page);
         card->setPickable(true);
-        card->setToolTip(tr("Cliquer pour inviter %1 à la table ; double clic pour sa fiche, "
-                            "clic droit pour le petit menu.")
-                             .arg(rivalName(rival.id)));
+        // Pas d'infobulle: c'est l'aperçu de ses compétences qui paraît quand
+        // on reste sur sa carte, et deux panneaux au même survol se marchent
+        // dessus. Ce que les clics font est écrit sous la grille.
         connect(card, &RivalCard::invitedChanged, this, [this] { reread(); });
         connect(card, &RivalCard::menuWanted, this,
                 [this, card](const QPoint &where) { showRivalMenu(card, where); });

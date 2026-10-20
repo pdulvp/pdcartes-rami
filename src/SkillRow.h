@@ -18,6 +18,11 @@
 //
 // Une ligne innée peut se changer: ses pastilles se cliquent, et c'est la
 // fiche qui sait ce que cela coûte.
+//
+// Serrée, elle ne garde que ses trois premières colonnes -- le nom, les
+// pastilles, le rang et son mot -- et se tasse: c'est la ligne de l'aperçu
+// qui flotte au survol d'un adversaire, où il y a huit lignes à montrer sur
+// deux colonnes et pas la place d'une phrase. Voir RivalGlance.h.
 class SkillRow : public QWidget {
     Q_OBJECT
 
@@ -38,6 +43,8 @@ public:
     void setEditable(bool editable);
     // Éteinte: ce qui va s'effacer, pendant qu'on change ce qu'il est.
     void setDim(bool dim);
+    // Serrée: les trois premières colonnes seules, et la ligne basse.
+    void setCompact(bool compact);
 
     int level() const { return m_level; }
 
@@ -56,6 +63,11 @@ private:
     // Quelle pastille se trouve sous ce point, ou -1.
     int pipAt(const QPointF &where) const;
     QRectF pipBox(int index) const;
+    // Les colonnes, qui ne sont pas les mêmes serrée ou non.
+    qreal titleWide() const;
+    qreal romanWide() const;
+    qreal wordWide() const;
+    qreal rowHigh() const;
 
     QString m_title;
     QString m_word;
@@ -68,5 +80,6 @@ private:
     qreal m_filled = -1.0;      // négatif: pas de jauge
     bool m_editable = false;
     bool m_dim = false;
+    bool m_compact = false;
     int m_hovered = -1;
 };

@@ -163,6 +163,10 @@ int rungFloor(int rung);
 int rungOf(int poolXp);
 // Ce qui manque pour le rang suivant, et zéro au dernier.
 int rungGap(int poolXp);
+// Le rang en chiffres romains, I à IV: c'est ainsi qu'il s'écrit partout où
+// on le montre -- sur la fiche et dans l'aperçu -- et une moitié des rangs
+// écrite autrement que l'autre se remarque.
+QString rungRoman(int rung);
 // Nought to one inside the rung one is at, for the little gauge on the row.
 qreal rungProgress(int poolXp);
 

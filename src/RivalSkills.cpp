@@ -204,6 +204,15 @@ int rungGap(int poolXp) {
     return std::max(0, kRungFloors[rung + 1] - qBound(0, poolXp, kPoolCeiling));
 }
 
+QString rungRoman(int rung) {
+    switch (qBound(0, rung, kRungCount - 1)) {
+    case 0: return QStringLiteral("I");
+    case 1: return QStringLiteral("II");
+    case 2: return QStringLiteral("III");
+    default: return QStringLiteral("IV");
+    }
+}
+
 qreal rungProgress(int poolXp) {
     const int rung = rungOf(poolXp);
     const int bottom = kRungFloors[rung];

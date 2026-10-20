@@ -4,6 +4,8 @@
 #include <QString>
 #include <QWidget>
 
+class QTimer;
+
 // La carte d'un adversaire: son médaillon, son nom, son niveau, sa jauge, et
 // ce qu'il a fait sous ce profil-là.
 //
@@ -25,6 +27,11 @@ public:
     // Au menu, un clic invite. Ailleurs, la carte ne fait que dire.
     void setPickable(bool pickable);
 
+    // Le survol fait paraître l'aperçu de ses huit compétences. La carte qui
+    // est dans sa fiche ne le veut pas: elle est déjà sous les huit lignes
+    // qu'il résume.
+    void setGlanceWanted(bool wanted);
+
     // Après que l'expérience a bougé, ou que le profil a changé.
     void reread();
 
@@ -39,6 +46,7 @@ Q_SIGNALS:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
@@ -47,7 +55,10 @@ protected:
 
 private:
     QString m_rivalId;
+    // La minuterie du survol: l'aperçu attend qu'on soit resté sur la carte.
+    QTimer *m_glanceBeat = nullptr;
     bool m_invited = false;
     bool m_pickable = false;
     bool m_hovered = false;
+    bool m_glanceWanted = true;
 };

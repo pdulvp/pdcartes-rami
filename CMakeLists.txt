@@ -98,6 +98,8 @@ add_executable(ramisol
     src/RivalCard.h
     src/RivalSheet.cpp
     src/RivalSheet.h
+    src/RivalGlance.cpp
+    src/RivalGlance.h
     src/SkillRow.cpp
     src/SkillRow.h
     src/TablePicker.cpp

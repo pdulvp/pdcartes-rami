@@ -2,6 +2,7 @@
 
 #include "CardArt.h"
 #include "Palette.h"
+#include "RivalGlance.h"
 #include "Rivals.h"
 
 #include <QContextMenuEvent>
@@ -9,6 +10,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -23,6 +25,15 @@ RivalCard::RivalCard(const QString &rivalId, QWidget *parent)
     : QWidget(parent), m_rivalId(rivalId) {
     setAttribute(Qt::WA_Hover);
     setMinimumSize(286, 112);
+
+    // L'aperçu attend qu'on soit resté sur la carte: le pointeur qui traverse
+    // les six n'en allume aucune.
+    m_glanceBeat = new QTimer(this);
+    m_glanceBeat->setSingleShot(true);
+    m_glanceBeat->setInterval(kGlanceDelayMs);
+    connect(m_glanceBeat, &QTimer::timeout, this, [this] {
+        showRivalGlance(m_rivalId, QRect(mapToGlobal(QPoint(0, 0)), size()), this);
+    });
 }
 
 QSize RivalCard::sizeHint() const { return QSize(300, 118); }
@@ -40,9 +51,22 @@ void RivalCard::setPickable(bool pickable) {
     update();
 }
 
+void RivalCard::setGlanceWanted(bool wanted) {
+    m_glanceWanted = wanted;
+    if (!wanted) {
+        m_glanceBeat->stop();
+        hideRivalGlance(this);
+    }
+}
+
 void RivalCard::reread() { update(); }
 
 void RivalCard::mousePressEvent(QMouseEvent *event) {
+    // On a cliqué: on sait déjà ce qu'on voulait savoir, et l'aperçu n'a plus
+    // qu'à s'effacer -- qu'on l'ait invité, ouvert son petit menu ou demandé
+    // sa fiche.
+    m_glanceBeat->stop();
+    hideRivalGlance(this);
     if (!m_pickable || event->button() != Qt::LeftButton) return;
     setInvited(!m_invited);
 }
@@ -57,6 +81,8 @@ void RivalCard::mouseDoubleClickEvent(QMouseEvent *event) {
 }
 
 void RivalCard::contextMenuEvent(QContextMenuEvent *event) {
+    m_glanceBeat->stop();
+    hideRivalGlance(this);
     // La position à l'écran plutôt que dans la carte: la page qui dresse le
     // menu n'a pas à savoir où la carte se trouve.
     Q_EMIT menuWanted(event->globalPos());
@@ -65,12 +91,25 @@ void RivalCard::contextMenuEvent(QContextMenuEvent *event) {
 
 void RivalCard::enterEvent(QEnterEvent *) {
     m_hovered = true;
+    if (m_glanceWanted) m_glanceBeat->start();
     update();
 }
 
 void RivalCard::leaveEvent(QEvent *) {
     m_hovered = false;
+    m_glanceBeat->stop();
+    // Lâché plutôt que fermé: le pointeur est peut-être simplement passé sur
+    // l'aperçu, qui a dû se poser sur la carte faute de place ailleurs.
+    releaseRivalGlance(this);
     update();
+}
+
+void RivalCard::hideEvent(QHideEvent *event) {
+    // La page a changé, ou la fenêtre s'est fermée: un aperçu qui survit à la
+    // carte qu'il décrit est un panneau qui flotte tout seul.
+    m_glanceBeat->stop();
+    hideRivalGlance(this);
+    QWidget::hideEvent(event);
 }
 
 void RivalCard::paintEvent(QPaintEvent *) {

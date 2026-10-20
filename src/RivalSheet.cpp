@@ -15,19 +15,6 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-namespace {
-
-QString roman(int rung) {
-    switch (rung) {
-    case 0: return QStringLiteral("I");
-    case 1: return QStringLiteral("II");
-    case 2: return QStringLiteral("III");
-    default: return QStringLiteral("IV");
-    }
-}
-
-} // namespace
-
 RivalSheet::RivalSheet(const QString &rivalId, QWidget *parent)
     : QDialog(parent), m_rivalId(rivalId) {
     const Rival &who = rivalById(rivalId);
@@ -40,6 +27,9 @@ RivalSheet::RivalSheet(const QString &rivalId, QWidget *parent)
     // plus, pour que la fiche montre bien l'adversaire qu'on a cliqué.
     m_card = new RivalCard(who.id, this);
     m_card->setPickable(false);
+    // Et pas d'aperçu au survol: les huit lignes qu'il résume sont juste
+    // dessous, en entier.
+    m_card->setGlanceWanted(false);
     chrome.fields->addWidget(m_card);
     chrome.fields->addSpacing(14);
 
@@ -166,14 +156,15 @@ void RivalSheet::reread() {
         const int rung = rungOf(xp);
         SkillRow *row = m_learned.at(i);
         row->setLevel(rung, kRungCount);
-        row->setRank(roman(rung));
+        row->setRank(rungRoman(rung));
         row->setWord(learnedSpec(which).rungs[rung]);
         row->setSays(learnedSpec(which).says[rung]);
         // Ce qui manque pour le rang suivant, ou le total quand il n'y a plus
         // de rang à prendre.
         const int gap = rungGap(xp);
-        row->setGauge(rungProgress(xp), gap > 0 ? tr("%1 avant %2").arg(gap).arg(roman(rung + 1))
-                                                : tr("%1 xp").arg(xp));
+        row->setGauge(rungProgress(xp),
+                      gap > 0 ? tr("%1 avant %2").arg(gap).arg(rungRoman(rung + 1))
+                              : tr("%1 xp").arg(xp));
         row->setDim(m_editing);
     }
 

@@ -3,6 +3,7 @@
 #include "CardArt.h"
 #include "Palette.h"
 #include "Rami.h"
+#include "RivalGlance.h"
 #include "Rivals.h"
 
 #include "CardDeck.h"
@@ -250,6 +251,25 @@ TableView::TableView(QWidget *parent) : QWidget(parent) {
     m_ticker = new QTimer(this);
     m_ticker->setInterval(kFrameMs);
     connect(m_ticker, &QTimer::timeout, this, &TableView::tick);
+
+    // L'aperçu d'un adversaire, le temps qu'on reste sur sa plaque: ce qu'il
+    // est et ce qu'il a appris, sans ouvrir sa fiche au milieu d'une manche.
+    m_glanceBeat = new QTimer(this);
+    m_glanceBeat->setSingleShot(true);
+    m_glanceBeat->setInterval(kGlanceDelayMs);
+    connect(m_glanceBeat, &QTimer::timeout, this, [this] {
+        if (!m_game || m_hoveredSeat < 0 || m_hoveredSeat >= m_game->seatCount()) return;
+        const QString who = m_game->seat(m_hoveredSeat).rivalId;
+        for (const Spot &spot : m_seatBoxes) {
+            if (spot.id != m_hoveredSeat) continue;
+            // La plaque, en coordonnées d'écran: l'aperçu se pose dessous,
+            // sur le tapis, où il ne cache ni la plaque ni votre main.
+            showRivalGlance(who, QRect(mapToGlobal(spot.box.topLeft().toPoint()),
+                                       spot.box.size().toSize()),
+                            this);
+            return;
+        }
+    });
 }
 
 void TableView::watch(const Rami *game) {
@@ -1359,6 +1379,13 @@ int TableView::meldAt(const QPointF &where) const {
     return -1;
 }
 
+int TableView::seatAt(const QPointF &where) const {
+    for (const Spot &spot : m_seatBoxes) {
+        if (spot.box.contains(where)) return spot.id;
+    }
+    return -1;
+}
+
 int TableView::poseCardAt(const QPointF &where) const {
     // À l'envers, comme pour la main: dans une combinaison qui se chevauche,
     // celle du dessus est celle qu'on voulait.
@@ -1435,9 +1462,20 @@ void TableView::mouseMoveEvent(QMouseEvent *event) {
     const int meld = pose >= 0 || card >= 0 ? -1 : meldAt(where);
     const bool stock = m_stockBox.adjusted(-4, -4, 4, 4).contains(where);
     const bool pile = m_pileBox.adjusted(-4, -4, 4, 4).contains(where);
+    const int seat = seatAt(where);
     if (card == m_hovered && meld == m_hoveredMeld && pose == m_hoveredPose &&
-        stock == m_hoverStock && pile == m_hoverPile) {
+        stock == m_hoverStock && pile == m_hoverPile && seat == m_hoveredSeat) {
         return;
+    }
+    if (seat != m_hoveredSeat) {
+        // On a changé de plaque, ou on est sorti de celle qu'on survolait:
+        // l'aperçu est lâché -- il se referme si le pointeur l'a quitté, il
+        // reste si c'est sur lui qu'on est passé -- et la minuterie repart de
+        // la plaque où l'on est.
+        m_hoveredSeat = seat;
+        m_glanceBeat->stop();
+        releaseRivalGlance(this);
+        if (seat >= 0) m_glanceBeat->start();
     }
     m_hovered = card;
     m_hoveredMeld = meld;
@@ -1453,7 +1491,19 @@ void TableView::leaveEvent(QEvent *) {
     m_hovered = -1;
     m_hoveredMeld = -1;
     m_hoveredPose = -1;
+    m_hoveredSeat = -1;
     m_hoverStock = false;
     m_hoverPile = false;
+    m_glanceBeat->stop();
+    releaseRivalGlance(this);
     update();
+}
+
+void TableView::hideEvent(QHideEvent *event) {
+    // On est retourné au menu, ou la fenêtre s'est fermée: un aperçu qui
+    // survit à la table qu'il surplombe est un panneau qui flotte tout seul.
+    m_hoveredSeat = -1;
+    m_glanceBeat->stop();
+    hideRivalGlance(this);
+    QWidget::hideEvent(event);
 }

@@ -93,6 +93,7 @@ Q_SIGNALS:
 protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -138,6 +139,9 @@ private:
 
     int cardAt(const QPointF &where) const;
     int meldAt(const QPointF &where) const;
+    // La plaque d'adversaire sous ce point, ou -1. La vôtre n'en est pas:
+    // elle est sous la défausse, et vous savez ce que vous savez faire.
+    int seatAt(const QPointF &where) const;
     // La carte de la pose en cours sous le pointeur, ou -1. Les cartes d'une
     // combinaison se chevauchent : c'est celle du dessus qui répond.
     int poseCardAt(const QPointF &where) const;
@@ -219,6 +223,10 @@ private:
     int m_hovered = -1;
     int m_hoveredMeld = -1;
     int m_hoveredPose = -1;
+    // La plaque qu'on survole, et la minuterie au bout de laquelle son aperçu
+    // paraît: huit compétences en face de soi, sans quitter la manche.
+    int m_hoveredSeat = -1;
+    QTimer *m_glanceBeat = nullptr;
     bool m_hoverStock = false;
     bool m_hoverPile = false;
 
