@@ -162,6 +162,9 @@ void SkillRow::paintEvent(QPaintEvent *) {
 
     qreal left = kTitleWide + m_outOf * kPipStep + 8.0;
 
+    // La colonne du rang est tenue même quand il n'y en a pas: les innées
+    // n'en ont pas et les acquises si, et deux moitiés dont les mots ne
+    // commencent pas au même endroit se lisent comme deux tableaux.
     if (!m_roman.isEmpty()) {
         QFont rank = plainFont(&painter);
         rank.setBold(true);
@@ -170,8 +173,8 @@ void SkillRow::paintEvent(QPaintEvent *) {
         painter.setPen(mine);
         painter.drawText(QRectF(left, 0.0, kRomanWide, height()),
                          Qt::AlignLeft | Qt::AlignVCenter, m_roman);
-        left += kRomanWide;
     }
+    left += kRomanWide;
 
     QFont word = plainFont(&painter);
     word.setBold(true);
@@ -184,10 +187,12 @@ void SkillRow::paintEvent(QPaintEvent *) {
                      wordMetrics.elidedText(m_word, Qt::ElideRight, kWordWide - 8.0));
     left += kWordWide;
 
-    // La jauge, tout à droite, et ce qui manque écrit à côté.
-    qreal room = width() - left - 6.0;
+    // La jauge, tout à droite, et ce qui manque écrit à côté. Sa colonne est
+    // tenue elle aussi, pour la même raison: la phrase finit au même endroit
+    // dans les huit lignes, qu'il y ait une jauge au bout ou non.
+    const qreal gaugeLeft = width() - kGaugeWide;
+    const qreal room = gaugeLeft - left - 8.0;
     if (m_filled >= 0.0) {
-        const qreal gaugeLeft = width() - kGaugeWide;
         drawGauge(&painter, QRectF(gaugeLeft, height() / 2.0 - 3.0, 52.0, 6.0),
                   qBound(0.0, m_filled, 1.0), mine, empty);
         QFont figure = plainFont(&painter);
@@ -196,7 +201,6 @@ void SkillRow::paintEvent(QPaintEvent *) {
         painter.setPen(scheme.hint);
         painter.drawText(QRectF(gaugeLeft + 60.0, 0.0, kGaugeWide - 60.0, height()),
                          Qt::AlignLeft | Qt::AlignVCenter, m_right);
-        room = gaugeLeft - left - 8.0;
     }
 
     QFont says = plainFont(&painter);
