@@ -228,6 +228,30 @@ Pools poolsFromXp(int xp, const Innates &innates);
 // et demi: les innées pressent l'apprentissage, elles ne le remplacent pas.
 qreal learnRate(const Innates &innates, Learned which);
 
+// Ce qu'une manche vaut à qui en a déjà vu beaucoup.
+//
+// L'expérience d'une manche ne dépend que de la place (Rivals.cpp): un
+// adversaire à mille xp en gagnait autant qu'un qui en a dix. Le haut de
+// l'échelle se remplissait donc au même train que le bas -- dix parties de six
+// et les six avaient tous leurs rangs, mesuré à l'arène -- alors que le bas
+// est la seule partie qui ait été réglée pour aller vite.
+//
+// Plein tarif tant qu'il débute, et de moins en moins ensuite: la part qu'il a
+// déjà est ce qui ralentit la suivante. Jamais rien, cela dit -- voir le
+// plancher dans noteRivalHand.
+//
+//     expérience   une manche vaut   pour en arriver là, en parties de six
+//            200   plein tarif        2
+//            600   un tiers          11
+//            920   un cinquième      25
+//           1200   un sixième        41
+qreal learnTaper(int xp);
+
+// Jusqu'où une manche vaut ce qu'elle a toujours valu. C'est très exactement
+// « cesser d'être débutant »: les trois ou quatre parties que cela demande
+// sont voulues ainsi, et ne bougent pas.
+inline constexpr int kLearnFullUntil = 200;
+
 // La phrase qui le décrit, tirée de ses innées -- celle que porte sa carte
 // quand on l'a changé, pour qu'elle ne mente pas sur ce qu'il est devenu.
 QString blurbFrom(const Innates &innates);

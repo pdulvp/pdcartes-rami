@@ -169,9 +169,11 @@ de votre main — le même cerveau qu'Oriane, sans ses bourdes</td></tr>
 un joueur avec un passé : deux s'assoient en ne sachant presque rien, trois
 connaissent le jeu, et Oriane y joue depuis des années. Ce qu'ils savent est
 un seul chiffre, leur <b>expérience</b>, qui monte un peu à chaque manche
-jouée et un peu plus à chaque manche gagnée — et qui est toujours là quand
-vous revenez. Une table que vous battiez le mois dernier est une table qui
-vous bat ce mois-ci.</p>
+jouée et un peu plus à chaque manche gagnée — de moins en moins vite à mesure
+qu'ils savent, si bien que les premiers rangs viennent en quelques parties et
+les derniers se font attendre — et qui est toujours là quand vous revenez.
+Une table que vous battiez le mois dernier est une table qui vous bat ce
+mois-ci.</p>
 
 <table>
 <tr><th>Débutant</th><td>0 à 199 — lit sa main de travers et manque des

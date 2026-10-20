@@ -274,6 +274,14 @@ void noteRivalHand(const QString &rivalId, int place, int seats, bool wentOut,
     int gained = 5 + (9 * standing) / others;
     if (wentOut) gained += 8;
 
+    // Et ce que cela vaut à qui en a déjà tant vu. Sans ce palier, le tarif
+    // était plat en expérience: dix parties de six menaient les six au
+    // plafond, parce que la manche d'un adversaire à mille xp rapportait
+    // autant que la manche de celui qui arrive. Le plancher d'un point est la
+    // même phrase qu'au-dessus, tenue jusqu'au bout -- une manche jouée reste
+    // une manche jouée, et le dernier rang reste atteignable.
+    gained = std::max(1, qRound(gained * learnTaper(learning.xp)));
+
     QSettings settings;
     spreadGain(settings, slot, who, rivalInnate(who.id, slot), learning.pools, gained, deeds);
     settings.setValue(rivalKey(slot, who.id, QStringLiteral("manches")), learning.handsPlayed + 1);
@@ -299,8 +307,10 @@ void noteRivalMatch(const QString &rivalId, bool won) {
     // it, and it is the only place the figure moves outside a manche.
     if (!won) return;
     // Une partie gagnée est une partie gagnée: elle ne crédite pas une
-    // compétence en particulier.
-    spreadGain(settings, slot, who, rivalInnate(who.id, slot), learning.pools, 12, Deeds{});
+    // compétence en particulier. Elle se tempère comme une manche, et pour la
+    // même raison: c'est la même expérience.
+    const int prize = std::max(1, qRound(12 * learnTaper(learning.xp)));
+    spreadGain(settings, slot, who, rivalInnate(who.id, slot), learning.pools, prize, Deeds{});
 }
 
 void resetRivalExperience(const QString &rivalId) {

@@ -400,6 +400,16 @@ qreal learnRate(const Innates &innates, Learned which) {
     return 1.0 + 0.15 * innates.at(feeds(which));
 }
 
+qreal learnTaper(int xp) {
+    const int seen = qBound(0, xp, kMaxExperience);
+    if (seen <= kLearnFullUntil) return 1.0;
+    // La part qu'il a déjà, renversée: une hyperbole plutôt qu'un palier, pour
+    // qu'il n'y ait pas une manche où l'on sent que le tarif a changé. Elle
+    // n'atteint jamais zéro -- un plafond qu'on ne peut plus approcher n'est
+    // pas un plafond, c'est un mur.
+    return qreal(kLearnFullUntil) / seen;
+}
+
 Innate dominantInnate(const Innates &innates) {
     // Celle qui s'écarte le plus du milieu -- zéro et trois frappent autant,
     // un et deux presque pas. À égalité, le niveau le plus haut, parce qu'un
