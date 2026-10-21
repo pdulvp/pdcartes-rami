@@ -209,7 +209,7 @@ void RivalSheet::setEditing(bool editing) {
 void RivalSheet::askResetExperience() {
     const Learning learning = learningFor(m_rivalId);
     const auto answer = QMessageBox::question(
-        this, tr("Ramisol"),
+        this, tr("pdcartes-rami"),
         tr("Remettre l'expérience de %1 à zéro, sur « %2 » ? Ses %3 xp, ses %4 manches et son "
            "palmarès s'effacent. Il garde son nom et ce qu'il est.")
             .arg(rivalName(m_rivalId))
@@ -233,7 +233,7 @@ void RivalSheet::applyInnate() {
 
     const Learning learning = learningFor(m_rivalId);
     const auto answer = QMessageBox::question(
-        this, tr("Ramisol"),
+        this, tr("pdcartes-rami"),
         tr("Changer ce que %1 est ? Il réapprendra tout : %2 xp, %3 manches et son palmarès "
            "s'effacent, sur « %4 ».")
             .arg(rivalName(m_rivalId))

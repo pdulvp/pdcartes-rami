@@ -40,14 +40,14 @@ void ensureIconTheme() {
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QApplication::setOrganizationName("ramisol");
-    QApplication::setApplicationName("ramisol");
+    QApplication::setOrganizationName("pdcartes-rami");
+    QApplication::setApplicationName("pdcartes-rami");
     QApplication::setApplicationVersion(fullVersion());
     // What the desktop knows this application by. On Wayland it becomes the
     // window's app_id, and a shell matches that against the .desktop file of
     // the same name to work out which application a window belongs to --
     // which is what lets it be pinned.
-    QApplication::setDesktopFileName(QStringLiteral("ramisol"));
+    QApplication::setDesktopFileName(QStringLiteral("pdcartes-rami"));
 
     // The game is in French, so its numbers and its dates are French too,
     // whatever the machine is set to.
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 
     QCommandLineParser parser;
     parser.setApplicationDescription(
-        QCoreApplication::translate("main", "Ramisol — le rami sur tapis vert."));
+        QCoreApplication::translate("main", "pdcartes-rami — le rami sur tapis vert."));
     parser.addHelpOption();
     parser.addVersionOption();
     QCommandLineOption exportDeck(

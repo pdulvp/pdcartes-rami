@@ -26,9 +26,9 @@
 //
 // Elle se lance à la main, avant et après avoir touché à Brain.cpp :
 //
-//     ./build/ramisol-arene 150          la mesure de référence (~5 min)
-//     ./build/ramisol-arene 50 0         plus vite, pour un essai
-//     ./build/ramisol-arene 0 400        les duels seuls
+//     ./build/pdcartes-rami-arene 150          la mesure de référence (~5 min)
+//     ./build/pdcartes-rami-arene 50 0         plus vite, pour un essai
+//     ./build/pdcartes-rami-arene 0 400        les duels seuls
 //
 // Rien ici n'écrit dans les réglages : les compétences sont posées dans le
 // code, pas lues sur le profil, pour que mesurer une partie ne fasse pas
@@ -350,7 +350,7 @@ QString average(qint64 total, qint64 count, int digits = 1) {
 
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
-    QCoreApplication::setApplicationName(QStringLiteral("ramisol-arene"));
+    QCoreApplication::setApplicationName(QStringLiteral("pdcartes-rami-arene"));
 
     const QStringList args = QCoreApplication::arguments();
     // Zéro parties : on saute les tables et on ne fait que les duels, parce

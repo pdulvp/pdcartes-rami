@@ -63,7 +63,7 @@ void inkLabel(QLabel *label, const QColor &colour) {
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    setWindowTitle(tr("Ramisol"));
+    setWindowTitle(tr("pdcartes-rami"));
 
     readSettings();
     // Le tapis du profil, et ses cartes: tous deux lui appartiennent.
@@ -111,7 +111,7 @@ QWidget *MainWindow::buildTopBar() {
     m_topBar->setObjectName(QStringLiteral("topBar"));
     m_topBar->setFixedHeight(kTopBarHeight);
 
-    m_title = new QLabel(tr("Ramisol"), m_topBar);
+    m_title = new QLabel(tr("pdcartes-rami"), m_topBar);
     QFont name = m_title->font();
     name.setBold(true);
     if (name.pointSizeF() > 0) name.setPointSizeF(name.pointSizeF() * 1.22);
@@ -214,7 +214,7 @@ void MainWindow::askLeaveMatch() {
     const Phase phase = m_table->game()->phase();
     if (m_table->playing() && phase != Phase::MatchOver) {
         const auto answer = QMessageBox::question(
-            this, tr("Ramisol"),
+            this, tr("pdcartes-rami"),
             tr("La partie en cours sera perdue. Revenir au menu ?"),
             QMessageBox::Cancel | QMessageBox::Yes);
         if (answer != QMessageBox::Yes) return;
@@ -310,7 +310,7 @@ void MainWindow::renameProfile(int slot) {
 void MainWindow::askForgetProfile(int slot) {
     const ProfileRecord record = profileRecord(slot);
     const auto answer = QMessageBox::question(
-        this, tr("Ramisol"),
+        this, tr("pdcartes-rami"),
         tr("Effacer les parties de « %1 » et remettre les six adversaires à leur "
            "niveau de départ ?")
             .arg(record.name),

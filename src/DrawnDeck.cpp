@@ -54,9 +54,9 @@ bool exportDrawnDeck(const QString &path, QString *why) {
 
     CardSet set;
     set.name = QCoreApplication::translate("drawn", "Le jeu dessiné");
-    set.author = QCoreApplication::translate("drawn", "Ramisol");
+    set.author = QCoreApplication::translate("drawn", "pdcartes-rami");
     set.note = QCoreApplication::translate(
-        "drawn", "Les cartes que Ramisol dessine lui-même, rendues en images.");
+        "drawn", "Les cartes que pdcartes-rami dessine lui-même, rendues en images.");
 
     for (int slot = 0; slot < CardSet::kSlots; ++slot) {
         Card card;

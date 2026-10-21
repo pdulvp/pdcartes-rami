@@ -32,7 +32,7 @@
             "dependsOn": ["Configure"],
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "Builds, then packs build/ramisol_<version>-<build>_<arch>.deb"
+            "detail": "Builds, then packs build/pdcartes-rami_<version>-<build>_<arch>.deb"
         }
     ]
 }

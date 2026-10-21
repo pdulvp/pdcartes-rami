@@ -58,7 +58,7 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     rows->setContentsMargins(30, 24, 30, 26);
     rows->setSpacing(0);
 
-    m_title = heading(page, tr("Ramisol"), 2.1, true);
+    m_title = heading(page, tr("pdcartes-rami"), 2.1, true);
     m_subtitle = heading(page, tr("Le rami, à deux ou à six, contre des adversaires qui "
                                   "apprennent d'une partie à l'autre."),
                          1.0, false);
@@ -242,7 +242,7 @@ void TablePicker::showRivalSheet(const QString &rivalId) {
 void TablePicker::askResetRival(const QString &rivalId) {
     const Rival &who = rivalById(rivalId);
     const auto answer = QMessageBox::question(
-        this, tr("Ramisol"),
+        this, tr("pdcartes-rami"),
         tr("Remettre %1 à %2 points d'expérience (%3), sur « %4 » ?")
             .arg(rivalName(rivalId))
             .arg(who.startXp)

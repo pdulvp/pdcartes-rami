@@ -14,7 +14,7 @@
 # the version it is naming the package with. Stamping it again there would
 # put one version on the package and a later one in the binary inside it, so
 # while packaging the stamp is left alone.
-if(DEFINED ENV{RAMISOL_KEEP_VERSION} AND EXISTS "${OUT_TXT}")
+if(DEFINED ENV{PDCARTES_RAMI_KEEP_VERSION} AND EXISTS "${OUT_TXT}")
     return()
 endif()
 
@@ -26,10 +26,10 @@ file(WRITE "${OUT_CPP}"
 //
 // extern, because a const at namespace scope is this file's own otherwise,
 // and the program is to read them from elsewhere.
-extern const char *const kRamisolVersion;
-const char *const kRamisolVersion = \"${VERSION}\";
-extern const char *const kRamisolBuildVersion;
-const char *const kRamisolBuildVersion = \"${BUILD_VERSION}\";
+extern const char *const kPdcartesRamiVersion;
+const char *const kPdcartesRamiVersion = \"${VERSION}\";
+extern const char *const kPdcartesRamiBuildVersion;
+const char *const kPdcartesRamiBuildVersion = \"${BUILD_VERSION}\";
 ")
 
 file(WRITE "${OUT_TXT}" "${BUILD_VERSION}")

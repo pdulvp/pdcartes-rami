@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.16)
 # The version, in one place and in the plainest form there is: three numbers
 # in a file, which the release moves on and which nothing has to parse out
 # of source code.
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" RAMISOL_VERSION)
-string(STRIP "${RAMISOL_VERSION}" RAMISOL_VERSION)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PDCARTES_RAMI_VERSION)
+string(STRIP "${PDCARTES_RAMI_VERSION}" PDCARTES_RAMI_VERSION)
 
-project(ramisol VERSION ${RAMISOL_VERSION} LANGUAGES CXX)
+project(pdcartes-rami VERSION ${PDCARTES_RAMI_VERSION} LANGUAGES CXX)
 
 # So that moving it on is enough: the next build reconfigures rather than
 # carrying yesterday's number.
@@ -57,17 +57,17 @@ set(BUILD_VERSION_TXT ${CMAKE_CURRENT_BINARY_DIR}/BuildVersion.txt)
 set(GENERATE_VERSION ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateVersion.cmake)
 
 # Once now, so the file exists before anything is compiled.
-execute_process(COMMAND ${CMAKE_COMMAND} -DVERSION=${RAMISOL_VERSION}
+execute_process(COMMAND ${CMAKE_COMMAND} -DVERSION=${PDCARTES_RAMI_VERSION}
     -DOUT_CPP=${BUILD_VERSION_CPP} -DOUT_TXT=${BUILD_VERSION_TXT} -P ${GENERATE_VERSION})
 
 add_custom_target(build-version ALL
     BYPRODUCTS ${BUILD_VERSION_CPP} ${BUILD_VERSION_TXT}
-    COMMAND ${CMAKE_COMMAND} -DVERSION=${RAMISOL_VERSION}
+    COMMAND ${CMAKE_COMMAND} -DVERSION=${PDCARTES_RAMI_VERSION}
         -DOUT_CPP=${BUILD_VERSION_CPP} -DOUT_TXT=${BUILD_VERSION_TXT} -P ${GENERATE_VERSION}
     COMMENT "Stamping the build with the time it was made")
 set_source_files_properties(${BUILD_VERSION_CPP} PROPERTIES GENERATED TRUE)
 
-add_executable(ramisol
+add_executable(pdcartes-rami
     ${BUILD_VERSION_CPP}
     src/Version.h
     src/main.cpp
@@ -137,20 +137,20 @@ add_executable(ramisol
 )
 
 # So the stamp is written before the sources that carry it are compiled.
-add_dependencies(ramisol build-version)
+add_dependencies(pdcartes-rami build-version)
 
-target_link_libraries(ramisol PRIVATE cartotheque Qt6::Widgets)
+target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
 
 # Sur Windows, un programme à fenêtres et non un programme de console: sans
 # cela une console noire s'ouvre derrière le tapis et reste là.
-set_target_properties(ramisol PROPERTIES WIN32_EXECUTABLE ON)
+set_target_properties(pdcartes-rami PROPERTIES WIN32_EXECUTABLE ON)
 
 # Là-bas l'exe est à la racine du dossier, avec ses DLL autour -- c'est ce
 # qu'attend quelqu'un qui décompresse un jeu; ici, dans bin.
 if(WIN32)
-    install(TARGETS ramisol RUNTIME DESTINATION .)
+    install(TARGETS pdcartes-rami RUNTIME DESTINATION .)
 else()
-    install(TARGETS ramisol RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(TARGETS pdcartes-rami RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # L'arène : le moteur et les cerveaux sans l'écran, pour mesurer.
@@ -159,7 +159,7 @@ endif()
 # qu'on fait tourner avant et après avoir touché à Brain.cpp pour voir si les
 # manches finissent encore. Elle ne lie que Qt6::Core, ce qui est la preuve
 # qu'elle cherche: tout ce qu'elle compile ne sait pas qu'il y a une fenêtre.
-add_executable(ramisol-arene EXCLUDE_FROM_ALL
+add_executable(pdcartes-rami-arene EXCLUDE_FROM_ALL
     src/Arene.cpp
     src/Cards.cpp
     src/Cards.h
@@ -179,13 +179,13 @@ add_executable(ramisol-arene EXCLUDE_FROM_ALL
     src/Brain.h
 )
 
-target_link_libraries(ramisol-arene PRIVATE Qt6::Core)
+target_link_libraries(pdcartes-rami-arene PRIVATE Qt6::Core)
 
 # So a desktop shell can tell which application a window belongs to. The
 # file's name must match the app_id the application sets with
 # setDesktopFileName().
 if(UNIX AND NOT APPLE)
-    install(FILES data/ramisol.desktop
+    install(FILES data/pdcartes-rami.desktop
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
 endif()
 
@@ -225,15 +225,15 @@ if(WIN32)
     endif()
 
     set(CPACK_GENERATOR "ZIP")
-    set(CPACK_PACKAGE_NAME "ramisol")
-    set(CPACK_PACKAGE_VERSION "${RAMISOL_VERSION}")
+    set(CPACK_PACKAGE_NAME "pdcartes-rami")
+    set(CPACK_PACKAGE_VERSION "${PDCARTES_RAMI_VERSION}")
     # L'archive porte la version et l'empreinte du build, comme le paquet
     # Debian porte la sienne. Le nom se décide au moment de l'empaquetage et
     # non ici -- l'empreinte n'est écrite qu'à la construction, et celle de
     # la configuration a des semaines de builds de retard; voir
     # cmake/CPackOptions.cmake. Ce nom-ci n'est que le recours, si l'empreinte
     # manque.
-    set(CPACK_PACKAGE_FILE_NAME "ramisol-${RAMISOL_VERSION}-windows-x86_64")
+    set(CPACK_PACKAGE_FILE_NAME "pdcartes-rami-${PDCARTES_RAMI_VERSION}-windows-x86_64")
     set(CPACK_BUILD_VERSION_FILE "${BUILD_VERSION_TXT}")
     set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPackOptions.cmake")
     # L'exe et ses DLL à la racine de l'archive, et non dans un dossier de
@@ -244,9 +244,9 @@ if(WIN32)
     # Un pas du dossier de travail à l'archive, comme la cible deb de l'autre
     # côté: `cmake --build build-win --target zip`.
     add_custom_target(zip
-        COMMAND ${CMAKE_COMMAND} -E env RAMISOL_KEEP_VERSION=1
+        COMMAND ${CMAKE_COMMAND} -E env PDCARTES_RAMI_KEEP_VERSION=1
             ${CMAKE_CPACK_COMMAND} -G ZIP --config ${CMAKE_CURRENT_BINARY_DIR}/CPackConfig.cmake
-        DEPENDS ramisol
+        DEPENDS pdcartes-rami
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Fabrication de l'archive Windows")
     return()
@@ -254,8 +254,8 @@ endif()
 
 # The Debian package: `cmake --build build --target deb`.
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "ramisol")
-set(CPACK_PACKAGE_VENDOR "ramisol")
+set(CPACK_PACKAGE_NAME "pdcartes-rami")
+set(CPACK_PACKAGE_VENDOR "pdcartes-rami")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Le rami sur tapis vert, à six autour de la table")
 # One string, not three: a list would reach the control file with the
 # semicolons that join it still in place.
@@ -283,13 +283,13 @@ set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPackOptions.cm
 # The version is the project's; the build stamp goes on as the Debian
 # release, so that two packages of 1.0.0 built on different days are told
 # apart and the later one is the newer one.
-set(CPACK_PACKAGE_VERSION "${RAMISOL_VERSION}")
+set(CPACK_PACKAGE_VERSION "${PDCARTES_RAMI_VERSION}")
 include(CPack)
 
 # One step from a working tree to a package.
 add_custom_target(deb
-    COMMAND ${CMAKE_COMMAND} -E env RAMISOL_KEEP_VERSION=1
+    COMMAND ${CMAKE_COMMAND} -E env PDCARTES_RAMI_KEEP_VERSION=1
         ${CMAKE_CPACK_COMMAND} -G DEB --config ${CMAKE_CURRENT_BINARY_DIR}/CPackConfig.cmake
-    DEPENDS ramisol
+    DEPENDS pdcartes-rami
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Building the Debian package")

@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Ramisol
+Name=pdcartes-rami
 GenericName=Rami
 Comment=Le rami sur tapis vert, à six autour de la table
-Exec=ramisol
+Exec=pdcartes-rami
 Icon=applications-games
 Terminal=false
 Categories=Game;CardGame;
@@ -11,4 +11,4 @@ Keywords=rami;cartes;jeu;joker;suite;brelan;tapis;
 # Matched against a window's WM_CLASS when running under X11 or XWayland. On
 # Wayland the app_id set by setDesktopFileName() is what matches instead, and
 # it matches this file by its name.
-StartupWMClass=ramisol
+StartupWMClass=pdcartes-rami

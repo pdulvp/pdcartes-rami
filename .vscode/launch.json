@@ -8,10 +8,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Ramisol",
+            "name": "pdcartes-rami",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/ramisol",
+            "program": "${workspaceFolder}/build/pdcartes-rami",
             "args": [],
             "cwd": "${workspaceFolder}",
             "environment": [],

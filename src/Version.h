@@ -12,11 +12,11 @@
 //
 // Both are defined in a file written at each build; see
 // cmake/GenerateVersion.cmake.
-extern const char *const kRamisolVersion;
-extern const char *const kRamisolBuildVersion;
+extern const char *const kPdcartesRamiVersion;
+extern const char *const kPdcartesRamiBuildVersion;
 
-inline QString appVersion() { return QString::fromLatin1(kRamisolVersion); }
-inline QString buildVersion() { return QString::fromLatin1(kRamisolBuildVersion); }
+inline QString appVersion() { return QString::fromLatin1(kPdcartesRamiVersion); }
+inline QString buildVersion() { return QString::fromLatin1(kPdcartesRamiBuildVersion); }
 
 // The two together, for a line that has room for both.
 inline QString fullVersion() {
