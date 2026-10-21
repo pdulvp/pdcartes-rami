@@ -9,6 +9,11 @@
 # Written in two forms: a source file for the program to carry, and a bare
 # line for the packaging to read, cpack running long after the compiler has
 # finished.
+#
+# Avec RELEASE, pas d'empreinte du tout: une version se nomme par son numéro
+# et rien d'autre, et deux paquets d'une même version n'ont pas à se
+# distinguer -- il n'y en a qu'un. C'est la cible release qui le demande, et
+# elle seule; voir CMakeLists.txt.
 
 # Packaging builds the program again from inside cpack, after cpack has read
 # the version it is naming the package with. Stamping it again there would
@@ -18,7 +23,11 @@ if(DEFINED ENV{PDCARTES_RAMI_KEEP_VERSION} AND EXISTS "${OUT_TXT}")
     return()
 endif()
 
-string(TIMESTAMP BUILD_VERSION "%y%m%d%H%M%S")
+if(RELEASE)
+    set(BUILD_VERSION "")
+else()
+    string(TIMESTAMP BUILD_VERSION "%y%m%d%H%M%S")
+endif()
 
 file(WRITE "${OUT_CPP}"
 "// Written at every build by cmake/GenerateVersion.cmake. Not to be edited,

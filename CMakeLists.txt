@@ -293,3 +293,84 @@ add_custom_target(deb
     DEPENDS pdcartes-rami
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Building the Debian package")
+
+# ---------------------------------------------------------------------------
+# Les deux paquets d'une version, en un pas:
+#
+#     cmake --build build --target release
+#
+# Le deb d'ici et le zip de là-bas, tous deux nommés par la version seule --
+# pdcartes-rami_1.1.0_amd64.deb, pdcartes-rami-1.1.0-windows-x86_64.zip. Un
+# build ordinaire garde son empreinte, lui, derrière un `~` qui le classe
+# avant la version vers laquelle il va; voir cmake/CPackOptions.cmake.
+#
+# Deux arbres, parce que deux compilateurs: un seul cmake ne fabrique pas les
+# deux côtés. Celui-ci mène donc l'autre, en l'appelant.
+#
+# L'absence d'empreinte est à la cible et non à l'arbre: pas d'option de
+# configuration qu'on laisse allumée sans le voir et qui donnerait un jour
+# deux 1.1.0 que dpkg ne sait pas départager.
+
+# Le Qt de Windows, contre lequel l'autre côté se lie. Vide par défaut: le
+# chemin est celui d'une machine, il n'a rien à faire dans le dépôt. Il se
+# donne une fois, et le cache de l'arbre le retient:
+#
+#     cmake -S . -B build -DQT_WIN_PREFIX=/chemin/vers/qt6/6.8.2/mingw_64
+set(QT_WIN_PREFIX "" CACHE PATH
+    "Le Qt pour Windows contre lequel la cible release lie l'autre côté")
+# Celui de la machine, dont la compilation croisée ne prend que les outils.
+set(QT_HOST_PREFIX "/usr" CACHE PATH
+    "Le Qt de cette machine, dont la cible release prend moc, rcc et uic")
+
+set(WIN_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build-win")
+
+if(NOT QT_WIN_PREFIX)
+    # La cible existe quand même, pour que ce soit elle qui le dise plutôt
+    # qu'un « No rule to make target ». Ni apostrophe ni chevron dans ces
+    # lignes: elles traversent un shell, qui verrait une chaîne restée ouverte
+    # dans la première et une redirection dans le second.
+    add_custom_target(release
+        COMMAND ${CMAKE_COMMAND} -E echo
+            "release: QT_WIN_PREFIX manque -- le côté Windows ne peut pas être lié."
+        COMMAND ${CMAKE_COMMAND} -E echo
+            "À donner une fois pour cet arbre:"
+        COMMAND ${CMAKE_COMMAND} -E echo
+            "    cmake -S . -B build -DQT_WIN_PREFIX=/chemin/vers/qt6/6.8.2/mingw_64"
+        COMMAND ${CMAKE_COMMAND} -E false)
+else()
+
+add_custom_target(release
+    # 1. L'arbre d'en face, configuré s'il ne l'est pas déjà. Avant d'écrire
+    #    les versions: sur un arbre neuf, configurer en écrit une au passage.
+    COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR} -B ${WIN_BUILD_DIR}
+        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/cmake/mingw-w64.cmake
+        -DCMAKE_PREFIX_PATH=${QT_WIN_PREFIX}
+        -DQT_HOST_PATH=${QT_HOST_PREFIX}
+
+    # 2. Les deux versions, sans empreinte. PDCARTES_RAMI_KEEP_VERSION tient
+    #    ensuite la cible build-version tranquille, des deux côtés: sans quoi
+    #    le build qui suit les réécrirait, horodatées.
+    COMMAND ${CMAKE_COMMAND} -DVERSION=${PDCARTES_RAMI_VERSION} -DRELEASE=ON
+        -DOUT_CPP=${BUILD_VERSION_CPP} -DOUT_TXT=${BUILD_VERSION_TXT}
+        -P ${GENERATE_VERSION}
+    COMMAND ${CMAKE_COMMAND} -DVERSION=${PDCARTES_RAMI_VERSION} -DRELEASE=ON
+        -DOUT_CPP=${WIN_BUILD_DIR}/BuildVersion.cpp
+        -DOUT_TXT=${WIN_BUILD_DIR}/BuildVersion.txt
+        -P ${GENERATE_VERSION}
+
+    # 3. Les deux binaires avant le premier paquet. Un Qt mal désigné arrête
+    #    tout ici, et il ne reste pas la moitié d'une version sur le disque.
+    COMMAND ${CMAKE_COMMAND} -E env PDCARTES_RAMI_KEEP_VERSION=1
+        ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR} --target pdcartes-rami
+    COMMAND ${CMAKE_COMMAND} -E env PDCARTES_RAMI_KEEP_VERSION=1
+        ${CMAKE_COMMAND} --build ${WIN_BUILD_DIR} --target pdcartes-rami
+
+    # 4. Les deux paquets, par les cibles qui les font déjà.
+    COMMAND ${CMAKE_COMMAND} -E env PDCARTES_RAMI_KEEP_VERSION=1
+        ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR} --target deb
+    COMMAND ${CMAKE_COMMAND} -E env PDCARTES_RAMI_KEEP_VERSION=1
+        ${CMAKE_COMMAND} --build ${WIN_BUILD_DIR} --target zip
+
+    COMMENT "Les deux paquets de la version ${PDCARTES_RAMI_VERSION}")
+
+endif()
