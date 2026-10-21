@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 
 # The version, in one place and in the plainest form there is: three numbers
-# in a file, which the bump tasks move on and which nothing has to parse out
+# in a file, which the release moves on and which nothing has to parse out
 # of source code.
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" RAMISOL_VERSION)
 string(STRIP "${RAMISOL_VERSION}" RAMISOL_VERSION)
 
 project(ramisol VERSION ${RAMISOL_VERSION} LANGUAGES CXX)
 
-# So that bumping it is enough: the next build reconfigures rather than
+# So that moving it on is enough: the next build reconfigures rather than
 # carrying yesterday's number.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")

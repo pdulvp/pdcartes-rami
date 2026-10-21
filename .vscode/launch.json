@@ -39,29 +39,6 @@
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "command": "cmake -S . -B build && cmake --build build --target deb && ls -la build/*.deb"
-        },
-        {
-            // Raising one part sets the parts under it back to zero. The
-            // next build picks the new number up by itself.
-            "name": "Bump major",
-            "type": "node-terminal",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "command": "cmake -DFILE=VERSION -DPART=major -P cmake/BumpVersion.cmake"
-        },
-        {
-            "name": "Bump minor",
-            "type": "node-terminal",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "command": "cmake -DFILE=VERSION -DPART=minor -P cmake/BumpVersion.cmake"
-        },
-        {
-            "name": "Bump micro",
-            "type": "node-terminal",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "command": "cmake -DFILE=VERSION -DPART=patch -P cmake/BumpVersion.cmake"
         }
     ]
 }

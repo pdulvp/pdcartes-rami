@@ -33,45 +33,6 @@
             "group": "build",
             "problemMatcher": ["$gcc"],
             "detail": "Builds, then packs build/ramisol_<version>-<build>_<arch>.deb"
-        },
-        {
-            // The three parts of the version, each on its own task. Raising
-            // one sets the parts under it back to zero; the next build picks
-            // the new number up by itself.
-            "label": "Bump major",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-DFILE=${workspaceFolder}/VERSION",
-                "-DPART=major",
-                "-P", "${workspaceFolder}/cmake/BumpVersion.cmake"
-            ],
-            "problemMatcher": [],
-            "detail": "1.0.0 -> 2.0.0"
-        },
-        {
-            "label": "Bump minor",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-DFILE=${workspaceFolder}/VERSION",
-                "-DPART=minor",
-                "-P", "${workspaceFolder}/cmake/BumpVersion.cmake"
-            ],
-            "problemMatcher": [],
-            "detail": "1.0.0 -> 1.1.0"
-        },
-        {
-            "label": "Bump micro",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-DFILE=${workspaceFolder}/VERSION",
-                "-DPART=patch",
-                "-P", "${workspaceFolder}/cmake/BumpVersion.cmake"
-            ],
-            "problemMatcher": [],
-            "detail": "1.0.0 -> 1.0.1"
         }
     ]
 }

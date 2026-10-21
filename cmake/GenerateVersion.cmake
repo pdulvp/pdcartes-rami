@@ -1,8 +1,8 @@
 # What the game says about itself: the version it was given, and the moment
 # this particular build was made.
 #
-# The version comes from the VERSION file, moved on by hand (or by the bump
-# tasks); the stamp is taken here at every build, so that two builds of the
+# The version comes from the VERSION file, moved on at release time; the
+# stamp is taken here at every build, so that two builds of the
 # same version are still told apart -- which is what a version alone cannot
 # do for something that is rebuilt rather than released.
 #
