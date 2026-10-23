@@ -180,6 +180,35 @@ qt_add_resources(pdcartes-rami "titre"
         assets/M_PLUS_2/static/MPLUS2-Regular.ttf
         assets/M_PLUS_2/static/MPLUS2-Bold.ttf)
 
+# Les icônes des boutons, dans le binaire elles aussi.
+#
+# Un bureau Linux apporte son thème et le jeu le préfère, pour rester chez lui
+# sur la machine de quelqu'un; Windows n'en a pas, et les boutons y étaient
+# nus. Celles-ci sont le second recours -- voir `appIcon()` dans MenuStyle.
+#
+# Elles viennent du thème Adwaita de GNOME: voir assets/icons/PROVENANCE.txt,
+# dont la licence et les auteurs s'installent à côté du jeu.
+qt_add_resources(pdcartes-rami "icones"
+    PREFIX "/icons"
+    BASE assets/icons
+    FILES
+        assets/icons/display-brightness-symbolic.svg
+        assets/icons/document-edit-symbolic.svg
+        assets/icons/document-open-symbolic.svg
+        assets/icons/edit-undo-symbolic.svg
+        assets/icons/folder-open-symbolic.svg
+        assets/icons/folder-symbolic.svg
+        assets/icons/go-home-symbolic.svg
+        assets/icons/go-previous-symbolic.svg
+        assets/icons/help-about-symbolic.svg
+        assets/icons/help-contents-symbolic.svg
+        assets/icons/night-light-symbolic.svg
+        assets/icons/preferences-system-symbolic.svg
+        assets/icons/user-home-symbolic.svg
+        assets/icons/view-refresh-symbolic.svg
+        assets/icons/weather-clear-night-symbolic.svg
+        assets/icons/weather-clear-symbolic.svg)
+
 target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
 
 # Sur Windows, un programme à fenêtres et non un programme de console: sans
@@ -209,6 +238,19 @@ foreach(_font ZenDots ZenTokyoZoo M_PLUS_2)
         install(FILES assets/${_font}/OFL.txt
                 DESTINATION ${CMAKE_INSTALL_DOCDIR}
                 RENAME OFL-${_named}.txt)
+    endif()
+endforeach()
+
+# Et celle des icônes, avec les auteurs du thème dont elles viennent: l'une
+# comme l'autre sont demandées par les termes sous lesquels Adwaita les donne.
+foreach(_paper LICENSE-CC-BY-SA-3.0 AUTHORS PROVENANCE)
+    if(WIN32)
+        install(FILES assets/icons/${_paper}.txt DESTINATION .
+                RENAME icones-${_paper}.txt)
+    else()
+        install(FILES assets/icons/${_paper}.txt
+                DESTINATION ${CMAKE_INSTALL_DOCDIR}
+                RENAME icones-${_paper}.txt)
     endif()
 endforeach()
 
@@ -267,6 +309,13 @@ if(WIN32)
         "${QT_BIN}/Qt6Gui.dll"
         "${QT_BIN}/Qt6Widgets.dll"
         DESTINATION .)
+    # Les icônes que le jeu emporte sont des SVG, et un SVG se lit par un
+    # greffon qui dépend de cette bibliothèque-là. Sans elle le greffon ne se
+    # charge pas, et les boutons de Windows seraient nus comme avant -- sans
+    # un mot, puisqu'une icône absente n'est pas une erreur.
+    if(EXISTS "${QT_BIN}/Qt6Svg.dll")
+        install(FILES "${QT_BIN}/Qt6Svg.dll" DESTINATION .)
+    endif()
     install(FILES "${QT_PLUGINS}/platforms/qwindows.dll" DESTINATION platforms)
     install(FILES "${QT_PLUGINS}/styles/qmodernwindowsstyle.dll" DESTINATION styles)
     install(DIRECTORY "${QT_PLUGINS}/imageformats/" DESTINATION imageformats

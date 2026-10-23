@@ -8,6 +8,7 @@
 #include <QCoreApplication>
 #include <QFontMetricsF>
 #include <QHash>
+#include <QGuiApplication>
 #include <QPainter>
 #include <QPainterPath>
 #include <QRadialGradient>
@@ -384,6 +385,13 @@ qreal cardCornerFor(const QRectF &box) {
 
 QFont plainFont(const QPainter *painter) {
     QFont font = painter ? painter->font() : QFont();
+    // La famille aussi, et pas seulement la graisse et l'interlettrage: une
+    // enseigne posée sur le peintre -- le nom d'une pile, le titre du tapis --
+    // laissait sinon sa fonte d'affichage à tout ce qui se dessinait après
+    // elle. Le jeu s'est retrouvé avec des zéros barrés sur ses cartes et un
+    // accent perdu sur sa plaque, parce qu'une fonte d'affichage n'a ni l'un
+    // ni l'autre.
+    font.setFamily(QGuiApplication::font().family());
     font.setBold(false);
     font.setItalic(false);
     font.setCapitalization(QFont::MixedCase);
@@ -452,6 +460,23 @@ const QPixmap &weaveTile(const Palette &scheme) {
     kept.dark = darkMode();
     kept.made = true;
     return kept.tile;
+}
+
+QColor feltPlaqueFill(const Palette &scheme, qreal lift) {
+    QColor fill = blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.52);
+    if (lift > 0.0) fill = blendColours(fill, scheme.gold, lift);
+    fill.setAlpha(205);
+    return fill;
+}
+
+QColor feltGold(const Palette &scheme, qreal strength) {
+    QColor line = scheme.gold;
+    line.setAlphaF(qBound(0.0, strength, 1.0));
+    return line;
+}
+
+QColor feltBarFace(const Palette &scheme) {
+    return blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.46);
 }
 
 void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool withBraid) {

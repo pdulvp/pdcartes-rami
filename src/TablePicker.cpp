@@ -57,22 +57,6 @@ constexpr int kHeadingGap = 10;
 // plus court que le vol: le menu est là quand le logo arrive, et non après.
 constexpr int kEntranceMs = 430;
 
-// Ce qui est posé sur le drap: presque noir, et translucide pour que le
-// tissage se devine dessous. C'est ce qui fait que les plaques sont posées
-// sur le tapis et non découpées dedans.
-QColor plaqueFill(const Palette &scheme, qreal lift = 0.0) {
-    QColor fill = blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.52);
-    if (lift > 0.0) fill = blendColours(fill, scheme.gold, lift);
-    fill.setAlpha(205);
-    return fill;
-}
-
-QColor goldLine(const Palette &scheme, qreal strength) {
-    QColor line = scheme.gold;
-    line.setAlphaF(strength);
-    return line;
-}
-
 // Le titre d'une section: trois mots d'or en capitales, et un filet qui court
 // jusqu'au bout de la page. Dessiné par une étiquette et une règle plutôt que
 // par la chrome des dialogues, qui est faite pour un fond pâle.
@@ -457,7 +441,7 @@ void TablePicker::dressLengths() {
                 .arg(scheme.gold.blue())
                 .arg(mine ? 230 : 150));
 
-        const QColor fill = plaqueFill(scheme, mine ? 0.14 : 0.0);
+        const QColor fill = feltPlaqueFill(scheme, mine ? 0.14 : 0.0);
         plaque.button->setStyleSheet(
             QStringLiteral("QPushButton { border-radius: 9px;"
                            " background: rgba(%1,%2,%3,%4);"
@@ -468,8 +452,8 @@ void TablePicker::dressLengths() {
                 .arg(fill.blue())
                 .arg(fill.alpha())
                 .arg(mine ? 2 : 1)
-                .arg(goldLine(scheme, mine ? 0.95 : 0.26).name(QColor::HexArgb),
-                     goldLine(scheme, 0.75).name(QColor::HexArgb)));
+                .arg(feltGold(scheme, mine ? 0.95 : 0.26).name(QColor::HexArgb),
+                     feltGold(scheme, 0.75).name(QColor::HexArgb)));
     }
 }
 
@@ -496,7 +480,7 @@ void TablePicker::refresh() {
         }
         if (auto *rule = heading->findChild<QFrame *>(QStringLiteral("feltSectionRule"))) {
             rule->setStyleSheet(QStringLiteral("background: %1; border: 0;")
-                                    .arg(goldLine(scheme, 0.28).name(QColor::HexArgb)));
+                                    .arg(feltGold(scheme, 0.28).name(QColor::HexArgb)));
         }
     }
 

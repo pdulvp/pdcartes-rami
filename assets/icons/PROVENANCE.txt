@@ -1,0 +1,13 @@
+Les icônes de ce dossier viennent du thème Adwaita du projet GNOME
+(adwaita-icon-theme), https://gitlab.gnome.org/GNOME/adwaita-icon-theme.
+
+Elles sont reprises telles quelles, sous les termes que ce thème donne à ses
+fichiers : CC-BY-SA-3.0, au choix LGPL-3, et CC-BY-SA-4.0. Le texte de la
+licence retenue est dans LICENSE-CC-BY-SA-3.0.txt, et les auteurs du thème
+dans AUTHORS.txt — tous deux installés à côté du jeu, comme les licences des
+fontes.
+
+Pourquoi elles sont là plutôt que prises au bureau : un bureau Linux apporte
+son thème d'icônes, Windows n'en a pas. Le jeu demande d'abord celle du
+bureau, pour rester chez lui sur la machine de quelqu'un, et se rabat sur
+celle-ci quand il n'y en a pas.

@@ -2,6 +2,10 @@
 
 #include "Palette.h"
 
+#include <QFile>
+#include <QPainter>
+#include <QPixmap>
+
 #include <QMenu>
 #include <QString>
 #include <QToolButton>
@@ -23,6 +27,52 @@ void dressMenu(QMenu *menu) {
                  scheme.accent.name(), scheme.accentText.name(), scheme.hint.name()));
 }
 
+namespace {
+
+// La même teinture que `tintedIcon`, mais sur une image qu'on apporte: la
+// forme est gardée et la couleur jetée, ce qui est tout ce que teinter une
+// icône d'un seul ton veut dire.
+QIcon tintedFile(const QString &path, const QColor &ink) {
+    const QIcon source(path);
+    if (source.isNull()) return {};
+
+    QIcon tinted;
+    for (int size : {16, 22, 24, 32, 48}) {
+        QPixmap art = source.pixmap(size, size);
+        if (art.isNull()) continue;
+
+        QPixmap coloured(art.size());
+        coloured.setDevicePixelRatio(art.devicePixelRatio());
+        coloured.fill(Qt::transparent);
+
+        QPainter painter(&coloured);
+        painter.drawPixmap(0, 0, art);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        painter.fillRect(coloured.rect(), ink);
+        painter.end();
+
+        tinted.addPixmap(coloured);
+    }
+    return tinted;
+}
+
+} // namespace
+
+QIcon appIcon(const QStringList &names, const QColor &ink) {
+    // Le bureau d'abord: sur une machine qui a un thème, le jeu porte les
+    // icônes de la maison plutôt que les siennes.
+    const QIcon theirs = tintedIcon(names, ink);
+    if (!theirs.isNull()) return theirs;
+
+    for (const QString &name : names) {
+        const QString path = QStringLiteral(":/icons/%1.svg").arg(name);
+        if (!QFile::exists(path)) continue;
+        const QIcon ours = tintedFile(path, ink);
+        if (!ours.isNull()) return ours;
+    }
+    return {};
+}
+
 QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QString &fallback,
                         const QString &tip) {
     const Palette &scheme = currentPalette();
@@ -32,7 +82,7 @@ QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QSt
     button->setFocusPolicy(Qt::NoFocus);
     button->setIconSize(QSize(17, 17));
 
-    const QIcon icon = tintedIcon(iconNames, scheme.surfaceText);
+    const QIcon icon = appIcon(iconNames, scheme.surfaceText);
     if (icon.isNull()) {
         button->setText(fallback);
         button->setToolButtonStyle(Qt::ToolButtonTextOnly);

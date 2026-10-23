@@ -41,6 +41,24 @@ QSizeF cardSizeForWidth(qreal width);
 // derrière une page de plaques est un cadre de plus qui ne cadre rien.
 void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool braid = true);
 
+// Ce qu'on pose sur le drap, et ce qui le borde.
+//
+// Écrit ici et non dans chaque page, parce que le menu d'ouverture et la
+// table portent la même tenue et qu'une recette répétée est une recette qui
+// se met à diverger. Presque noir et translucide, pour que le tissage se
+// devine dessous -- c'est ce qui fait que la plaque est posée sur le tapis et
+// non découpée dedans.
+//
+// `lift` tire la plaque vers l'or quand elle est choisie ou allumée.
+QColor feltPlaqueFill(const Palette &scheme, qreal lift = 0.0);
+// L'or des filets, à la force qu'on veut: un cheveu au repos, franc quand la
+// chose est choisie.
+QColor feltGold(const Palette &scheme, qreal strength);
+// Le fond des deux bandes, celle du haut et celle du bas: plus sombre encore
+// que les plaques, parce qu'une bande n'est pas posée sur le drap -- elle le
+// borde.
+QColor feltBarFace(const Palette &scheme);
+
 // The weave on its own, as a tile to brush other things with. Made once per
 // scheme and kept: a cross-hatch drawn line by line over a window-sized area
 // is a thousand lines a repaint.

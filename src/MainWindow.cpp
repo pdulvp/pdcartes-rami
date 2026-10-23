@@ -22,6 +22,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QKeyEvent>
+#include <QPainter>
 #include <QLabel>
 #include <QSettings>
 #include <QStackedWidget>
@@ -37,6 +38,12 @@ constexpr int kMenuPage = 1;
 constexpr int kTablePage = 2;
 constexpr int kTopBarHeight = 50;
 
+// L'icône d'un bouton de la bande: son côté, l'air qu'on lui met à droite
+// pour la séparer du mot, et de combien on la redescend. Voir paddedIcon().
+constexpr int kIconSide = 18;
+constexpr int kIconGap = 6;
+constexpr int kIconDrop = 1;
+
 QToolButton *barButton(QWidget *parent, const QString &text, const QStringList &iconNames,
                        const QString &tip) {
     auto *button = new QToolButton(parent);
@@ -45,9 +52,43 @@ QToolButton *barButton(QWidget *parent, const QString &text, const QStringList &
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     button->setCursor(Qt::PointingHandCursor);
     button->setAutoRaise(true);
-    button->setIconSize(QSize(18, 18));
+    button->setIconSize(QSize(kIconSide + kIconGap, kIconSide + kIconDrop * 2));
     button->setProperty("iconNames", iconNames);
     return button;
+}
+
+// L'icône d'un bouton de la bande, rembourrée de vide transparent.
+//
+// Deux défauts se corrigent là, et pas ailleurs. Qt centre l'icône et le mot
+// chacun dans le même rectangle, si bien qu'un rembourrage asymétrique posé
+// sur le bouton -- celui qui remonte le texte, trop bas dans une fonte
+// japonaise -- remonte l'icône avec lui, alors qu'elle était bien placée. Et
+// il ne laisse presque rien entre l'image et le mot. Comme on ne peut viser
+// ni l'un ni l'autre séparément dans un bouton qu'il dessine lui-même, c'est
+// l'image qui porte les deux corrections: du vide en haut pour la redescendre
+// au milieu de son fond, du vide à droite pour l'écarter du mot.
+QIcon paddedIcon(const QIcon &icon, int side, int rightGap, int topDrop) {
+    if (icon.isNull()) return icon;
+
+    QIcon padded;
+    for (const qreal ratio : {1.0, 2.0}) {
+        const QSize asked(int(side * ratio), int(side * ratio));
+        QPixmap art = icon.pixmap(asked);
+        if (art.isNull()) continue;
+
+        QPixmap room(asked.width() + int(rightGap * ratio),
+                     asked.height() + int(topDrop * ratio * 2.0));
+        room.setDevicePixelRatio(ratio);
+        room.fill(Qt::transparent);
+        QPainter painter(&room);
+        // En haut le vide, en bas rien: l'image se retrouve plus bas que le
+        // milieu de ce qu'on rend, donc plus bas dans le bouton.
+        painter.drawPixmap(QRect(0, int(topDrop * ratio * 2.0), asked.width(), asked.height()),
+                           art);
+        painter.end();
+        padded.addPixmap(room);
+    }
+    return padded.isNull() ? icon : padded;
 }
 
 // What colour a label in the strip is written in.
@@ -439,7 +480,7 @@ void MainWindow::applyColours() {
     for (QToolButton *button :
          {m_menuButton, m_againButton, m_helpButton, m_settingsButton, m_darkButton}) {
         const QStringList names = button->property("iconNames").toStringList();
-        const QIcon icon = tintedIcon(names, barInk);
+        const QIcon icon = paddedIcon(appIcon(names, barInk), kIconSide, kIconGap, kIconDrop);
         button->setIcon(icon);
         if (button == m_darkButton) {
             button->setToolButtonStyle(icon.isNull() ? Qt::ToolButtonTextOnly

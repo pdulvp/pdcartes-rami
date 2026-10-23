@@ -258,6 +258,13 @@ void TablePage::applySettings(const GameSettings &settings) {
 
 void TablePage::refresh() {
     const Palette &scheme = currentPalette();
+    // La bande du bas porte les couleurs de celle du haut: ce sont les deux
+    // bords de la même fenêtre, et une bande pâle sous un drap vert sombre
+    // ressemblait à un panneau posé par une autre application.
+    const QColor barFace = feltBarFace(scheme);
+    const QColor barInk = scheme.feltText;
+    QColor barAside = barInk;
+    barAside.setAlphaF(0.62);
     m_actions->setStyleSheet(
         QStringLiteral("QWidget#actionBar { background: %1; border-top: 1px solid %2; }"
                        "QPushButton { background: %3; color: %4; border: 1px solid %2;"
@@ -267,16 +274,16 @@ void TablePage::refresh() {
                        "QPushButton:disabled { color: %2; background: %1; border-color: %1; }"
                        "QPushButton[strong=\"true\"]:enabled { background: %5; color: %8;"
                        " border: 1px solid %5; font-weight: bold; }"
-                       "QLabel { color: %4; }")
-            .arg(scheme.face.name(), scheme.edge.name(),
-                 blendColours(scheme.face, scheme.surface, 0.55).name(), scheme.faceText.name(),
-                 scheme.accent.name(), blendColours(scheme.face, scheme.accent, 0.16).name(),
-                 blendColours(scheme.face, scheme.accent, 0.30).name(),
-                 scheme.accentText.name()));
+                       "QLabel { color: %9; }")
+            .arg(barFace.name(), feltGold(scheme, 0.30).name(QColor::HexArgb),
+                 feltPlaqueFill(scheme).name(QColor::HexArgb), barInk.name(),
+                 scheme.gold.name(), feltPlaqueFill(scheme, 0.14).name(QColor::HexArgb),
+                 feltPlaqueFill(scheme, 0.26).name(QColor::HexArgb),
+                 readableTextOn(scheme.gold).name(), barAside.name(QColor::HexArgb)));
 
     QPalette bar = m_actions->palette();
-    bar.setColor(QPalette::Window, scheme.face);
-    bar.setColor(QPalette::WindowText, scheme.faceText);
+    bar.setColor(QPalette::Window, barFace);
+    bar.setColor(QPalette::WindowText, barInk);
     m_actions->setPalette(bar);
     m_actions->setAutoFillBackground(true);
 
