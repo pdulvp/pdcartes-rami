@@ -452,7 +452,7 @@ const QPixmap &weaveTile(const Palette &scheme) {
     return kept.tile;
 }
 
-void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme) {
+void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool withBraid) {
     painter->save();
     painter->setPen(Qt::NoPen);
 
@@ -469,6 +469,11 @@ void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme) {
 
     painter->setBrush(QBrush(weaveTile(scheme)));
     painter->drawRect(box);
+
+    if (!withBraid) {
+        painter->restore();
+        return;
+    }
 
     // La bordure: a braid a little in from the edge, and a darker line
     // outside it, so the cloth reads as cloth stretched over a rail.

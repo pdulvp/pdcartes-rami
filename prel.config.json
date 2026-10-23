@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cmake --build build --target release",
+  "artifacts": ["build/*${version}_*.deb", "build-win/*${version}-*.zip"]
+}

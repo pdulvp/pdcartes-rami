@@ -23,6 +23,13 @@ public:
     // Relit le profil courant: son nom a changé, ou ce n'est plus le même.
     void reread();
 
+    // La bande qui la porte est sombre: la plaque prend l'encre claire du
+    // drap et l'or, et non les couleurs pâles des panneaux. Demandé par la
+    // fenêtre plutôt que deviné de la palette héritée -- une feuille de style
+    // sur la bande fait redépolir tout ce qui est dedans, et rend à chacun la
+    // palette qu'il avait avant elle.
+    void setOnDark(bool onDark);
+
     QSize sizeHint() const override;
 
 protected:
@@ -35,4 +42,5 @@ private:
 
     QString m_name;
     bool m_hovered = false;
+    bool m_onDark = false;
 };

@@ -10,12 +10,20 @@ class ProfileChip;
 class QStackedWidget;
 class QToolButton;
 class TablePicker;
+class TitleFlight;
+class TitlePage;
 
-// La fenêtre : une bande de boutons en haut, et sous elle le menu ou la table.
+// La fenêtre : une bande de boutons en haut, et sous elle l'écran titre, le
+// menu ou la table.
 //
-// Deux pages et pas de troisième : choisir une table lance une partie, et la
-// table reste là quand la partie finit — gagnée ou perdue, un tapis fini est
-// une chose qu'on regarde. Tout ce que la fenêtre retient — la table, la
+// L'écran titre est le seuil de la séance et non une page où l'on repasse :
+// on en sort au premier clic, et quitter une partie ramène au menu. La bande
+// du haut s'efface tant qu'il est là — elle n'a rien à y offrir, et un titre
+// plein cadre est ce qu'on attend d'un écran titre.
+//
+// Puis deux pages et pas de quatrième : choisir une table lance une partie, et
+// la table reste là quand la partie finit — gagnée ou perdue, un tapis fini
+// est une chose qu'on regarde. Tout ce que la fenêtre retient — la table, la
 // longueur de la partie, les commodités, la moitié sombre du jeu de couleurs
 // et le profil en cours — est écrit au moment où ça change plutôt qu'à la
 // fermeture, pour qu'une séance qui finit mal finisse quand même avec ses
@@ -37,6 +45,9 @@ private:
     QWidget *buildTopBar();
 
     void startGame(const QString &tableId);
+    // On quitte l'écran titre: le logo descend se mettre en tête du menu.
+    void leaveTitle();
+    void flightLanded();
     void startSameTableAgain();
     void showMenu();
     // Le geste du joueur qui quitte la table: on s'assure qu'il le veut,
@@ -73,11 +84,14 @@ private:
     void writeSettings();
 
     QStackedWidget *m_pages = nullptr;
+    TitlePage *m_titleScreen = nullptr;
+    TitleFlight *m_flight = nullptr;
     TablePicker *m_picker = nullptr;
     TablePage *m_table = nullptr;
 
     QWidget *m_topBar = nullptr;
-    QLabel *m_title = nullptr;
+    // Plus de titre écrit là-haut: le logo du menu le dit mieux, et deux
+    // fois le même nom dans la même fenêtre est une fois de trop.
     QLabel *m_subtitle = nullptr;
     ProfileChip *m_profileChip = nullptr;
     QLabel *m_score = nullptr;

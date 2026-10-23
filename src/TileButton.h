@@ -23,6 +23,10 @@ public:
     void setCorner(const QString &corner);
 
     void setTileSize(const QSize &size);
+    // Posée sur le drap plutôt que sur une page pâle: la plaque devient
+    // sombre et bordée d'or. Demandé par le menu, et non supposé -- la même
+    // tuile sert ailleurs, sur fond clair.
+    void setOnFelt(bool onFelt);
 
     QSize sizeHint() const override;
 
@@ -38,6 +42,7 @@ protected:
 private:
     QString m_corner;
     int m_seats = 4;
+    bool m_onFelt = false;
     QSize m_tileSize = QSize(206, 176);
     bool m_hovered = false;
 };

@@ -12,6 +12,8 @@
 #include "TablePicker.h"
 #include "TableLook.h"
 #include "Tables.h"
+#include "TitleFlight.h"
+#include "TitlePage.h"
 
 #include <QAction>
 #include <QEvent>
@@ -30,8 +32,9 @@
 
 namespace {
 
-constexpr int kMenuPage = 0;
-constexpr int kTablePage = 1;
+constexpr int kTitlePage = 0;
+constexpr int kMenuPage = 1;
+constexpr int kTablePage = 2;
 constexpr int kTopBarHeight = 50;
 
 QToolButton *barButton(QWidget *parent, const QString &text, const QStringList &iconNames,
@@ -70,6 +73,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setCurrentPalette(feltHue());
     applyProfileLook();
 
+    m_titleScreen = new TitlePage(this);
+    connect(m_titleScreen, &TitlePage::start, this, &MainWindow::leaveTitle);
+
     m_picker = new TablePicker(this);
     m_picker->setTarget(m_settings.targetId);
     connect(m_picker, &TablePicker::tableChosen, this, &MainWindow::startGame);
@@ -90,6 +96,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     });
 
     m_pages = new QStackedWidget(this);
+    m_pages->addWidget(m_titleScreen);
     m_pages->addWidget(m_picker);
     m_pages->addWidget(m_table);
 
@@ -101,6 +108,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     rows->addWidget(m_pages, 1);
     setCentralWidget(centre);
 
+    // Le calque du vol: enfant du centre et non de la pile, pour qu'il couvre
+    // aussi la bande du haut -- le logo descend de plein cadre jusque sous
+    // elle, et serait coupé net au bord de la pile. Hors de toute disposition,
+    // sa géométrie est posée à la main dans resizeEvent().
+    m_flight = new TitleFlight(centre);
+    m_flight->setGeometry(centre->rect());
+    connect(m_flight, &TitleFlight::landed, this, &MainWindow::flightLanded);
+
     applyColours();
     updateTopBar();
     resize(1220, 850);
@@ -110,13 +125,6 @@ QWidget *MainWindow::buildTopBar() {
     m_topBar = new QWidget(this);
     m_topBar->setObjectName(QStringLiteral("topBar"));
     m_topBar->setFixedHeight(kTopBarHeight);
-
-    m_title = new QLabel(tr("pdcartes-rami"), m_topBar);
-    QFont name = m_title->font();
-    name.setBold(true);
-    if (name.pointSizeF() > 0) name.setPointSizeF(name.pointSizeF() * 1.22);
-    name.setLetterSpacing(QFont::PercentageSpacing, 106);
-    m_title->setFont(name);
 
     m_subtitle = new QLabel(m_topBar);
     // Elle absorbe tout l'espace qui reste et rend ce qu'il faut quand il n'y
@@ -158,10 +166,8 @@ QWidget *MainWindow::buildTopBar() {
     m_darkButton = barButton(m_topBar, QString(), {}, QString());
 
     auto *across = new QHBoxLayout(m_topBar);
-    across->setContentsMargins(16, 0, 10, 0);
+    across->setContentsMargins(20, 0, 10, 0);
     across->setSpacing(6);
-    across->addWidget(m_title);
-    across->addSpacing(12);
     across->addWidget(m_subtitle, 1);
     across->addWidget(m_profileChip);
     across->addSpacing(14);
@@ -193,6 +199,37 @@ void MainWindow::startGame(const QString &tableId) {
     m_table->setFocus();
     updateTopBar();
     writeSettings();
+}
+
+void MainWindow::leaveTitle() {
+    if (m_pages->currentIndex() != kTitlePage) return;
+
+    // D'où il part, mesuré pendant que l'écran titre est encore à l'écran.
+    const QRectF from = m_titleScreen->markRect().translated(
+        m_titleScreen->mapTo(m_flight->parentWidget(), QPoint(0, 0)));
+
+    showMenu();
+
+    // Et où il arrive. Mesuré après le changement de page: le menu vient
+    // seulement d'être disposé, et la bande du haut de paraître -- avant
+    // cela, sa tête n'est pas encore à sa place.
+    m_picker->ensurePolished();
+    const QRectF to = m_picker->markRect().translated(
+        m_picker->mapTo(m_flight->parentWidget(), QPoint(0, 0)));
+
+    // Les deux pages lâchent le leur: c'est le calque qui le porte.
+    m_titleScreen->setMarkHidden(true);
+    m_picker->setMarkHidden(true);
+    // Le menu monte pendant que le logo descend: les deux ensemble font une
+    // page qui s'ouvre, là où l'un sans l'autre fait un logo qui passe
+    // devant une page déjà là.
+    m_picker->beginEntrance();
+    m_flight->fly(from, to);
+}
+
+void MainWindow::flightLanded() {
+    m_picker->setMarkHidden(false);
+    m_titleScreen->setMarkHidden(false);
 }
 
 void MainWindow::startSameTableAgain() {
@@ -345,16 +382,23 @@ void MainWindow::applyColours() {
     // style, et rend à chaque widget la palette qu'il avait au premier
     // polissage -- donc une palette posée avant cet appel est une palette
     // jetée.
+    // La bande est sombre dans les deux moitiés du jeu de couleurs. Le tapis
+    // l'est, et une bande pâle au-dessus d'un drap vert sombre est une bande
+    // posée sur une autre application; son filet du bas est d'or, comme tout
+    // ce qui borde quelque chose dans ce jeu.
+    const QColor barFace = blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.46);
+    const QColor barInk = scheme.feltText;
+    QColor barRule = scheme.gold;
+    barRule.setAlphaF(0.30);
     m_topBar->setStyleSheet(
         QStringLiteral("QWidget#topBar { background: %5; border-bottom: 1px solid %6; }"
                        "QToolButton { border: none; border-radius: 7px;"
                        " padding: 6px 10px; color: %1; background: transparent; }"
                        "QToolButton:hover { background: %2; color: %3; }"
                        "QToolButton:pressed { background: %4; }")
-            .arg(scheme.faceText.name(), blendColours(scheme.face, scheme.accent, 0.22).name(),
-                 scheme.faceText.name(),
-                 blendColours(scheme.face, scheme.accent, 0.36).name(), scheme.face.name(),
-                 scheme.edge.name()));
+            .arg(barInk.name(), blendColours(barFace, scheme.gold, 0.22).name(),
+                 scheme.gold.name(), blendColours(barFace, scheme.gold, 0.34).name(),
+                 barFace.name(), barRule.name(QColor::HexArgb)));
 
     QPalette window = palette();
     window.setColor(QPalette::Window, scheme.desk);
@@ -368,14 +412,16 @@ void MainWindow::applyColours() {
     setPalette(window);
 
     QPalette bar = m_topBar->palette();
-    bar.setColor(QPalette::Window, scheme.face);
-    bar.setColor(QPalette::WindowText, scheme.faceText);
+    bar.setColor(QPalette::Window, barFace);
+    bar.setColor(QPalette::WindowText, barInk);
     m_topBar->setPalette(bar);
 
-    inkLabel(m_title, scheme.accent);
-    inkLabel(m_subtitle, scheme.hint);
+    QColor barAside = barInk;
+    barAside.setAlphaF(0.62);
+    inkLabel(m_subtitle, barAside);
+    m_profileChip->setOnDark(true);
     m_profileChip->update();
-    inkLabel(m_score, scheme.accent);
+    inkLabel(m_score, scheme.gold);
 
     m_darkButton->setToolTip(darkMode() ? tr("Couleurs claires") : tr("Couleurs sombres"));
     m_darkButton->setProperty(
@@ -387,7 +433,7 @@ void MainWindow::applyColours() {
     for (QToolButton *button :
          {m_menuButton, m_againButton, m_helpButton, m_settingsButton, m_darkButton}) {
         const QStringList names = button->property("iconNames").toStringList();
-        const QIcon icon = tintedIcon(names, scheme.faceText);
+        const QIcon icon = tintedIcon(names, barInk);
         button->setIcon(icon);
         if (button == m_darkButton) {
             button->setToolButtonStyle(icon.isNull() ? Qt::ToolButtonTextOnly
@@ -396,13 +442,19 @@ void MainWindow::applyColours() {
         }
     }
 
+    m_titleScreen->refresh();
     m_picker->refresh();
     m_table->refresh();
     update();
 }
 
 void MainWindow::updateTopBar() {
-    const bool playing = m_pages->currentIndex() == kTablePage;
+    const int page = m_pages->currentIndex();
+    // L'écran titre se passe de la bande du haut: il n'y a là ni score à
+    // lire, ni table à quitter, et le titre est plein cadre.
+    m_topBar->setVisible(page != kTitlePage);
+
+    const bool playing = page == kTablePage;
     m_menuButton->setVisible(playing);
     m_againButton->setVisible(playing);
     m_score->setVisible(playing);
@@ -471,6 +523,13 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
 
 void MainWindow::resizeEvent(QResizeEvent *event) {
     QMainWindow::resizeEvent(event);
+    // Le calque est hors disposition: il se recadre lui-même sur ce qu'il
+    // couvre. Un vol en cours est abrégé plutôt que suivi -- les deux bouts
+    // viennent de bouger sous lui.
+    if (m_flight && m_flight->parentWidget()) {
+        m_flight->setGeometry(m_flight->parentWidget()->rect());
+        m_flight->cancel();
+    }
     elideSubtitle();
 }
 

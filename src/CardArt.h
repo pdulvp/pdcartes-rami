@@ -35,7 +35,11 @@ QSizeF cardSizeForWidth(qreal width);
 
 // Le tapis : the cloth, with the light falling on the middle of it, a weave
 // you can see if you look, and a braid round the edge.
-void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme);
+//
+// `braid` pour le galon. On le laisse tomber quand le drap n'est pas une
+// table mais un fond -- le menu d'ouverture est posé dessus, et un galon
+// derrière une page de plaques est un cadre de plus qui ne cadre rien.
+void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool braid = true);
 
 // The weave on its own, as a tile to brush other things with. Made once per
 // scheme and kept: a cross-hatch drawn line by line over a window-sized area

@@ -64,8 +64,21 @@ void ProfileChip::leaveEvent(QEvent *event) {
     QAbstractButton::leaveEvent(event);
 }
 
+void ProfileChip::setOnDark(bool onDark) {
+    if (m_onDark == onDark) return;
+    m_onDark = onDark;
+    update();
+}
+
 void ProfileChip::paintEvent(QPaintEvent *) {
     const Palette &scheme = currentPalette();
+    // Le fond de la bande, son encre, et la couleur de la pastille.
+    const QColor face =
+        m_onDark ? blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.46) : scheme.face;
+    const QColor ink = m_onDark ? scheme.feltText : scheme.faceText;
+    const QColor medalFill = m_onDark ? scheme.gold : scheme.accent;
+    const QColor medalInk = m_onDark ? readableTextOn(medalFill) : scheme.accentText;
+    const QColor glow = m_onDark ? scheme.gold : scheme.accent;
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -80,7 +93,7 @@ void ProfileChip::paintEvent(QPaintEvent *) {
     if (isDown() || m_hovered) {
         QPainterPath pill;
         pill.addRoundedRect(box, radius, radius);
-        painter.fillPath(pill, blendColours(scheme.face, scheme.accent, isDown() ? 0.36 : 0.22));
+        painter.fillPath(pill, blendColours(face, glow, isDown() ? 0.36 : 0.22));
     }
 
     // La pastille et l'initiale: le profil se reconnaît à sa lettre avant
@@ -88,7 +101,7 @@ void ProfileChip::paintEvent(QPaintEvent *) {
     const qreal disc = box.height() - 10.0;
     QRectF medal(box.left() + kPadLeft, box.center().y() - disc / 2.0, disc, disc);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(scheme.accent);
+    painter.setBrush(medalFill);
     painter.drawEllipse(medal);
 
     const QString initial = m_name.trimmed().left(1).toUpper();
@@ -97,7 +110,7 @@ void ProfileChip::paintEvent(QPaintEvent *) {
         letter.setBold(true);
         letter.setPixelSize(int(disc * 0.62));
         painter.setFont(letter);
-        painter.setPen(scheme.accentText);
+        painter.setPen(medalInk);
         painter.drawText(medal, Qt::AlignCenter, initial);
     }
 
@@ -105,7 +118,7 @@ void ProfileChip::paintEvent(QPaintEvent *) {
     const QFontMetricsF metrics(name);
     const qreal textLeft = medal.right() + kDiscGap;
     painter.setFont(name);
-    painter.setPen(scheme.faceText);
+    painter.setPen(ink);
     painter.drawText(QRectF(textLeft, box.top(), metrics.horizontalAdvance(m_name), box.height()),
                      Qt::AlignLeft | Qt::AlignVCenter, m_name);
 
@@ -113,7 +126,7 @@ void ProfileChip::paintEvent(QPaintEvent *) {
     // police installée, un trait non.
     const qreal cx = box.right() - kPadRight - kChevron / 2.0;
     const qreal cy = box.center().y() + 1.0;
-    QColor mark = scheme.faceText;
+    QColor mark = ink;
     mark.setAlpha(m_hovered || isDown() ? 230 : 160);
     painter.setBrush(Qt::NoBrush);
     painter.setPen(QPen(mark, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));

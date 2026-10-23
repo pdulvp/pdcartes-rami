@@ -26,6 +26,12 @@ public:
 
     // Au menu, un clic invite. Ailleurs, la carte ne fait que dire.
     void setPickable(bool pickable);
+    // Posée sur le drap plutôt que sur le fond pâle d'une fiche: la carte
+    // devient sombre et bordée d'or, et se resserre sur ce qui se regarde --
+    // le médaillon, le nom, son niveau et sa jauge. Ce qu'elle laisse tomber
+    // -- sa petite phrase et son palmarès -- est dit par l'aperçu au survol
+    // et par sa fiche, où il y a la place de le dire bien.
+    void setOnFelt(bool onFelt);
 
     // Le survol fait paraître l'aperçu de ses huit compétences. La carte qui
     // est dans sa fiche ne le veut pas: elle est déjà sous les huit lignes
@@ -58,6 +64,7 @@ private:
     // La minuterie du survol: l'aperçu attend qu'on soit resté sur la carte.
     QTimer *m_glanceBeat = nullptr;
     bool m_invited = false;
+    bool m_onFelt = false;
     bool m_pickable = false;
     bool m_hovered = false;
     bool m_glanceWanted = true;
