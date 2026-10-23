@@ -1,5 +1,7 @@
 #include "CardArt.h"
 
+#include "Fonts.h"
+
 #include "CardDeck.h"
 #include "TableLook.h"
 
@@ -787,8 +789,9 @@ void drawRivalEmblem(QPainter *painter, const QRectF &box, int emblem, const QSt
     letter.setPixelSize(std::max(8, int(span * 0.44)));
     painter->setFont(letter);
     painter->setPen(ink);
-    painter->drawText(disc.adjusted(0, span * 0.06, 0, span * 0.06), Qt::AlignCenter,
-                      initial.left(1).toUpper());
+    painter->drawText(
+        capCentred(disc.adjusted(0, span * 0.06, 0, span * 0.06), QFontMetricsF(letter)),
+        Qt::AlignCenter, initial.left(1).toUpper());
 
     const qreal mark = span * 0.22;
     const QPointF at(disc.center().x(), disc.top() + span * 0.21);
@@ -907,6 +910,6 @@ void drawHandPile(QPainter *painter, const QRectF &box, int cards, const Palette
     painter->setBrush(tint);
     painter->drawRoundedRect(badge, badge.height() / 2.0, badge.height() / 2.0);
     painter->setPen(readableTextOn(tint));
-    painter->drawText(badge, Qt::AlignCenter, text);
+    painter->drawText(capCentred(badge, metrics), Qt::AlignCenter, text);
     painter->restore();
 }

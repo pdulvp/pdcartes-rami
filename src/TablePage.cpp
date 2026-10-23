@@ -261,7 +261,7 @@ void TablePage::refresh() {
     m_actions->setStyleSheet(
         QStringLiteral("QWidget#actionBar { background: %1; border-top: 1px solid %2; }"
                        "QPushButton { background: %3; color: %4; border: 1px solid %2;"
-                       " border-radius: 7px; padding: 6px 13px; }"
+                       " border-radius: 7px; padding: 5px 13px 7px 13px; }"
                        "QPushButton:hover:enabled { border: 1px solid %5; background: %6; }"
                        "QPushButton:pressed:enabled { background: %7; }"
                        "QPushButton:disabled { color: %2; background: %1; border-color: %1; }"

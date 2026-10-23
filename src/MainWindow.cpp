@@ -393,7 +393,13 @@ void MainWindow::applyColours() {
     m_topBar->setStyleSheet(
         QStringLiteral("QWidget#topBar { background: %5; border-bottom: 1px solid %6; }"
                        "QToolButton { border: none; border-radius: 7px;"
-                       " padding: 6px 10px; color: %1; background: transparent; }"
+                       // Un pixel de moins en haut qu'en bas: Qt centre le
+                       // texte sur la boîte de ligne de la fonte, haute dans
+                       // une fonte japonaise, et le pose donc trop bas. Il
+                       // dessine ces boutons lui-même -- le rembourrage est
+                       // la seule prise. Voir `capCentred` dans Fonts.h.
+                       " padding: 5px 10px 7px 10px; color: %1;"
+                       " background: transparent; }"
                        "QToolButton:hover { background: %2; color: %3; }"
                        "QToolButton:pressed { background: %4; }")
             .arg(barInk.name(), blendColours(barFace, scheme.gold, 0.22).name(),

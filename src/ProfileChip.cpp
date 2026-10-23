@@ -1,5 +1,6 @@
 #include "ProfileChip.h"
 
+#include "Fonts.h"
 #include "Palette.h"
 #include "Profiles.h"
 
@@ -111,7 +112,7 @@ void ProfileChip::paintEvent(QPaintEvent *) {
         letter.setPixelSize(int(disc * 0.62));
         painter.setFont(letter);
         painter.setPen(medalInk);
-        painter.drawText(medal, Qt::AlignCenter, initial);
+        painter.drawText(capCentred(medal, QFontMetricsF(letter)), Qt::AlignCenter, initial);
     }
 
     const QFont name = nameFont();

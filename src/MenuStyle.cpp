@@ -12,7 +12,10 @@ void dressMenu(QMenu *menu) {
     menu->setStyleSheet(
         QStringLiteral("QMenu { background: %1; color: %2; border: 1px solid %3;"
                        " border-radius: 8px; padding: 5px; }"
-                       "QMenu::item { padding: 6px 22px 6px 14px; border-radius: 5px; }"
+                       // Un pixel de moins en haut qu'en bas, comme partout où Qt centre
+                       // lui-même: voir `capCentred` dans Fonts.h.
+                       "QMenu::item { padding: 5px 22px 7px 14px;"
+                       " border-radius: 5px; }"
                        "QMenu::item:selected { background: %4; color: %5; }"
                        "QMenu::item:disabled { color: %6; }"
                        "QMenu::separator { height: 1px; background: %3; margin: 5px 8px; }")
@@ -40,7 +43,7 @@ QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QSt
     }
     button->setStyleSheet(QStringLiteral("QToolButton { background: %1; color: %2;"
                                          " border: 1px solid %3; border-radius: 6px;"
-                                         " padding: 4px 7px; }"
+                                         " padding: 3px 7px 5px 7px; }"
                                          "QToolButton:hover { border: 1px solid %4; }"
                                          "QToolButton:pressed { background: %5; }")
                               .arg(scheme.field.name(), scheme.surfaceText.name(),

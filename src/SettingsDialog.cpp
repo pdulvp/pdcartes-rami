@@ -567,7 +567,7 @@ void SettingsDialog::dressLists() {
             QStringLiteral("QTreeWidget { background: transparent; color: %1;"
                            " border: none; border-right: 1px solid %2; padding: 2px 6px 2px 0; }"
                            "QTreeView::item { border: 1px solid transparent;"
-                           " border-radius: 6px; padding: 4px 8px; }"
+                           " border-radius: 6px; padding: 3px 8px 5px 8px; }"
                            "QTreeView::item:hover { background: %3; }"
                            "QTreeView::item:selected { background: %4; color: %5;"
                            " font-weight: bold; }")

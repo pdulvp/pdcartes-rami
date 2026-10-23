@@ -1,6 +1,7 @@
 #include "RivalCard.h"
 
 #include "CardArt.h"
+#include "Fonts.h"
 #include "Palette.h"
 #include "RivalGlance.h"
 #include "Rivals.h"
@@ -211,7 +212,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
         painter.drawRoundedRect(chip, chip.height() / 2.0, chip.height() / 2.0);
         painter.setPen(readableTextOn(mine));
     }
-    painter.drawText(chip, Qt::AlignCenter, badge);
+    painter.drawText(capCentred(chip, pillMetrics), Qt::AlignCenter, badge);
 
     qreal y = inner.top() + nameMetrics.height() + 1.0;
 

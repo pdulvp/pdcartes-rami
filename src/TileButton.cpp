@@ -1,6 +1,7 @@
 #include "TileButton.h"
 
 #include "CardArt.h"
+#include "Fonts.h"
 #include "Palette.h"
 
 #include <QEnterEvent>
@@ -218,6 +219,6 @@ void TileButton::paintEvent(QPaintEvent *) {
         painter.setBrush(badgeFill);
         painter.drawRoundedRect(chip, chip.height() / 2.0, chip.height() / 2.0);
         painter.setPen(m_onFelt ? readableTextOn(badgeFill) : scheme.accentText);
-        painter.drawText(chip, Qt::AlignCenter, m_corner);
+        painter.drawText(capCentred(chip, metrics), Qt::AlignCenter, m_corner);
     }
 }

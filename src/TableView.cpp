@@ -1,6 +1,7 @@
 #include "TableView.h"
 
 #include "CardArt.h"
+#include "Fonts.h"
 #include "Palette.h"
 #include "Rami.h"
 #include "RivalGlance.h"
@@ -1029,7 +1030,7 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
     painter->setBrush(seat.opened ? mine : blendColours(scheme.surface, scheme.surfaceText, 0.12));
     painter->drawRoundedRect(badge, badge.height() / 2.0, badge.height() / 2.0);
     painter->setPen(seat.opened ? readableTextOn(mine) : scheme.hint);
-    painter->drawText(badge, Qt::AlignCenter, flag);
+    painter->drawText(capCentred(badge, flagMetrics), Qt::AlignCenter, flag);
 }
 
 void TableView::paintSeats(QPainter *painter) {
@@ -1255,7 +1256,7 @@ void TableView::paintRail(QPainter *painter) {
         painter->setBrush(value >= kOpeningPoints ? scheme.accent : scheme.danger);
         painter->drawRoundedRect(badge, 12, 12);
         painter->setPen(readableTextOn(value >= kOpeningPoints ? scheme.accent : scheme.danger));
-        painter->drawText(badge, Qt::AlignCenter, text);
+        painter->drawText(capCentred(badge, metrics), Qt::AlignCenter, text);
         textLeft = badge.right() + 14.0;
     }
 

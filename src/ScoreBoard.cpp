@@ -103,7 +103,7 @@ void ScoreBoard::refresh() {
 
 void ScoreBoard::dressButtons() {
     const Palette &scheme = currentPalette();
-    const QString common = QStringLiteral("QPushButton { border-radius: 7px; padding: 8px 20px;"
+    const QString common = QStringLiteral("QPushButton { border-radius: 7px; padding: 7px 20px 9px 20px;"
                                           " font-weight: bold; border: 1px solid %1; }");
     m_onwards->setStyleSheet(common.arg(scheme.accent.name()) +
                              QStringLiteral("QPushButton { background: %1; color: %2; }"

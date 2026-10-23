@@ -168,11 +168,17 @@ qt_add_resources(pdcartes-rami "titre"
     FILES
         assets/ZenDots/ZenDots-Regular.ttf
         assets/ZenTokyoZoo/ZenTokyoZoo-Regular.ttf
-        # Le gras seul des cinq graisses livrées: c'est la seule dont le jeu
-        # se sert, et chacune pèse deux mégaoctets -- une fonte japonaise
-        # porte ses milliers d'idéogrammes, qu'on les écrive ou non. Les cinq
-        # doubleraient le binaire pour une ligne de trois mots.
-        assets/Zen_Kaku_Gothic_New/ZenKakuGothicNew-Bold.ttf)
+        # Deux des neuf graisses livrées: la fonte de toute la fenêtre veut
+        # son normal et son gras, et rien de plus. Chacune pèse presque deux
+        # mégaoctets -- une fonte japonaise porte ses milliers d'idéogrammes,
+        # qu'on les écrive ou non.
+        #
+        # Zen Kaku Gothic New reste dans `assets/` sans être embarquée: elle a
+        # tenu ce rôle un moment, y revenir est deux lignes, et une fonte
+        # compilée dans le binaire que rien ne demande est quatre mégaoctets
+        # que tout le monde télécharge.
+        assets/M_PLUS_2/static/MPLUS2-Regular.ttf
+        assets/M_PLUS_2/static/MPLUS2-Bold.ttf)
 
 target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
 
@@ -192,7 +198,7 @@ endif()
 # binaire, et l'OFL demande que sa licence accompagne ce qui l'emporte. Une par
 # fonte, et nommée d'après elle: deux fichiers « OFL.txt » dans le même dossier
 # n'en feraient qu'un.
-foreach(_font ZenDots ZenTokyoZoo Zen_Kaku_Gothic_New)
+foreach(_font ZenDots ZenTokyoZoo M_PLUS_2)
     # Le dossier porte les tirets bas de chez Google Fonts; le fichier
     # installé porte le nom de la fonte.
     string(REPLACE "_" "" _named "${_font}")

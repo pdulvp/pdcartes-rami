@@ -1,6 +1,7 @@
 #include "TablePicker.h"
 
 #include "CardArt.h"
+#include "Fonts.h"
 #include "MenuStyle.h"
 #include "NameDialog.h"
 #include "Palette.h"
@@ -14,6 +15,7 @@
 
 #include <QAction>
 #include <QCoreApplication>
+#include <QFontInfo>
 #include <QFontMetricsF>
 #include <QEasingCurve>
 #include <QFrame>
@@ -71,9 +73,19 @@ QColor goldLine(const Palette &scheme, qreal strength) {
     return line;
 }
 
-// Le titre d'une section: trois mots en capitales d'or, et un filet qui court
+// Le titre d'une section: trois mots d'or en capitales, et un filet qui court
 // jusqu'au bout de la page. Dessiné par une étiquette et une règle plutôt que
 // par la chrome des dialogues, qui est faite pour un fond pâle.
+//
+// En Zen Dots, la fonte de la ligne du dessus du logo: les titres de section
+// sont ce que la page a de plus proche d'une enseigne, et les voir dans la
+// fonte du logo les rattache à lui. Elle n'a pas de bas-de-casse -- ses
+// minuscules sont ses capitales -- si bien que le texte source garde sa
+// casse ordinaire et que `AllUppercase` ne sert qu'au repli: sans la fonte,
+// le titre est en capitales quand même.
+//
+// De l'interlettrage, et un corps un peu réduit: Zen Dots est déjà large, et
+// des capitales serrées font un bloc plutôt que des mots.
 QWidget *feltSection(QWidget *parent, const QString &text) {
     auto *heading = new QWidget(parent);
     heading->setObjectName(QStringLiteral("feltSection"));
@@ -83,11 +95,10 @@ QWidget *feltSection(QWidget *parent, const QString &text) {
 
     auto *label = new QLabel(text, heading);
     label->setObjectName(QStringLiteral("feltSectionLabel"));
-    QFont caps = label->font();
-    caps.setBold(true);
+    const qreal body = QFontInfo(label->font()).pixelSize();
+    QFont caps = familyFont(label->font(), capsFamily(), body * 0.88);
     caps.setCapitalization(QFont::AllUppercase);
-    caps.setLetterSpacing(QFont::PercentageSpacing, 150);
-    if (caps.pointSizeF() > 0) caps.setPointSizeF(caps.pointSizeF() * 0.92);
+    caps.setLetterSpacing(QFont::PercentageSpacing, 118);
     label->setFont(caps);
 
     auto *rule = new QFrame(heading);
@@ -178,7 +189,9 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         button->setMinimumHeight(50);
 
         auto *stack = new QVBoxLayout(button);
-        stack->setContentsMargins(15, 6, 15, 6);
+        // Un pixel de moins en haut qu'en bas, pour la même raison que
+        // partout ailleurs: voir `capCentred` dans Fonts.h.
+        stack->setContentsMargins(15, 5, 15, 7);
         stack->setSpacing(0);
         auto *name = new QLabel(target.name, button);
         auto *blurb = new QLabel(lengthCost(target), button);

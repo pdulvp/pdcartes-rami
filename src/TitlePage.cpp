@@ -31,12 +31,13 @@ constexpr qreal kHintMiddle = 0.84;
 // part de la fenêtre. Assez pour qu'une carte de biais ait fini de sortir.
 constexpr qreal kOffstage = 0.26;
 
-// La ligne qui respire, en Zen Kaku Gothic New.
+// La ligne qui respire, dans la fonte de texte du jeu.
 //
 // Une fonte de texte et non une fonte d'affichage: elle se lit de travers, du
 // coin de l'oeil, pendant qu'on regarde l'enseigne -- et les deux fontes du
-// logo, qui sont faites pour être regardées, s'y brouilleraient. Du même
-// atelier que les deux autres, ce qui fait tenir les trois ensemble.
+// logo, qui sont faites pour être regardées, s'y brouilleraient. Demandée
+// par son nom plutôt que prise de la fenêtre: c'est la même, mais l'écran
+// titre ne dépend pas de ce que la fenêtre porte.
 QFont hintFont(const QFont &fallback, const QRectF &area) {
     QFont font = familyFont(fallback, proseFamily(),
                             std::min(area.height() * 0.028, area.width() * 0.020));
