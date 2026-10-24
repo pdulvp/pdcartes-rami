@@ -132,6 +132,31 @@ constexpr qreal kStackLabelSize = 13.0;
 // la fenêtre, à la marge près.
 constexpr qreal kPlaqueInset = 13.0;
 
+// Les corps de texte d'une plaque d'adversaire, et la hauteur utile où ils
+// valent. Ce sont ceux de la carte du même adversaire dans le menu
+// d'ouverture (`RivalCard`): c'est la même personne décrite de la même
+// manière, et la lire plus gros à la table qu'au menu la fait passer pour
+// deux objets. Le score n'a pas d'équivalent au menu -- il prend celui de la
+// plaque `Vous`, juste en dessous, qui est le seul autre endroit où un score
+// s'écrit.
+constexpr int kPlaqueNameSize = 15;
+constexpr int kPlaqueScoreSize = 17;
+constexpr int kPlaqueAsideSize = 11;
+constexpr int kPlaqueBadgeSize = 10;
+// Ce qui reste d'une plaque quand on lui a retiré ses marges du haut et du
+// bas, la fenêtre lui laissant toute sa place.
+constexpr qreal kPlaqueInnerFull = kSeatsHeight - 14.0;
+
+// Le corps d'un texte de plaque, à la hauteur qu'elle a. La rangée des
+// plaques se réduit avec la fenêtre (`min(kSeatsHeight, hauteur * 0.22)`), et
+// un corps fixe y déborderait: le texte garde donc sa réduction. Ce qu'il
+// n'a plus, c'est le droit de grandir -- la taille du menu est un plafond, et
+// non une valeur de départ qu'une plaque entière multipliait par un tiers.
+int plaqueTextSize(qreal innerHeight, int atFullHeight, int floor) {
+    const qreal scale = std::min(1.0, innerHeight / kPlaqueInnerFull);
+    return std::max(floor, int(std::lround(atFullHeight * scale)));
+}
+
 int stockLayersFor(int left) { return std::min(3, std::max(1, left / 6 + 1)); }
 constexpr qreal kHandHeight = 134.0;
 constexpr qreal kMargin = 14.0;
@@ -984,7 +1009,7 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
 
     QFont name = plainFont(painter);
     name.setBold(true);
-    name.setPixelSize(std::max(11, int(inner.height() * 0.23)));
+    name.setPixelSize(plaqueTextSize(inner.height(), kPlaqueNameSize, 11));
     painter->setFont(name);
     painter->setPen(plaqueInk(scheme));
     const QFontMetricsF nameMetrics(name);
@@ -995,7 +1020,7 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
     // anything, and the manche just gone is written under it.
     QFont score = plainFont(painter);
     score.setBold(true);
-    score.setPixelSize(std::max(12, int(inner.height() * 0.27)));
+    score.setPixelSize(plaqueTextSize(inner.height(), kPlaqueScoreSize, 12));
     painter->setFont(score);
     painter->setPen(active ? mine : scheme.gold);
     painter->drawText(QRectF(inner.left(), inner.top(), inner.width(), nameMetrics.height()),
@@ -1009,7 +1034,7 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
         const Level level = levelOf(learning.xp);
         QFont small = plainFont(painter);
         small.setBold(false);
-        small.setPixelSize(std::max(9, int(inner.height() * 0.185)));
+        small.setPixelSize(plaqueTextSize(inner.height(), kPlaqueAsideSize, 9));
         painter->setFont(small);
         const QFontMetricsF smallMetrics(small);
 
@@ -1043,7 +1068,7 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
     // Ouvert ou pas: the one fact about an opponent that changes how you play
     // against them, because an opened player can use anything you throw.
     QFont flagFont = plainFont(painter);
-    flagFont.setPixelSize(std::max(8, int(inner.height() * 0.145)));
+    flagFont.setPixelSize(plaqueTextSize(inner.height(), kPlaqueBadgeSize, 8));
     flagFont.setBold(true);
     flagFont.setCapitalization(QFont::AllUppercase);
     flagFont.setLetterSpacing(QFont::PercentageSpacing, 110);
