@@ -12,13 +12,14 @@ class QPushButton;
 class RivalCard;
 class TileButton;
 
-// Le menu d'ouverture: la longueur de la partie, les cinq tables, et les six
-// adversaires.
+// Le menu d'ouverture: la longueur de la partie, les six adversaires, et les
+// cinq tables.
 //
 // Il n'y a ni bouton « nouvelle partie » ni boîte de dialogue à traverser:
-// presser une table est ce qui lance la partie. Ce qui se choisit avant est
+// presser une table est ce qui lance la partie. Tout ce qui se choisit est
 // donc au-dessus d'elles -- la longueur, qui change le compte écrit dans leur
-// coin -- et ce qui répond à « contre qui » est en dessous.
+// coin, puis ce qui répond à « contre qui » -- et les tables ferment la page,
+// parce qu'une fois pressées il n'y a plus de page.
 //
 // Sur le tapis, et non sur une page à part: c'est le même drap que l'écran
 // titre et que la partie, et le logo descend de l'un pour se poser en tête de

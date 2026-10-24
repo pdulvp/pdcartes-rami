@@ -37,7 +37,19 @@
 
 namespace {
 
-const QSize kTableTile(188, 170);
+constexpr QSize kTableTile(188, 170);
+
+// Ce qui sépare deux choses posées côte à côte sur le drap, tuiles et cartes
+// confondues. Nommé plutôt qu'écrit deux fois, parce que c'est de lui que
+// dépend l'accord des deux largeurs ci-dessous.
+constexpr int kFeltGap = 10;
+
+// La rangée des cinq tables fait la largeur du bloc, et la grille des six s'y
+// range: trois colonnes qui se partagent exactement la place des cinq tuiles,
+// pour que les deux sections aient le même bord droit. Calculé, et non écrit:
+// une tuile qui grandit emmène les cartes avec elle.
+constexpr int kBlockWidth = 5 * kTableTile.width() + 4 * kFeltGap;
+constexpr int kRivalCardWidth = (kBlockWidth - 2 * kFeltGap) / 3;
 
 // La marge de la page, la bande du logo, et la hauteur du logo dedans.
 constexpr int kMargin = 34;
@@ -157,9 +169,9 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     // la barre de défilement qui prend la suite.
     rows->addStretch(1);
 
-    // La longueur de la partie. Au-dessus des tables, parce qu'elle change ce
-    // qui est écrit dans leur coin -- et parce que presser une table lance la
-    // partie: ce qui se choisit avant doit se lire avant.
+    // La longueur de la partie. En tête, parce qu'elle change ce qui est
+    // écrit dans le coin des tuiles -- et parce que presser une table lance
+    // la partie: tout ce qui se choisit avant se lit avant elles.
     QWidget *lengthHeading = feltSection(page, tr("La partie"));
     m_headings.append(lengthHeading);
     rows->addWidget(lengthHeading);
@@ -205,41 +217,29 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     rows->addLayout(lengths);
     rows->addSpacing(kSectionGap);
 
-    // Les tables.
-    QWidget *tableHeading = feltSection(page, tr("La table"));
-    m_headings.append(tableHeading);
-    rows->addWidget(tableHeading);
-    rows->addSpacing(kHeadingGap);
-    auto *tiles = new QHBoxLayout;
-    tiles->setSpacing(10);
-    for (const TableKind &kind : tableKinds()) {
-        auto *tile = new TileButton(page);
-        tile->setText(kind.name);
-        tile->setSeats(kind.seats);
-        tile->setTileSize(kTableTile);
-        tile->setOnFelt(true);
-        const QString id = kind.id;
-        connect(tile, &TileButton::clicked, this, [this, id] { Q_EMIT tableChosen(id); });
-        m_tiles.append(tile);
-        tiles->addWidget(tile);
-    }
-    tiles->addStretch();
-    rows->addLayout(tiles);
-    rows->addSpacing(kSectionGap);
-
-    // Les six.
+    // Les six. Avant les tables, bien qu'on puisse partir sans en inviter un
+    // seul: c'est un choix, et un choix passé sous le déclencheur est un
+    // choix qu'on fait après coup, la partie commencée.
     QWidget *rivalHeading = feltSection(page, tr("Les adversaires"));
     m_headings.append(rivalHeading);
     rows->addWidget(rivalHeading);
     rows->addSpacing(kHeadingGap);
     auto *grid = new QGridLayout;
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(10);
+    grid->setHorizontalSpacing(kFeltGap);
+    grid->setVerticalSpacing(kFeltGap);
+    // Une quatrième colonne qui ne porte rien et prend tout le reste: sans
+    // elle les trois autres s'étirent jusqu'au bord de la fenêtre, et la
+    // grille cesse de s'aligner sur les tuiles dès qu'on élargit.
+    grid->setColumnStretch(3, 1);
     int at = 0;
     for (const Rival &rival : rivals()) {
         auto *card = new RivalCard(rival.id, page);
         card->setPickable(true);
         card->setOnFelt(true);
+        // Fixe, comme une tuile: sur une fenêtre étroite les deux sections
+        // débordent ensemble et la même barre horizontale les rattrape,
+        // plutôt que l'une se resserre pendant que l'autre tient bon.
+        card->setFixedWidth(kRivalCardWidth);
         // Pas d'infobulle: c'est l'aperçu de ses compétences qui paraît quand
         // on reste sur sa carte, et deux panneaux au même survol se marchent
         // dessus. Ce que les clics font est écrit en bas de page.
@@ -253,15 +253,38 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         ++at;
     }
     rows->addLayout(grid);
+    rows->addSpacing(kSectionGap);
+
+    // Les tables, en dernier: elles ne se choisissent pas, elles partent.
+    QWidget *tableHeading = feltSection(page, tr("La table"));
+    m_headings.append(tableHeading);
+    rows->addWidget(tableHeading);
+    rows->addSpacing(kHeadingGap);
+    auto *tiles = new QHBoxLayout;
+    tiles->setSpacing(kFeltGap);
+    for (const TableKind &kind : tableKinds()) {
+        auto *tile = new TileButton(page);
+        tile->setText(kind.name);
+        tile->setSeats(kind.seats);
+        tile->setTileSize(kTableTile);
+        tile->setOnFelt(true);
+        const QString id = kind.id;
+        connect(tile, &TileButton::clicked, this, [this, id] { Q_EMIT tableChosen(id); });
+        m_tiles.append(tile);
+        tiles->addWidget(tile);
+    }
+    tiles->addStretch();
+    rows->addLayout(tiles);
     rows->addSpacing(12);
 
     // La seule ligne de la page. Les trois gestes qu'on ne devine pas, et
-    // rien d'autre: tout le reste est écrit sur la chose elle-même. Sous la
-    // grille plutôt qu'au pied de la fenêtre, pour qu'elle appartienne à ce
-    // qu'elle explique.
+    // rien d'autre: tout le reste est écrit sur la chose elle-même. Au pied
+    // des tuiles plutôt qu'au pied de la fenêtre, pour qu'elle tienne à ce
+    // qu'elle explique -- et ses membres dans l'ordre de la page, celui de
+    // la table en dernier, qui est celui de ce qu'elle a juste au-dessus.
     m_footer = new QLabel(page);
-    m_footer->setText(tr("Une table lance la partie  ·  un clic invite  ·  "
-                         "deux clics ouvrent sa fiche"));
+    m_footer->setText(tr("Un clic invite  ·  deux clics ouvrent sa fiche  ·  "
+                         "une table lance la partie"));
     rows->addWidget(m_footer);
     rows->addStretch(1);
 
