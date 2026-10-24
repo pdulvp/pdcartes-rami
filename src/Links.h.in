@@ -1,0 +1,18 @@
+#pragma once
+
+#include <QString>
+
+// Les adresses que le jeu montre.
+//
+// Écrit par CMake à la configuration depuis `data/links.ini`; ce fichier-ci
+// en est le modèle. Ni l'un ni l'autre ne se modifie dans l'arbre de build --
+// l'adresse se change dans `data/links.ini`.
+//
+// Compilées dans le binaire plutôt que lues au démarrage, comme l'est le
+// numéro de version: rien à installer à côté du programme, et rien à chercher
+// sur le disque pour afficher une ligne de texte.
+
+// L'éditeur avec lequel on fabrique un jeu de cartes. Montré en bas des pages
+// « Les cartes » et « Les dos » des réglages, qui sont les deux endroits où
+// l'on choisit un jeu installé.
+inline QString cardEditorUrl() { return QStringLiteral("@PDCARTES_RAMI_LINK_CARD_EDITOR@"); }

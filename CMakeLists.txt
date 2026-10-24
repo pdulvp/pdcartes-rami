@@ -67,6 +67,35 @@ add_custom_target(build-version ALL
     COMMENT "Stamping the build with the time it was made")
 set_source_files_properties(${BUILD_VERSION_CPP} PROPERTIES GENERATED TRUE)
 
+# Les adresses que le jeu montre, tirées d'un fichier de propriétés plutôt
+# qu'écrites au milieu de la boîte de réglages qui les affiche.
+#
+# Lues ici et compilées dans le binaire, comme l'est le numéro de version:
+# rien à installer à côté du programme, rien à chercher sur le disque au
+# démarrage, et pas de repli à écrire pour le jour où le fichier manque.
+# Le fichier fait reconfigurer quand il bouge, comme `VERSION`.
+set(PDCARTES_RAMI_LINKS "${CMAKE_CURRENT_SOURCE_DIR}/data/links.ini")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${PDCARTES_RAMI_LINKS}")
+
+# Une ligne « clé = adresse » du fichier. Absente, la configuration s'arrête:
+# un lien qui disparaît sans un mot de la boîte de réglages ne se remarquerait
+# pas avant longtemps.
+function(pdcartes_rami_link key out)
+    file(STRINGS "${PDCARTES_RAMI_LINKS}" _found REGEX "^[ \t]*${key}[ \t]*=")
+    if(NOT _found)
+        message(FATAL_ERROR
+            "data/links.ini: pas d'adresse pour la clé « ${key} »")
+    endif()
+    list(GET _found 0 _line)
+    string(REGEX REPLACE "^[ \t]*${key}[ \t]*=[ \t]*" "" _value "${_line}")
+    string(STRIP "${_value}" _value)
+    set(${out} "${_value}" PARENT_SCOPE)
+endfunction()
+
+pdcartes_rami_link("editeur-de-cartes" PDCARTES_RAMI_LINK_CARD_EDITOR)
+configure_file(src/Links.h.in ${CMAKE_CURRENT_BINARY_DIR}/Links.h @ONLY)
+
 add_executable(pdcartes-rami
     ${BUILD_VERSION_CPP}
     src/Version.h
@@ -235,6 +264,9 @@ qt_add_resources(pdcartes-rami "icone-du-jeu"
         assets/icon/pdcartes-rami-64.png
         assets/icon/pdcartes-rami-128.png
         assets/icon/pdcartes-rami-256.png)
+
+# Pour `Links.h`, que CMake vient d'écrire là.
+target_include_directories(pdcartes-rami PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
 

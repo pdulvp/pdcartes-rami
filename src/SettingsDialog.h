@@ -63,7 +63,16 @@ private:
     // qui porte une liste de jeux. Les deux pages qui en ont une l'appellent.
     void addDeckFolderButtons(QWidget *page, QHBoxLayout *row);
 
+    // Le lien vers l'éditeur, en bas des deux mêmes pages: les boutons
+    // ci-dessus mènent au dossier où l'on dépose un jeu, celui-ci mène à ce
+    // avec quoi on en fabrique un.
+    void addEditorLink(QWidget *page, QVBoxLayout *rows);
+
     void dressFelts();
+    // La ligne de lien des deux pages, réécrite avec la couleur du moment:
+    // l'ancre porte sa couleur dans son texte, la feuille de style de la boîte
+    // ne traversant pas le texte riche.
+    void dressEditorLinks();
     // Les deux listes portent leur propre feuille de style, qui est écrite
     // avec les couleurs du moment: la teinte s'essayant en direct, il faut
     // pouvoir la réécrire.
@@ -91,6 +100,9 @@ private:
     // liste -- on ne choisit pas une carte, on choisit le jeu entier.
     CardStrip *m_faces = nullptr;
     QLabel *m_deckNote = nullptr;
+    // Les deux lignes qui portent l'adresse de l'éditeur, gardées pour
+    // pouvoir les reteindre quand la teinte du tapis change.
+    QVector<QLabel *> m_editorLinks;
     QVector<QToolButton *> m_felts;
     GameSettings m_settings;
 };
