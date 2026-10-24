@@ -49,6 +49,9 @@ private:
     void leaveTitle();
     void flightLanded();
     void startSameTableAgain();
+    // La question posée avant de perdre une partie en cours. Rend vrai quand
+    // on peut y aller: la partie est finie, ou le joueur a confirmé.
+    bool askAbandonMatch(const QString &doIt);
     void showMenu();
     // Le geste du joueur qui quitte la table: on s'assure qu'il le veut,
     // puisque la partie en cours ne se reprend pas.

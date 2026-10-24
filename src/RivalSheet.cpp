@@ -1,5 +1,7 @@
 #include "RivalSheet.h"
 
+#include "AskDialog.h"
+
 #include "DialogChrome.h"
 #include "MenuStyle.h"
 #include "Palette.h"
@@ -10,7 +12,6 @@
 
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -208,16 +209,16 @@ void RivalSheet::setEditing(bool editing) {
 
 void RivalSheet::askResetExperience() {
     const Learning learning = learningFor(m_rivalId);
-    const auto answer = QMessageBox::question(
-        this, tr("pdcartes-rami"),
-        tr("Remettre l'expérience de %1 à zéro, sur « %2 » ? Ses %3 xp, ses %4 manches et son "
-           "palmarès s'effacent. Il garde son nom et ce qu'il est.")
-            .arg(rivalName(m_rivalId))
-            .arg(profileName(currentProfile()))
-            .arg(learning.xp)
-            .arg(learning.handsPlayed),
-        QMessageBox::Cancel | QMessageBox::Yes);
-    if (answer != QMessageBox::Yes) return;
+    if (!askYesNo(this, tr("Remettre à zéro"),
+                  tr("Remettre l'expérience de %1 à zéro ?").arg(rivalName(m_rivalId)),
+                  tr("Remettre à zéro"),
+                  tr("Sur « %1 » : ses %2 xp, ses %3 manches et son palmarès s'effacent. "
+                     "Il garde son nom et ce qu'il est.")
+                      .arg(profileName(currentProfile()))
+                      .arg(learning.xp)
+                      .arg(learning.handsPlayed))) {
+        return;
+    }
     resetRivalExperience(m_rivalId);
     reread();
     Q_EMIT changed();
@@ -232,16 +233,16 @@ void RivalSheet::applyInnate() {
     }
 
     const Learning learning = learningFor(m_rivalId);
-    const auto answer = QMessageBox::question(
-        this, tr("pdcartes-rami"),
-        tr("Changer ce que %1 est ? Il réapprendra tout : %2 xp, %3 manches et son palmarès "
-           "s'effacent, sur « %4 ».")
-            .arg(rivalName(m_rivalId))
-            .arg(learning.xp)
-            .arg(learning.handsPlayed)
-            .arg(profileName(currentProfile())),
-        QMessageBox::Cancel | QMessageBox::Yes);
-    if (answer != QMessageBox::Yes) return;
+    if (!askYesNo(this, tr("Changer ce qu'il est"),
+                  tr("Changer ce que %1 est ?").arg(rivalName(m_rivalId)),
+                  tr("Changer"),
+                  tr("Il réapprendra tout : sur « %1 », ses %2 xp, ses %3 manches et son "
+                     "palmarès s'effacent.")
+                      .arg(profileName(currentProfile()))
+                      .arg(learning.xp)
+                      .arg(learning.handsPlayed))) {
+        return;
+    }
 
     // Les deux d'un seul coup, et c'est setRivalInnate qui s'en charge: les
     // niveaux écrits et l'expérience remise, sans que l'un puisse arriver

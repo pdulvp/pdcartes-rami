@@ -8,6 +8,7 @@
 #include "ProfileChip.h"
 #include "Profiles.h"
 #include "Rami.h"
+#include "AskDialog.h"
 #include "SettingsDialog.h"
 #include "TablePicker.h"
 #include "TableLook.h"
@@ -20,7 +21,6 @@
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QMenu>
-#include <QMessageBox>
 #include <QKeyEvent>
 #include <QPainter>
 #include <QLabel>
@@ -273,8 +273,23 @@ void MainWindow::flightLanded() {
     m_titleScreen->setMarkHidden(false);
 }
 
+// La même perte, et donc la même question, pour les deux façons de quitter
+// une partie en cours: revenir au menu, et en relancer une par-dessus. Seul
+// le nom du bouton change.
+//
+// Rien à demander quand la partie est finie: il n'y a plus de manche à
+// perdre, et une question dont la réponse est toujours oui est un clic de
+// plus.
+bool MainWindow::askAbandonMatch(const QString &doIt) {
+    if (!m_table->playing()) return true;
+    if (m_table->game()->phase() == Phase::MatchOver) return true;
+    return askYesNo(this, tr("Quitter la partie"), tr("Abandonner la partie en cours ?"), doIt,
+                    tr("Elle sera perdue : une partie quittée ne se reprend pas."));
+}
+
 void MainWindow::startSameTableAgain() {
     if (m_settings.tableId.isEmpty()) return;
+    if (!askAbandonMatch(tr("Nouvelle partie"))) return;
     startGame(m_settings.tableId);
 }
 
@@ -288,15 +303,8 @@ void MainWindow::showMenu() {
 void MainWindow::askLeaveMatch() {
     // La feuille de marque, elle, a déjà posé la question: elle appelle
     // showMenu() directement. Ici c'est le joueur qui s'en va de lui-même,
-    // au milieu d'une donne -- et une partie quittée ne se reprend pas.
-    const Phase phase = m_table->game()->phase();
-    if (m_table->playing() && phase != Phase::MatchOver) {
-        const auto answer = QMessageBox::question(
-            this, tr("pdcartes-rami"),
-            tr("La partie en cours sera perdue. Revenir au menu ?"),
-            QMessageBox::Cancel | QMessageBox::Yes);
-        if (answer != QMessageBox::Yes) return;
-    }
+    // au milieu d'une donne.
+    if (!askAbandonMatch(tr("Revenir au menu"))) return;
     showMenu();
 }
 
@@ -387,13 +395,13 @@ void MainWindow::renameProfile(int slot) {
 
 void MainWindow::askForgetProfile(int slot) {
     const ProfileRecord record = profileRecord(slot);
-    const auto answer = QMessageBox::question(
-        this, tr("pdcartes-rami"),
-        tr("Effacer les parties de « %1 » et remettre les six adversaires à leur "
-           "niveau de départ ?")
-            .arg(record.name),
-        QMessageBox::Cancel | QMessageBox::Yes);
-    if (answer != QMessageBox::Yes) return;
+    if (!askYesNo(this, tr("Oublier un profil"),
+                  tr("Effacer tout ce qui est joué sous « %1 » ?").arg(record.name),
+                  tr("Effacer"),
+                  tr("Ses parties s'effacent, et les six adversaires reviennent à leur "
+                     "niveau de départ sur ce profil."))) {
+        return;
+    }
     forgetProfile(slot);
     profileChanged();
     m_picker->reread();

@@ -1,5 +1,6 @@
 #include "TablePicker.h"
 
+#include "AskDialog.h"
 #include "CardArt.h"
 #include "Fonts.h"
 #include "MenuStyle.h"
@@ -24,7 +25,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
-#include <QMessageBox>
 #include <QPainter>
 #include <QPropertyAnimation>
 #include <QPushButton>
@@ -416,14 +416,15 @@ void TablePicker::showRivalSheet(const QString &rivalId) {
 
 void TablePicker::askResetRival(const QString &rivalId) {
     const Rival &who = rivalById(rivalId);
-    const auto answer = QMessageBox::question(
-        this, tr("pdcartes-rami"),
-        tr("Remettre %1 à %2 points d'expérience (%3), sur « %4 » ?")
-            .arg(rivalName(rivalId))
-            .arg(who.startXp)
-            .arg(levelName(levelOf(who.startXp)).toLower(), profileName(currentProfile())),
-        QMessageBox::Cancel | QMessageBox::Yes);
-    if (answer != QMessageBox::Yes) return;
+    if (!askYesNo(this, tr("Remettre à zéro"),
+                  tr("Remettre %1 à son niveau de départ ?").arg(rivalName(rivalId)),
+                  tr("Remettre à zéro"),
+                  tr("Sur « %1 » : %2 points d'expérience, soit %3.")
+                      .arg(profileName(currentProfile()))
+                      .arg(who.startXp)
+                      .arg(levelName(levelOf(who.startXp)).toLower()))) {
+        return;
+    }
     resetRivalExperience(rivalId);
     reread();
 }

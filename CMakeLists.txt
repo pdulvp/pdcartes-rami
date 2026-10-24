@@ -140,6 +140,8 @@ add_executable(pdcartes-rami
     src/TablePicker.h
     src/SettingsDialog.cpp
     src/SettingsDialog.h
+    src/AskDialog.cpp
+    src/AskDialog.h
     src/NameDialog.cpp
     src/NameDialog.h
     src/HelpDialog.cpp
