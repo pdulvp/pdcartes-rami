@@ -3,6 +3,7 @@
 #include "CardArt.h"
 #include "Fonts.h"
 #include "Palette.h"
+#include "Profiles.h"
 #include "Rami.h"
 #include "RivalGlance.h"
 #include "Rivals.h"
@@ -147,13 +148,25 @@ constexpr int kPlaqueBadgeSize = 10;
 // bas, la fenêtre lui laissant toute sa place.
 constexpr qreal kPlaqueInnerFull = kSeatsHeight - 14.0;
 
+// Votre propre plaque, sous la défausse: ce qu'on lui réserve dans la colonne
+// et ce qu'on lui accorde au mieux. Elle porte moins que celle d'un
+// adversaire -- ni étoiles, ni jauge, ni tas de cartes en main -- et tient
+// donc en deux lignes à côté de son médaillon.
+constexpr qreal kMinePlaqueHeight = 60.0;
+constexpr qreal kMinePlaqueMax = 72.0;
+constexpr qreal kMinePlaqueInnerFull = kMinePlaqueHeight - 12.0;
+
+// Ce qui sépare l'enseigne `LE TAPIS` du bord gauche du tapis.
+constexpr qreal kTapisLabelPad = 14.0;
+
 // Le corps d'un texte de plaque, à la hauteur qu'elle a. La rangée des
 // plaques se réduit avec la fenêtre (`min(kSeatsHeight, hauteur * 0.22)`), et
 // un corps fixe y déborderait: le texte garde donc sa réduction. Ce qu'il
 // n'a plus, c'est le droit de grandir -- la taille du menu est un plafond, et
 // non une valeur de départ qu'une plaque entière multipliait par un tiers.
-int plaqueTextSize(qreal innerHeight, int atFullHeight, int floor) {
-    const qreal scale = std::min(1.0, innerHeight / kPlaqueInnerFull);
+int plaqueTextSize(qreal innerHeight, int atFullHeight, int floor,
+                   qreal fullHeight = kPlaqueInnerFull) {
+    const qreal scale = std::min(1.0, innerHeight / fullHeight);
     return std::max(floor, int(std::lround(atFullHeight * scale)));
 }
 
@@ -769,9 +782,11 @@ void TableView::relayout() {
     // votre plaque dehors: sur une petite fenêtre, deux tas un peu proches
     // valent mieux qu'un score qu'on ne voit plus. Ce qu'il faut sous eux,
     // c'est la hauteur des deux cartes, les deux lignes de titre, l'air sous
-    // la défausse et de quoi poser la plaque.
-    const qreal spare =
-        m_stacks.height() - (labels * 2.0 + card.height() * 2.0 + 20.0 + 44.0);
+    // la défausse et de quoi poser la plaque -- celle-ci porte un médaillon
+    // et deux lignes depuis qu'elle a la facture des autres, et ce qu'on lui
+    // réservait avant la coupait en bas.
+    const qreal spare = m_stacks.height() -
+                        (labels * 2.0 + card.height() * 2.0 + 20.0 + kMinePlaqueHeight);
     // Le plancher tient compte de ce qui vit dans cet écart: le compte de
     // cartes sous la pioche, puis l'enseigne de la défausse. Serrées à
     // dix-huit pixels elles se touchaient, l'enseigne ayant grandi.
@@ -828,7 +843,8 @@ void TableView::layoutMelds() {
         const qreal rowHeight = card.height() + pad * 2;
         QVector<Spot> laid;
         qreal x = m_tapis.left() + 6.0;
-        qreal y = m_tapis.top() + 6.0;
+        // Sous l'enseigne, comme la pioche se pose sous la sienne.
+        qreal y = m_tapis.top() + kStackLabel;
         bool fits = true;
         int lastOwner = -2;
         for (const Meld &meld : order) {
@@ -1174,47 +1190,84 @@ void TableView::paintStacks(QPainter *painter) {
         }
     }
 
-    // Et votre propre plaque, sous les deux tas.
+    // Et votre propre plaque, sous les deux tas. Même facture que celles d'en
+    // face: médaillon à gauche, le nom puis le score sur la première ligne,
+    // la pastille ouvert/fermé en bas à droite. C'est le même objet -- qui
+    // est à cette table, ce qu'il a marqué, et s'il peut se servir de ce
+    // qu'on jette -- et deux dessins pour un même objet font croire à deux
+    // choses.
+    //
+    // Ce qu'elle n'a pas: les étoiles, la jauge et le tas de cartes en main.
+    // Ils disent ce qu'un adversaire a appris et ce qui lui reste, et de vous
+    // ces deux choses sont sous vos yeux.
     int me = -1;
     for (int at = 0; at < m_game->seatCount(); ++at) {
         if (m_game->seat(at).human()) me = at;
     }
     if (me < 0) return;
     const qreal top = m_pileBox.bottom() + 20.0;
-    if (m_stacks.bottom() - top < 44.0) return;
+    if (m_stacks.bottom() - top < kMinePlaqueHeight) return;
     const QRectF plaque(m_stacks.left() + kPlaqueInset, top,
                         m_stacks.width() - kPlaqueInset * 2.0,
-                        std::min(72.0, m_stacks.bottom() - top));
+                        std::min(kMinePlaqueMax, m_stacks.bottom() - top));
     const Seat &mine = m_game->seat(me);
-    const QColor colour = rivalColour(currentPalette().hue);
-    paintPlaqueBody(painter, plaque, scheme,
-                    blendColours(colour, QColor(Qt::white), 0.18),
+    const QColor colour = blendColours(rivalColour(currentPalette().hue), QColor(Qt::white), 0.18);
+    paintPlaqueBody(painter, plaque, scheme, colour,
                     m_game->turn() == me && m_game->phase() != Phase::HandOver);
 
     const QRectF inner = plaque.adjusted(9, 6, -9, -6);
+    const qreal mineScale = inner.height() / kMinePlaqueInnerFull;
+
+    // Le médaillon, à gauche comme chez les autres, mais sans marque: les six
+    // marques sont ce qui sépare les six, et vous n'êtes pas l'un d'eux.
+    // L'initiale est celle du profil sous lequel vous jouez -- c'est elle qui
+    // dit lequel des trois tient la main, là où le mot reste `Vous`.
+    // Posé en haut et non au milieu, comme sur les plaques d'en face: son
+    // bord haut et celui du nom sont la même ligne, et c'est cette ligne-là
+    // qui fait que les deux plaques se ressemblent de loin.
+    const qreal disc = std::min(inner.height(), 36.0 * std::min(1.0, mineScale));
+    const QRectF medallion(inner.left(), inner.top(), disc, disc);
+    drawRivalEmblem(painter, medallion, -1, profileName(currentProfile()), colour,
+                    blendColours(feltPlaqueFill(scheme), colour, 0.14));
+
+    const qreal textLeft = medallion.right() + 9.0;
+    const qreal textWidth = inner.right() - textLeft;
+
     QFont name = plainFont(painter);
     name.setBold(true);
-    name.setPixelSize(13);
+    name.setPixelSize(plaqueTextSize(inner.height(), kPlaqueNameSize, 11, kMinePlaqueInnerFull));
     painter->setFont(name);
     painter->setPen(plaqueInk(scheme));
     const QFontMetricsF nameMetrics(name);
-    painter->drawText(QRectF(inner.left(), inner.top(), inner.width(), nameMetrics.height()),
+    painter->drawText(QRectF(textLeft, inner.top(), textWidth, nameMetrics.height()),
                       Qt::AlignLeft | Qt::AlignVCenter, mine.name);
-    QFont big = plainFont(painter);
-    big.setPixelSize(17);
-    painter->setFont(big);
+
+    QFont score = plainFont(painter);
+    score.setBold(true);
+    score.setPixelSize(plaqueTextSize(inner.height(), kPlaqueScoreSize, 12, kMinePlaqueInnerFull));
+    painter->setFont(score);
     painter->setPen(scheme.gold);
-    painter->drawText(QRectF(inner.left(), inner.top() + nameMetrics.height(), inner.width(),
-                             inner.height() - nameMetrics.height()),
-                      Qt::AlignLeft | Qt::AlignTop, tr("%1 pts").arg(mine.score));
-    QFont small = plainFont(painter);
-    small.setPixelSize(10);
-    small.setBold(true);
-    small.setCapitalization(QFont::AllUppercase);
-    painter->setFont(small);
-    painter->setPen(mine.opened ? scheme.gold : plaqueAside(scheme));
-    painter->drawText(inner, Qt::AlignRight | Qt::AlignBottom,
-                      mine.opened ? tr("ouvert") : tr("fermé"));
+    painter->drawText(QRectF(textLeft, inner.top(), textWidth, nameMetrics.height()),
+                      Qt::AlignRight | Qt::AlignVCenter, tr("%1 pts").arg(mine.score));
+
+    // La pastille, mesurée sur les capitales et non sur la hauteur de ligne,
+    // pour la même raison que celle d'en face: voir `paintSeatPlaque()`.
+    QFont flagFont = plainFont(painter);
+    flagFont.setPixelSize(plaqueTextSize(inner.height(), kPlaqueBadgeSize, 8, kMinePlaqueInnerFull));
+    flagFont.setBold(true);
+    flagFont.setCapitalization(QFont::AllUppercase);
+    flagFont.setLetterSpacing(QFont::PercentageSpacing, 110);
+    painter->setFont(flagFont);
+    const QFontMetricsF flagMetrics(flagFont);
+    const QString flag = mine.opened ? tr("ouvert") : tr("fermé");
+    QRectF badge(0, 0, flagMetrics.horizontalAdvance(flag) + 12.0,
+                 flagMetrics.capHeight() + 9.0);
+    badge.moveBottomRight(QPointF(inner.right(), inner.bottom()));
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(mine.opened ? colour : feltGold(scheme, 0.16));
+    painter->drawRoundedRect(badge, badge.height() / 2.0, badge.height() / 2.0);
+    painter->setPen(mine.opened ? readableTextOn(colour) : plaqueAside(scheme));
+    painter->drawText(capCentred(badge, flagMetrics), Qt::AlignCenter, flag);
 }
 
 void TableView::paintMelds(QPainter *painter) {
@@ -1225,8 +1278,17 @@ void TableView::paintMelds(QPainter *painter) {
     label.setLetterSpacing(QFont::PercentageSpacing, 120);
     painter->setFont(label);
     painter->setPen(scheme.feltText);
-    painter->drawText(QRectF(m_tapis.left() + 8.0, m_tapis.top() - kStackLabel,
-                             m_tapis.width(), kStackLabel - kStackLabelAir),
+    // Dans le tapis et en haut, et non au-dessus de lui: la bande qui la
+    // portait n'avait que dix pixels de libres pour vingt-sept d'enseigne, et
+    // l'enseigne passait sous la plaque de gauche. `PIOCHE` est posée de
+    // cette façon-là depuis toujours -- dans sa colonne, en haut, la place
+    // réservée dessous -- et comme le tapis et la colonne commencent à la
+    // même hauteur, les deux enseignes tombent sur la même ligne.
+    // Quatorze et non six comme le cadre des combinaisons: ce qui se lit sous
+    // l'enseigne, ce sont les faces des cartes, et elles commencent cinq
+    // pixels plus loin que le cadre qui les tient.
+    painter->drawText(QRectF(m_tapis.left() + kTapisLabelPad, m_tapis.top(), m_tapis.width(),
+                             kStackLabel - kStackLabelAir),
                       Qt::AlignLeft | Qt::AlignVCenter, tr("Le tapis"));
 
     if (m_game->table().isEmpty()) {
@@ -1239,7 +1301,7 @@ void TableView::paintMelds(QPainter *painter) {
         QColor faint = scheme.feltText;
         faint.setAlpha(150);
         painter->setPen(faint);
-        painter->drawText(m_tapis, Qt::AlignCenter,
+        painter->drawText(m_tapis.adjusted(0, kStackLabel, 0, 0), Qt::AlignCenter,
                           tr("Rien de posé : il faut 51 points pour ouvrir."));
         return;
     }

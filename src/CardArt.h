@@ -104,6 +104,9 @@ void drawSuitPip(QPainter *painter, const QRectF &box, Suit suit, const QColor &
 // Le médaillon d'un adversaire: a ring in their own colour with a mark and
 // their initial in it. Six marks, one each, so that a plaque is known by its
 // shape as well as by its colour.
+//
+// Un `emblem` négatif ne dessine pas de marque: c'est le médaillon de votre
+// propre plaque, et la marque est précisément ce qui sépare les six.
 void drawRivalEmblem(QPainter *painter, const QRectF &box, int emblem, const QString &initial,
                      const QColor &ink, const QColor &back);
 

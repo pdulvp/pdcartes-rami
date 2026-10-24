@@ -806,17 +806,32 @@ void drawRivalEmblem(QPainter *painter, const QRectF &box, int emblem, const QSt
     painter->setBrush(Qt::NoBrush);
     painter->drawEllipse(disc.adjusted(span * 0.045, span * 0.045, -span * 0.045, -span * 0.045));
 
+    // Une marque négative: pas de marque. C'est le cas de votre propre
+    // plaque -- la marque est ce qui distingue les six les uns des autres, et
+    // vous n'êtes pas l'un d'eux ; le cercle et l'initiale suffisent.
+    const bool marked = emblem >= 0;
+
     // L'initiale au milieu, et la marque en haut: a ring of six is told apart
     // by colour at a glance, by its mark at a look and by its letter for
     // certain.
+    //
+    // Elle descend d'un rien pour laisser la marque passer au-dessus d'elle.
+    // D'un rien et non de rien du tout: le décalage appartient à la marque,
+    // et un médaillon qui n'en porte pas garde sa lettre au milieu de son
+    // cercle, où l'oeil la cherche.
+    const qreal drop = marked ? span * 0.06 : 0.0;
     QFont letter = plainFont(painter);
     letter.setBold(true);
     letter.setPixelSize(std::max(8, int(span * 0.44)));
     painter->setFont(letter);
     painter->setPen(ink);
-    painter->drawText(
-        capCentred(disc.adjusted(0, span * 0.06, 0, span * 0.06), QFontMetricsF(letter)),
-        Qt::AlignCenter, initial.left(1).toUpper());
+    painter->drawText(capCentred(disc.adjusted(0, drop, 0, drop), QFontMetricsF(letter)),
+                      Qt::AlignCenter, initial.left(1).toUpper());
+
+    if (!marked) {
+        painter->restore();
+        return;
+    }
 
     const qreal mark = span * 0.22;
     const QPointF at(disc.center().x(), disc.top() + span * 0.21);
