@@ -238,7 +238,7 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
 
     const DialogChrome chrome = applyDialogChrome(this, tr("Réglages"));
 
-    // La liste des pages, et les pages. Une liste plate: les quatre groupes
+    // La liste des pages, et les pages. Une liste plate: les cinq groupes
     // n'ont rien sous eux.
     m_sections = new QTreeWidget(this);
     m_sections->setFixedWidth(kSectionsWidth);
@@ -257,11 +257,13 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     chrome.fields->addLayout(columns, 1);
 
     // Dans l'ordre où l'on y pense: ce qui touche au jeu d'abord, le décor
-    // après, puisqu'il ne change rien à la partie.
+    // après, puisqu'il ne change rien à la partie, et ce qui règle la lecture
+    // en dernier.
     buildDuringPage();
     buildCardsPage();
     buildBacksPage();
     buildFeltPage();
+    buildAccessPage();
 
     // Après les pages, et non au bout de celle des cartes: remplir la liste
     // des jeux remplit aussi celle des dos, qui est sur la page d'après.
@@ -286,10 +288,10 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    // Haute de ce qu'il faut à la plus remplie des quatre pages -- les cartes,
-    // à cause de la rangée de dos -- pour que passer de l'une à l'autre ne
-    // redimensionne jamais la fenêtre: le mou reste en bas des pages qui en
-    // demandent moins. Et assez courte pour tenir sur un écran d'ordinateur
+    // Haute de ce qu'il faut à la plus remplie des cinq pages -- les dos, à
+    // cause de leur rangée de vignettes et de la notice sous elle -- pour que
+    // passer de l'une à l'autre ne redimensionne jamais la fenêtre: le mou
+    // reste en bas des pages qui en demandent moins. Et assez courte pour tenir sur un écran d'ordinateur
     // portable, ce que la colonne unique de huit cents pixels ne faisait pas.
     resize(780, 490);
 }
@@ -339,16 +341,14 @@ void SettingsDialog::buildDuringPage() {
     rows->addStretch(1);
 }
 
-void SettingsDialog::buildCardsPage() {
-    QVBoxLayout *rows = addPage(tr("Les cartes"), tr("Les cartes"));
-    QWidget *page = m_pages->widget(m_pages->count() - 1);
-
-    auto *deckRow = new QHBoxLayout;
-    deckRow->setSpacing(8);
-    deckRow->addWidget(fieldLabel(page, tr("Jeu de cartes :")));
-    m_deck = new QComboBox(page);
-    deckRow->addWidget(m_deck, 1);
-
+// Les deux boutons qui accompagnent une liste de jeux: ouvrir le dossier où
+// on les dépose, et le relire sans sortir de la boîte.
+//
+// Posés par une fonction plutôt qu'écrits sur chaque page: les figures et les
+// dos ont chacune leur liste, les deux lisent le même dossier, et avoir le
+// bouton sur l'une des deux seulement obligeait à changer de page pour
+// relire ce qu'on venait d'y déposer.
+void SettingsDialog::addDeckFolderButtons(QWidget *page, QHBoxLayout *row) {
     auto *openFolder = iconButton(page,
                                   {QStringLiteral("folder-open-symbolic"),
                                    QStringLiteral("folder-symbolic"),
@@ -363,12 +363,26 @@ void SettingsDialog::buildCardsPage() {
                               {QStringLiteral("view-refresh-symbolic"),
                                QStringLiteral("view-refresh")},
                               tr("Relire"), tr("Relire le dossier des cartes"));
+    // Relire remplit les deux listes: celle des figures et celle des dos.
     connect(rescan, &QToolButton::clicked, this, [this] {
         CardDecks::instance().refresh();
         fillDecks();
     });
-    deckRow->addWidget(openFolder);
-    deckRow->addWidget(rescan);
+    row->addWidget(openFolder);
+    row->addWidget(rescan);
+}
+
+void SettingsDialog::buildCardsPage() {
+    QVBoxLayout *rows = addPage(tr("Les cartes"), tr("Les cartes"));
+    QWidget *page = m_pages->widget(m_pages->count() - 1);
+
+    auto *deckRow = new QHBoxLayout;
+    deckRow->setSpacing(8);
+    deckRow->addWidget(fieldLabel(page, tr("Jeu de cartes :")));
+    m_deck = new QComboBox(page);
+    deckRow->addWidget(m_deck, 1);
+
+    addDeckFolderButtons(page, deckRow);
     rows->addLayout(deckRow);
     rows->addSpacing(4);
 
@@ -383,35 +397,6 @@ void SettingsDialog::buildCardsPage() {
     rows->addWidget(m_faces);
     rows->addSpacing(14);
 
-    auto *zoomRow = new QHBoxLayout;
-    zoomRow->setSpacing(10);
-    zoomRow->addWidget(fieldLabel(page, tr("Taille des cartes :")));
-    m_zoom = new QSlider(Qt::Horizontal, page);
-    m_zoom->setRange(80, 200);
-    m_zoom->setSingleStep(10);
-    m_zoom->setPageStep(10);
-    m_zoom->setTickInterval(10);
-    m_zoom->setValue(qBound(80, m_settings.zoom, 200));
-    m_zoom->setFixedWidth(220);
-    m_zoomNote = new QLabel(page);
-    markHintLabel(m_zoomNote);
-    auto sayZoom = [this] {
-        // Arrondi au cran: la poignée se pose entre deux sans cela.
-        const int at = int(std::round(m_zoom->value() / 10.0)) * 10;
-        m_zoomNote->setText(at == 100 ? tr("%1 % — la taille d'origine").arg(at)
-                                      : tr("%1 %").arg(at));
-    };
-    connect(m_zoom, &QSlider::valueChanged, this, sayZoom);
-    sayZoom();
-    zoomRow->addWidget(m_zoom);
-    zoomRow->addWidget(m_zoomNote);
-    zoomRow->addStretch();
-    rows->addLayout(zoomRow);
-    rows->addSpacing(4);
-    rows->addWidget(asideLabel(
-        page, tr("Un jeu installé apporte des images d'une finesse donnée : agrandies, "
-                 "les figures posées sur le tapis se lisent. Ctrl et la molette font la "
-                 "même chose pendant la partie.")));
     rows->addStretch(1);
 
     connect(m_deck, &QComboBox::currentIndexChanged, this, [this] {
@@ -437,7 +422,7 @@ void SettingsDialog::buildBacksPage() {
     deckRow->addWidget(fieldLabel(page, tr("Dos du jeu :")));
     m_backDeck = new QComboBox(page);
     deckRow->addWidget(m_backDeck, 1);
-    deckRow->addStretch();
+    addDeckFolderButtons(page, deckRow);
     rows->addLayout(deckRow);
     rows->addSpacing(10);
 
@@ -483,6 +468,53 @@ void SettingsDialog::buildBacksPage() {
                 const int which = now->data(Qt::UserRole).toInt();
                 if (which >= 0) rememberBack(which);
             });
+}
+
+// La taille des cartes, seule sur sa page et en dernier dans la liste.
+//
+// Elle était le dernier réglage de la page des cartes, sous le jeu choisi, sa
+// notice et la bande des figures -- or elle ne répond pas à la même question:
+// le jeu de cartes est un goût, la taille est ce qui rend les figures
+// lisibles à qui en a besoin. Une section nommée pour ce qu'elle sert se
+// trouve en la cherchant par son nom ; un curseur rangé sous un titre qui
+// parle d'autre chose se trouve en descendant la page.
+//
+// En dernier, après le décor: la liste va de ce qui touche à la partie vers
+// ce qui touche à la vue.
+void SettingsDialog::buildAccessPage() {
+    QVBoxLayout *rows = addPage(tr("Accessibilité"), tr("Accessibilité"));
+    QWidget *page = m_pages->widget(m_pages->count() - 1);
+
+    auto *zoomRow = new QHBoxLayout;
+    zoomRow->setSpacing(10);
+    zoomRow->addWidget(fieldLabel(page, tr("Taille des cartes :")));
+    m_zoom = new QSlider(Qt::Horizontal, page);
+    m_zoom->setRange(80, 200);
+    m_zoom->setSingleStep(10);
+    m_zoom->setPageStep(10);
+    m_zoom->setTickInterval(10);
+    m_zoom->setValue(qBound(80, m_settings.zoom, 200));
+    m_zoom->setFixedWidth(220);
+    m_zoomNote = new QLabel(page);
+    markHintLabel(m_zoomNote);
+    auto sayZoom = [this] {
+        // Arrondi au cran: la poignée se pose entre deux sans cela.
+        const int at = int(std::round(m_zoom->value() / 10.0)) * 10;
+        m_zoomNote->setText(at == 100 ? tr("%1 % — la taille d'origine").arg(at)
+                                      : tr("%1 %").arg(at));
+    };
+    connect(m_zoom, &QSlider::valueChanged, this, sayZoom);
+    sayZoom();
+    zoomRow->addWidget(m_zoom);
+    zoomRow->addWidget(m_zoomNote);
+    zoomRow->addStretch();
+    rows->addLayout(zoomRow);
+    rows->addSpacing(4);
+    rows->addWidget(asideLabel(
+        page, tr("Un jeu installé apporte des images d'une finesse donnée : agrandies, "
+                 "les figures posées sur le tapis se lisent. Ctrl et la molette font la "
+                 "même chose pendant la partie.")));
+    rows->addStretch(1);
 }
 
 void SettingsDialog::buildFeltPage() {

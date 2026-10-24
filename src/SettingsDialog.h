@@ -9,6 +9,7 @@ class CardStrip;
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QHBoxLayout;
 class QLabel;
 class QListWidget;
 class QSlider;
@@ -17,10 +18,10 @@ class QToolButton;
 class QTreeWidget;
 class QVBoxLayout;
 
-// Les réglages: les commodités pendant le jeu, les cartes, les dos, et le
-// tapis.
+// Les réglages: les commodités pendant le jeu, les cartes, les dos, le tapis,
+// et ce qui règle la lecture.
 //
-// Quatre pages plutôt qu'une seule colonne qui descend. Tout tenait dans une
+// Cinq pages plutôt qu'une seule colonne qui descend. Tout tenait dans une
 // seule page haute de huit cents pixels, ce qui était deux choses à la fois:
 // une page qu'un écran d'ordinateur portable ne montre pas en entier, et une
 // page où l'on cherche un réglage en faisant glisser. Les groupes existaient
@@ -56,6 +57,11 @@ private:
     void buildCardsPage();
     void buildBacksPage();
     void buildFeltPage();
+    void buildAccessPage();
+
+    // Le couple « ouvrir le dossier » / « relire », posé au bout d'une rangée
+    // qui porte une liste de jeux. Les deux pages qui en ont une l'appellent.
+    void addDeckFolderButtons(QWidget *page, QHBoxLayout *row);
 
     void dressFelts();
     // Les deux listes portent leur propre feuille de style, qui est écrite
