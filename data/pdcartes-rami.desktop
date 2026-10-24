@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=pdcartes-rami
+Name=PDCartes Rami
 GenericName=Rami
 Comment=Le rami sur tapis vert, à six autour de la table
 Exec=pdcartes-rami
-Icon=applications-games
+Icon=pdcartes-rami
 Terminal=false
 Categories=Game;CardGame;
 Keywords=rami;cartes;jeu;joker;suite;brelan;tapis;

@@ -37,6 +37,20 @@ void ensureIconTheme() {
     }
 }
 
+// L'icône du jeu, tirée du binaire.
+//
+// Plusieurs tailles et non une seule qu'on réduirait : chacune est rendue
+// depuis le dessin, et une lettre rendue à seize pixels est nette là où la
+// même réduite depuis deux cent cinquante-six est molle. C'est la taille de
+// la barre des tâches, celle où l'icône se voit le plus.
+QIcon builtInIcon() {
+    QIcon icon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256}) {
+        icon.addFile(QStringLiteral(":/app/pdcartes-rami-%1.png").arg(size));
+    }
+    return icon;
+}
+
 } // namespace
 
 int main(int argc, char *argv[]) {
@@ -55,6 +69,14 @@ int main(int argc, char *argv[]) {
     QLocale::setDefault(QLocale(QLocale::French, QLocale::France));
 
     ensureIconTheme();
+    // Ce que porte la fenêtre, et ce que le bureau montre dans sa barre.
+    // Le thème d'abord, comme pour les icônes des boutons: installé, le jeu a
+    // déposé la sienne sous `hicolor`, et un bureau qui habille ses icônes la
+    // sert habillée. Le binaire ensuite -- lancé depuis l'arbre de build, et
+    // sur Windows où il n'y a pas de thème, c'est le repli qui sert. Après
+    // `ensureIconTheme()`, qui vient de dire où chercher.
+    QApplication::setWindowIcon(
+        QIcon::fromTheme(QStringLiteral("pdcartes-rami"), builtInIcon()));
     // La fonte de tout ce qui se lit dans la fenêtre. Posée avant la première
     // fenêtre: un widget garde la fonte qu'il avait en naissant.
     dressApplicationFont();

@@ -107,7 +107,7 @@ void inkLabel(QLabel *label, const QColor &colour) {
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    setWindowTitle(tr("pdcartes-rami"));
+    setWindowTitle(tr("PDCartes Rami"));
 
     readSettings();
     // Le tapis du profil, et ses cartes: tous deux lui appartiennent.

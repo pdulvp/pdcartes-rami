@@ -211,11 +211,65 @@ qt_add_resources(pdcartes-rami "icones"
         assets/icons/weather-clear-night-symbolic.svg
         assets/icons/weather-clear-symbolic.svg)
 
+# L'icône du jeu, dans le binaire elle aussi.
+#
+# Les sept tailles et non la seule grande: `QIcon` choisit celle qui va plutôt
+# que de réduire, et une lettre rendue à seize pixels depuis le dessin est
+# nette là où la même réduite depuis deux cent cinquante-six est molle.
+#
+# En PNG et non en SVG, bien que le dessin soit un SVG: un SVG ne se lit qu'à
+# travers un greffon, lequel n'est ici qu'un `Recommends` -- une fenêtre sans
+# icône parce qu'un greffon manque serait le défaut qu'on corrige. Les PNG,
+# eux, Qt les lit toujours.
+#
+# Dessin, PNG et ICO sont fabriqués par `tools/make-icon.py` et versionnés:
+# bâtir le jeu ne demande pas Inkscape.
+qt_add_resources(pdcartes-rami "icone-du-jeu"
+    PREFIX "/app"
+    BASE assets/icon
+    FILES
+        assets/icon/pdcartes-rami-16.png
+        assets/icon/pdcartes-rami-24.png
+        assets/icon/pdcartes-rami-32.png
+        assets/icon/pdcartes-rami-48.png
+        assets/icon/pdcartes-rami-64.png
+        assets/icon/pdcartes-rami-128.png
+        assets/icon/pdcartes-rami-256.png)
+
 target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
 
 # Sur Windows, un programme à fenêtres et non un programme de console: sans
 # cela une console noire s'ouvre derrière le tapis et reste là.
 set_target_properties(pdcartes-rami PROPERTIES WIN32_EXECUTABLE ON)
+
+# Ce que Windows sait du programme sans l'ouvrir: son icône dans
+# l'explorateur -- `setWindowIcon` n'habille que les fenêtres d'un programme
+# qui tourne -- et son nom, sa version et sa description dans la feuille de
+# propriétés. C'est le pendant du `.desktop` de l'autre côté, et les deux
+# vivent dans `data/` ensemble.
+#
+# Le tout entre par un script de ressources, compilé par windres; le toolchain
+# de la compilation croisée le désigne déjà (`CMAKE_RC_COMPILER`). Le script
+# est écrit dans l'arbre de build pour y porter le chemin entier de l'ICO et
+# les numéros de la version.
+#
+# À la configuration et non à la construction: la version du projet suffit
+# ici, `FILEVERSION` ne prenant que des entiers, et le fichier `VERSION` fait
+# déjà reconfigurer quand il bouge (`CMAKE_CONFIGURE_DEPENDS`, tout en haut).
+# L'empreinte du build reste où elle est, dans `--version`.
+if(WIN32)
+    enable_language(RC)
+    file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/pdcartes-rami.ico"
+         PDCARTES_RAMI_ICO)
+    configure_file(data/pdcartes-rami.rc.in
+                   ${CMAKE_CURRENT_BINARY_DIR}/pdcartes-rami.rc @ONLY)
+    target_sources(pdcartes-rami PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/pdcartes-rami.rc)
+
+    # Le script est en UTF-8 -- la description est en français et porte ses
+    # accents. windres, lui, lit du CP1252 s'il n'entend pas le contraire, et
+    # les propriétés de Windows afficheraient alors du charabia.
+    string(APPEND CMAKE_RC_FLAGS " -c 65001")
+endif()
 
 # Là-bas l'exe est à la racine du dossier, avec ses DLL autour -- c'est ce
 # qu'attend quelqu'un qui décompresse un jeu; ici, dans bin.
@@ -290,6 +344,23 @@ target_link_libraries(pdcartes-rami-arene PRIVATE Qt6::Core)
 if(UNIX AND NOT APPLE)
     install(FILES data/pdcartes-rami.desktop
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
+
+    # L'icône, sous le thème `hicolor` -- celui du fond de panier, où tout
+    # bureau regarde en dernier et où une application pose la sienne. Le nom
+    # du fichier est ce que `Icon=` du `.desktop` nomme, et ce que
+    # `QIcon::fromTheme` demande: les trois doivent dire `pdcartes-rami`.
+    #
+    # Les tailles rendues une par une, et le dessin en plus sous `scalable`:
+    # un bureau en haute densité qui veut du 96 le tire de là plutôt que
+    # d'étirer le 64.
+    foreach(_size 16 24 32 48 64 128 256)
+        install(FILES assets/icon/pdcartes-rami-${_size}.png
+                DESTINATION
+                    ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${_size}x${_size}/apps
+                RENAME pdcartes-rami.png)
+    endforeach()
+    install(FILES assets/icon/pdcartes-rami.svg
+            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -387,6 +458,11 @@ set(CPACK_STRIP_FILES TRUE)
 # one they are bare. Not a dependency -- every button carries its word as
 # well -- but close to one.
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "qt6-svg-plugins")
+# Le jeu pose son icône sous `hicolor`, et c'est ce paquet-là qui tient le
+# thème et dont les déclencheurs rafraîchissent le cache des icônes après
+# l'installation. Ce que demande la politique Debian de qui écrit dedans.
+# S'ajoute aux dépendances trouvées dans le binaire, il ne les remplace pas.
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "hicolor-icon-theme")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_BUILD_VERSION_FILE "${BUILD_VERSION_TXT}")
 set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPackOptions.cmake")

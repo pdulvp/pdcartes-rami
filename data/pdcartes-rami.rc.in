@@ -1,0 +1,55 @@
+// Ce que Windows sait du programme sans l'ouvrir: son icône dans
+// l'explorateur, et son nom, sa version et sa description dans la feuille de
+// propriétés et dans le gestionnaire des tâches.
+//
+// Écrit par CMake dans l'arbre de build -- voir CMakeLists.txt. Rien à
+// modifier dans l'arbre de build: c'est ce fichier-ci le modèle.
+//
+// Le pendant de `pdcartes-rami.desktop`, qui dit la même chose au bureau de
+// Linux. Les deux vivent ici ensemble pour cette raison.
+
+// L'icône. Le chemin est posé en entier par CMake plutôt qu'écrit relatif
+// ici: windres le chercherait autrement depuis le dossier d'où on l'appelle,
+// qui n'est pas celui-ci. À barres obliques, que windres accepte des deux
+// côtés, là où les contre-obliques d'un chemin Windows voudraient être
+// doublées.
+//
+// L'identifiant est `1`, le plus petit qui soit: c'est l'icône de groupe de
+// numéro le plus bas que l'explorateur de Windows montre pour un programme.
+1 ICON "@PDCARTES_RAMI_ICO@"
+
+// La version. `FILEVERSION` veut quatre entiers et n'accepte rien d'autre --
+// pas d'empreinte de build ici donc, le dépôt tenant par ailleurs qu'une
+// version se nomme par son numéro. Le quatrième est zéro: trois numéros
+// suffisent à ce qui est publié.
+1 VERSIONINFO
+FILEVERSION    @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEOS         0x40004L  // VOS_NT_WINDOWS32
+FILETYPE       0x1L      // VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        // 040c: français (France). 04b0: 1200 en hexadécimal, qui est l'UTF-16
+        // -- les chaînes d'un bloc de version sont larges, quoi qu'on écrive
+        // ici. Ce que windres doit savoir, c'est que *ce fichier-ci* est en
+        // UTF-8; il l'apprend par `-c 65001`, posé dans CMakeLists.txt.
+        BLOCK "040c04b0"
+        BEGIN
+            VALUE "CompanyName",      "pdulvp"
+            VALUE "FileDescription",  "Le rami sur tapis vert, à six autour de la table"
+            VALUE "FileVersion",      "@PDCARTES_RAMI_VERSION@"
+            VALUE "InternalName",     "pdcartes-rami"
+            VALUE "LegalCopyright",   "© 2026 pdulvp"
+            VALUE "OriginalFilename", "pdcartes-rami.exe"
+            VALUE "ProductName",      "PDCartes Rami"
+            VALUE "ProductVersion",   "@PDCARTES_RAMI_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        // La même paire que le bloc ci-dessus, en nombres. Les deux doivent
+        // s'accorder, sans quoi Windows ne trouve pas les chaînes.
+        VALUE "Translation", 0x040c, 1200
+    END
+END
