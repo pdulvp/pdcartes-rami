@@ -67,20 +67,21 @@ add_custom_target(build-version ALL
     COMMENT "Stamping the build with the time it was made")
 set_source_files_properties(${BUILD_VERSION_CPP} PROPERTIES GENERATED TRUE)
 
-# Les adresses que le jeu montre, tirées d'un fichier de propriétés plutôt
-# qu'écrites au milieu de la boîte de réglages qui les affiche.
+# Adresses affichées par l'application, définies dans un fichier de
+# propriétés plutôt que dans le code de la fenêtre des réglages qui les
+# affiche.
 #
-# Lues ici et compilées dans le binaire, comme l'est le numéro de version:
-# rien à installer à côté du programme, rien à chercher sur le disque au
-# démarrage, et pas de repli à écrire pour le jour où le fichier manque.
-# Le fichier fait reconfigurer quand il bouge, comme `VERSION`.
+# Elles sont lues ici et compilées dans le binaire, comme l'est le numéro de
+# version : aucun fichier n'est à installer auprès de l'application ni à lire
+# au démarrage, et aucune valeur de repli n'a donc à être prévue. Comme pour
+# `VERSION`, toute modification du fichier déclenche une reconfiguration.
 set(PDCARTES_RAMI_LINKS "${CMAKE_CURRENT_SOURCE_DIR}/data/links.ini")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${PDCARTES_RAMI_LINKS}")
 
-# Une ligne « clé = adresse » du fichier. Absente, la configuration s'arrête:
-# un lien qui disparaît sans un mot de la boîte de réglages ne se remarquerait
-# pas avant longtemps.
+# Lit une ligne « clé = adresse » du fichier. Si la clé est absente, la
+# configuration échoue : une adresse manquante ferait disparaître le lien de
+# la fenêtre des réglages sans message d'erreur.
 function(pdcartes_rami_link key out)
     file(STRINGS "${PDCARTES_RAMI_LINKS}" _found REGEX "^[ \t]*${key}[ \t]*=")
     if(NOT _found)
@@ -240,19 +241,20 @@ qt_add_resources(pdcartes-rami "icones"
         assets/icons/weather-clear-night-symbolic.svg
         assets/icons/weather-clear-symbolic.svg)
 
-# L'icône du jeu, dans le binaire elle aussi.
+# Icône de l'application, également incluse dans le binaire.
 #
-# Les sept tailles et non la seule grande: `QIcon` choisit celle qui va plutôt
-# que de réduire, et une lettre rendue à seize pixels depuis le dessin est
-# nette là où la même réduite depuis deux cent cinquante-six est molle.
+# Les sept tailles sont fournies plutôt que la seule plus grande : `QIcon`
+# retient alors la taille adéquate au lieu de redimensionner, et une lettre
+# rendue directement à seize pixels reste plus nette qu'une réduction du
+# rendu à 256 pixels.
 #
-# En PNG et non en SVG, bien que le dessin soit un SVG: un SVG ne se lit qu'à
-# travers un greffon, lequel n'est ici qu'un `Recommends` -- une fenêtre sans
-# icône parce qu'un greffon manque serait le défaut qu'on corrige. Les PNG,
-# eux, Qt les lit toujours.
+# Les images sont des PNG et non le SVG d'origine : la lecture d'un SVG
+# requiert un greffon qui n'est ici qu'un paquet recommandé, alors que Qt lit
+# toujours les PNG. Une icône absente faute de greffon reproduirait le défaut
+# que l'on corrige.
 #
-# Dessin, PNG et ICO sont fabriqués par `tools/make-icon.py` et versionnés:
-# bâtir le jeu ne demande pas Inkscape.
+# Le dessin, les PNG et le fichier ICO sont produits par `tools/make-icon.py`
+# et versionnés : la compilation ne requiert pas Inkscape.
 qt_add_resources(pdcartes-rami "icone-du-jeu"
     PREFIX "/app"
     BASE assets/icon
@@ -265,7 +267,7 @@ qt_add_resources(pdcartes-rami "icone-du-jeu"
         assets/icon/pdcartes-rami-128.png
         assets/icon/pdcartes-rami-256.png)
 
-# Pour `Links.h`, que CMake vient d'écrire là.
+# Nécessaire pour trouver `Links.h`, généré ci-dessus dans ce répertoire.
 target_include_directories(pdcartes-rami PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
@@ -274,21 +276,24 @@ target_link_libraries(pdcartes-rami PRIVATE cartotheque Qt6::Widgets)
 # cela une console noire s'ouvre derrière le tapis et reste là.
 set_target_properties(pdcartes-rami PROPERTIES WIN32_EXECUTABLE ON)
 
-# Ce que Windows sait du programme sans l'ouvrir: son icône dans
-# l'explorateur -- `setWindowIcon` n'habille que les fenêtres d'un programme
-# qui tourne -- et son nom, sa version et sa description dans la feuille de
-# propriétés. C'est le pendant du `.desktop` de l'autre côté, et les deux
-# vivent dans `data/` ensemble.
+# Métadonnées lues par Windows sans exécuter le programme : l'icône affichée
+# par l'explorateur, ainsi que le nom, la version et la description
+# présentés dans la feuille de propriétés. `setWindowIcon` ne s'applique
+# qu'aux fenêtres d'un programme en cours d'exécution et ne les remplace
+# donc pas. Ce fichier est l'équivalent, pour Windows, du fichier `.desktop`
+# destiné à Linux ; tous deux résident dans `data/`.
 #
-# Le tout entre par un script de ressources, compilé par windres; le toolchain
-# de la compilation croisée le désigne déjà (`CMAKE_RC_COMPILER`). Le script
-# est écrit dans l'arbre de build pour y porter le chemin entier de l'ICO et
-# les numéros de la version.
+# Ces métadonnées sont fournies par un script de ressources compilé par
+# windres, que le fichier de chaîne de compilation croisée désigne déjà
+# (`CMAKE_RC_COMPILER`). Le script est généré dans l'arbre de compilation
+# afin d'y inscrire le chemin absolu du fichier ICO et les numéros de
+# version.
 #
-# À la configuration et non à la construction: la version du projet suffit
-# ici, `FILEVERSION` ne prenant que des entiers, et le fichier `VERSION` fait
-# déjà reconfigurer quand il bouge (`CMAKE_CONFIGURE_DEPENDS`, tout en haut).
-# L'empreinte du build reste où elle est, dans `--version`.
+# La génération a lieu lors de la configuration et non de la compilation :
+# `FILEVERSION` n'acceptant que des entiers, la version du projet suffit, et
+# toute modification du fichier `VERSION` déclenche déjà une reconfiguration
+# (`CMAKE_CONFIGURE_DEPENDS`, en tête de ce fichier). L'horodatage de
+# compilation reste accessible par l'option `--version`.
 if(WIN32)
     enable_language(RC)
     file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/pdcartes-rami.ico"
@@ -297,9 +302,10 @@ if(WIN32)
                    ${CMAKE_CURRENT_BINARY_DIR}/pdcartes-rami.rc @ONLY)
     target_sources(pdcartes-rami PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/pdcartes-rami.rc)
 
-    # Le script est en UTF-8 -- la description est en français et porte ses
-    # accents. windres, lui, lit du CP1252 s'il n'entend pas le contraire, et
-    # les propriétés de Windows afficheraient alors du charabia.
+    # Le script est encodé en UTF-8, la description étant en français et
+    # comportant des caractères accentués. Sans indication contraire, windres
+    # suppose l'encodage CP1252, ce qui altérerait les chaînes affichées par
+    # Windows.
     string(APPEND CMAKE_RC_FLAGS " -c 65001")
 endif()
 
@@ -377,14 +383,16 @@ if(UNIX AND NOT APPLE)
     install(FILES data/pdcartes-rami.desktop
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
 
-    # L'icône, sous le thème `hicolor` -- celui du fond de panier, où tout
-    # bureau regarde en dernier et où une application pose la sienne. Le nom
-    # du fichier est ce que `Icon=` du `.desktop` nomme, et ce que
-    # `QIcon::fromTheme` demande: les trois doivent dire `pdcartes-rami`.
+    # Installation de l'icône dans le thème `hicolor`, thème de recours que
+    # tout environnement de bureau consulte en dernier et dans lequel une
+    # application dépose la sienne. Le nom des fichiers doit correspondre à
+    # la valeur `Icon=` du fichier `.desktop` et à celle demandée à
+    # `QIcon::fromTheme`, soit `pdcartes-rami` dans les trois cas.
     #
-    # Les tailles rendues une par une, et le dessin en plus sous `scalable`:
-    # un bureau en haute densité qui veut du 96 le tire de là plutôt que
-    # d'étirer le 64.
+    # Chaque taille est installée séparément, et le dessin vectoriel est
+    # ajouté sous `scalable` : un environnement à haute densité d'affichage
+    # réclamant par exemple 96 pixels le rend à partir du SVG plutôt que
+    # d'agrandir le PNG de 64.
     foreach(_size 16 24 32 48 64 128 256)
         install(FILES assets/icon/pdcartes-rami-${_size}.png
                 DESTINATION
@@ -490,10 +498,11 @@ set(CPACK_STRIP_FILES TRUE)
 # one they are bare. Not a dependency -- every button carries its word as
 # well -- but close to one.
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "qt6-svg-plugins")
-# Le jeu pose son icône sous `hicolor`, et c'est ce paquet-là qui tient le
-# thème et dont les déclencheurs rafraîchissent le cache des icônes après
-# l'installation. Ce que demande la politique Debian de qui écrit dedans.
-# S'ajoute aux dépendances trouvées dans le binaire, il ne les remplace pas.
+# L'application installe son icône dans le thème `hicolor`, fourni par ce
+# paquet, dont les déclencheurs régénèrent le cache des icônes après
+# l'installation. La politique Debian impose cette dépendance à tout paquet
+# qui écrit dans ce thème. Elle s'ajoute aux dépendances déduites du binaire
+# et ne les remplace pas.
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "hicolor-icon-theme")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_BUILD_VERSION_FILE "${BUILD_VERSION_TXT}")

@@ -37,12 +37,13 @@ void ensureIconTheme() {
     }
 }
 
-// L'icône du jeu, tirée du binaire.
+// Icône de l'application, chargée depuis les ressources du binaire.
 //
-// Plusieurs tailles et non une seule qu'on réduirait : chacune est rendue
-// depuis le dessin, et une lettre rendue à seize pixels est nette là où la
-// même réduite depuis deux cent cinquante-six est molle. C'est la taille de
-// la barre des tâches, celle où l'icône se voit le plus.
+// Plusieurs tailles sont fournies plutôt qu'une seule à redimensionner :
+// chacune est rendue directement à partir du dessin vectoriel. Une lettre
+// rendue à seize pixels reste nette, alors qu'une réduction du rendu à 256
+// pixels serait floue ; or seize pixels est la taille employée par la barre
+// des tâches, où l'icône est la plus visible.
 QIcon builtInIcon() {
     QIcon icon;
     for (int size : {16, 24, 32, 48, 64, 128, 256}) {
@@ -69,12 +70,16 @@ int main(int argc, char *argv[]) {
     QLocale::setDefault(QLocale(QLocale::French, QLocale::France));
 
     ensureIconTheme();
-    // Ce que porte la fenêtre, et ce que le bureau montre dans sa barre.
-    // Le thème d'abord, comme pour les icônes des boutons: installé, le jeu a
-    // déposé la sienne sous `hicolor`, et un bureau qui habille ses icônes la
-    // sert habillée. Le binaire ensuite -- lancé depuis l'arbre de build, et
-    // sur Windows où il n'y a pas de thème, c'est le repli qui sert. Après
-    // `ensureIconTheme()`, qui vient de dire où chercher.
+    // Icône de la fenêtre, également affichée par la barre des tâches du
+    // bureau.
+    //
+    // Le thème est consulté en premier, comme pour les icônes des boutons :
+    // lorsque l'application est installée, son icône figure dans le thème
+    // `hicolor`, et un environnement qui redessine les icônes de ses thèmes
+    // fournit alors sa propre version. Les ressources du binaire servent de
+    // recours, notamment lors d'une exécution depuis l'arbre de compilation
+    // et sous Windows, où il n'existe pas de thème d'icônes. L'appel suit
+    // `ensureIconTheme()`, qui vient de fixer le thème de recours.
     QApplication::setWindowIcon(
         QIcon::fromTheme(QStringLiteral("pdcartes-rami"), builtInIcon()));
     // La fonte de tout ce qui se lit dans la fenêtre. Posée avant la première

@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
-"""Le dessin de l'icône, et la série de fichiers qu'elle doit devenir.
+"""Génère l'icône de l'application : le SVG, les PNG et le fichier ICO.
 
-Un carré vert aux coins arrondis, un « R » d'or dedans : les couleurs du
-premier tapis et la lettre de l'enseigne.
+L'icône est un carré vert à coins arrondis portant la lettre « R » dorée. Les
+couleurs sont celles de la palette du tapis par défaut.
 
-Ce script est fait pour tourner à la main, quand le dessin change :
+Ce script se lance à la main, lorsque le dessin change :
 
     python3 tools/make-icon.py
 
-Il écrit dans `assets/icon/`, et ce qu'il écrit est versionné. Le build
-n'installe que des fichiers : qui compile le jeu n'a besoin ni d'Inkscape ni
-d'ImageMagick, et l'icône qu'il empaquette est celle qu'on a regardée.
+Il écrit dans `assets/icon/`. Les fichiers produits sont versionnés, de sorte
+que la compilation du projet ne requiert ni Inkscape ni aucun autre outil
+graphique.
 
-Deux outils ici, et rien ailleurs :
-  - fontconfig, à qui l'on montre la fonte du dépôt sans la poser sur la
-    machine, par un XDG_DATA_HOME de passage ;
-  - Inkscape, qui convertit la lettre en tracé puis rend les PNG.
+Dépendances d'exécution :
+  - fontconfig, auquel la police du dépôt est présentée au moyen d'un
+    XDG_DATA_HOME temporaire, sans installation sur la machine ;
+  - Inkscape, qui convertit la lettre en tracé puis effectue le rendu des PNG.
 
-L'ICO est écrit ici même : c'est un en-tête, une table et les PNG recopiés
-tels quels, et le faire soi-même vaut mieux que de l'emprunter à ImageMagick,
-qui recomprime chaque taille en bitmap -- cinq fois le poids, et les rendus
-nets d'Inkscape remplacés par des réductions de la grande image.
+Le fichier ICO est assemblé par ce script plutôt que par ImageMagick, pour
+deux raisons : ImageMagick recompresse chaque taille en bitmap, ce qui
+quintuple le poids du fichier, et il produit les petites tailles par
+réduction de la grande image au lieu d'utiliser les rendus d'Inkscape.
 """
 
 import shutil
@@ -36,25 +36,26 @@ OUT = ROOT / "assets" / "icon"
 FONT = ROOT / "assets" / "ZenDots" / "ZenDots-Regular.ttf"
 NAME = "pdcartes-rami"
 
-# Les tailles qu'un thème d'icônes attend, et que l'ICO de Windows emporte.
+# Tailles attendues par les thèmes d'icônes, et incluses dans le fichier ICO.
 SIZES = (16, 24, 32, 48, 64, 128, 256)
 
-# La palette, teinte 142 -- le tapis « Vert », celui de `defaultFeltHue()`.
-# Les deux verts sont le drap pris un peu au-dessus de sa clarté et son bord ;
-# l'or et l'ombre sont ceux que `TitleMark` donne déjà à l'enseigne.
+# Couleurs de la palette, teinte 142 : le tapis « Vert » rendu par
+# `defaultFeltHue()`. Les deux verts correspondent au tapis, légèrement
+# éclairci, et à son bord. L'or et l'ombre sont ceux employés par `TitleMark`.
 FELT_TOP = "#2d7447"
 FELT_BOTTOM = "#143620"
 GOLD = "#e2bc6b"
 SHADE = "#102b1a"
 
-# Le carré, sur un canevas de 256. Une marge, pour que l'icône ne touche pas
-# le bord de sa case ; un rayon au quart du côté, qui est ce que portent les
-# icônes d'aujourd'hui.
+# Géométrie du carré, sur un canevas de 256 pixels. La marge évite que
+# l'icône touche le bord de sa case. Le rayon vaut environ le quart du côté,
+# proportion usuelle pour une icône d'application.
 BOX, MARGIN, RADIUS = 256.0, 8.0, 56.0
-# Ce que la lettre prend de la hauteur du canevas.
+# Hauteur de la lettre, en proportion de la hauteur du canevas.
 LETTER_SHARE = 0.52
-# L'ombre portée, en part de la hauteur de la lettre -- `kDrop` de TitleMark,
-# qui décale d'un demi sur la largeur.
+# Décalage de l'ombre portée, en proportion de la hauteur de la lettre.
+# Même valeur que `kDrop` dans TitleMark, dont le décalage horizontal vaut la
+# moitié du décalage vertical.
 DROP_SHARE = 0.022
 
 
@@ -62,16 +63,17 @@ def run(args, **kw):
     try:
         return subprocess.run(args, check=True, capture_output=True, text=True, **kw)
     except FileNotFoundError:
-        sys.exit(f"manque : {args[0]}")
+        sys.exit(f"outil absent : {args[0]}")
     except subprocess.CalledProcessError as e:
         sys.exit(f"{args[0]} a échoué :\n{e.stderr}")
 
 
 def glyph_path(tmp):
-    """Le « R » de Zen Dots, rendu en tracé et ramené à son coin haut-gauche.
+    """Convertit le « R » de la police Zen Dots en tracé SVG.
 
-    La fonte est montrée à fontconfig par un XDG_DATA_HOME de passage : rien
-    n'est installé sur la machine, et le script tourne pareil partout.
+    La police est rendue visible de fontconfig au moyen d'un XDG_DATA_HOME
+    temporaire. Rien n'est installé sur la machine, et le résultat ne dépend
+    donc pas des polices présentes.
     """
     home = tmp / "fcroot"
     (home / "fonts").mkdir(parents=True)
@@ -89,15 +91,15 @@ def glyph_path(tmp):
     tree = ET.parse(dst)
     node = tree.find(".//{http://www.w3.org/2000/svg}path")
     if node is None:
-        sys.exit("Inkscape n'a pas rendu de tracé : la fonte n'a pas été trouvée ?")
+        sys.exit("Inkscape n'a produit aucun tracé : police introuvable.")
     return node.get("d")
 
 
 def bounds(d):
-    """La boîte du tracé, mesurée par Inkscape plutôt que devinée des points.
+    """Retourne le rectangle englobant du tracé, mesuré par Inkscape.
 
-    Un tracé a des courbes, et le coin d'une courbe n'est pas dans la liste de
-    ses points de contrôle.
+    La mesure est déléguée à Inkscape parce que le tracé comporte des courbes :
+    leur étendue réelle ne se déduit pas des seuls points de contrôle.
     """
     with tempfile.TemporaryDirectory() as t:
         probe = Path(t) / "probe.svg"
@@ -105,7 +107,7 @@ def bounds(d):
             '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000">'
             f'<path id="r" d="{d}"/></svg>')
         out = run(["inkscape", str(probe), "--query-id=r", "--query-all"]).stdout
-    # `--query-all` rend une ligne par objet : id,x,y,largeur,hauteur.
+    # `--query-all` produit une ligne par objet : id,x,y,largeur,hauteur.
     for line in out.splitlines():
         parts = line.split(",")
         if parts[0] == "r":
@@ -116,8 +118,8 @@ def bounds(d):
 def master_svg(d, box):
     x, y, w, h = box
     scale = BOX * LETTER_SHARE / h
-    # Le tracé est posé par un `translate` qui tient compte de son propre
-    # coin : c'est l'encre qu'on centre, pas le repère de la fonte.
+    # Le `translate` tient compte du coin du rectangle englobant, afin de
+    # centrer le tracé lui-même et non l'origine du repère de la police.
     tx = (BOX - w * scale) / 2.0 - x * scale
     ty = (BOX - h * scale) / 2.0 - y * scale
     drop = h * DROP_SHARE
@@ -127,7 +129,7 @@ def master_svg(d, box):
         return f"{v:.3f}".rstrip("0").rstrip(".")
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
-<!-- Écrit par tools/make-icon.py. Le dessin se change là-bas, pas ici. -->
+<!-- Fichier généré par tools/make-icon.py. Ne pas modifier directement. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"
      viewBox="0 0 256 256">
   <defs>
@@ -148,13 +150,13 @@ def master_svg(d, box):
 
 
 def write_ico(pngs, dest):
-    """Les PNG rendus, reliés en un .ico.
+    """Assemble les PNG rendus en un fichier ICO.
 
-    Le format tient en trois lignes : un en-tête de six octets, une entrée de
-    seize par taille, puis les images bout à bout. Les PNG y entrent tels
-    quels -- Windows les lit depuis Vista, et le jeu demande bien plus récent
-    que cela. Une hauteur de 256 s'écrit zéro, le champ ne faisant qu'un
-    octet.
+    Le format se compose d'un en-tête de six octets, d'une entrée de seize
+    octets par image, puis des images concaténées. Les PNG sont inclus sans
+    recompression : Windows sait les lire depuis Vista, version très
+    antérieure à celles que vise le programme. Les champs de largeur et de
+    hauteur occupant un octet, la valeur 256 s'y code par zéro.
     """
     blobs = [p.read_bytes() for p in pngs]
     offset = 6 + 16 * len(blobs)

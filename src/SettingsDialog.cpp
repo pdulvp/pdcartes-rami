@@ -3,7 +3,7 @@
 #include "CardArt.h"
 #include "CardDeck.h"
 #include "DialogChrome.h"
-// Écrit par CMake depuis data/links.ini; voir CMakeLists.txt.
+// Généré par CMake à partir de data/links.ini ; voir CMakeLists.txt.
 #include "Links.h"
 #include "MenuStyle.h"
 #include "Palette.h"
@@ -271,8 +271,8 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     // des jeux remplit aussi celle des dos, qui est sur la page d'après.
     fillDecks();
     dressLists();
-    // Après les pages elles aussi: les deux lignes de lien n'existent qu'une
-    // fois leurs pages faites.
+    // Après la construction des pages également : les deux étiquettes de
+    // lien n'existent qu'une fois leurs pages créées.
     dressEditorLinks();
 
     connect(m_sections, &QTreeWidget::currentItemChanged, this,
@@ -377,40 +377,42 @@ void SettingsDialog::addDeckFolderButtons(QWidget *page, QHBoxLayout *row) {
     row->addWidget(rescan);
 }
 
-// Le lien vers l'éditeur, en bas des deux pages.
+// Ajoute le lien vers l'éditeur au bas d'une page.
 //
-// Posé par une fonction plutôt qu'écrit sur chacune, pour la raison même qui
-// a fait les deux boutons ci-dessus: les figures et les dos se prennent dans
-// des jeux qu'on installe, et « d'où viennent ces jeux » est la même question
-// des deux côtés.
+// Le lien est posé par une fonction plutôt que répété sur chaque page, pour
+// la même raison que les deux boutons ci-dessus : les figures et les dos
+// proviennent de jeux que l'utilisateur installe, et l'origine de ces jeux
+// est une question commune aux deux pages.
 //
-// Le texte n'est pas posé ici mais par `dressEditorLinks()`, qui sait la
-// couleur du moment et qui repassera à chaque changement de teinte.
+// Le texte n'est pas défini ici mais par `dressEditorLinks()`, qui connaît
+// la couleur courante et qui est rappelée à chaque changement de teinte.
 void SettingsDialog::addEditorLink(QWidget *page, QVBoxLayout *rows) {
     auto *link = asideLabel(page, QString());
-    // Le lien s'ouvre d'un clic, et se gagne aussi au clavier.
+    // Le lien est activable à la souris comme au clavier.
     link->setTextInteractionFlags(Qt::TextBrowserInteraction);
     link->setOpenExternalLinks(true);
     m_editorLinks.append(link);
     rows->addWidget(link);
 }
 
-// La ligne des deux pages, écrite avec la couleur du moment.
+// Écrit la ligne de lien des deux pages avec la couleur courante.
 //
-// L'ancre porte sa couleur dans son propre texte, et c'est ce qui oblige à
-// réécrire: la feuille de style de la boîte teint le texte d'une aide
-// (`QLabel[dialogHint="true"]`) mais ne traverse pas le texte riche, et un
-// lien laissé à lui-même sortirait dans le bleu du système, qui n'est d'aucune
-// des couleurs de la boîte.
+// La couleur de l'ancre est inscrite dans le texte lui-même, ce qui impose
+// de réécrire celui-ci à chaque changement de teinte : la feuille de style
+// de la fenêtre colore bien le texte des aides
+// (`QLabel[dialogHint="true"]`), mais ne s'applique pas au texte enrichi.
+// Sans cette couleur explicite, le lien s'afficherait dans le bleu par
+// défaut du système, étranger à la palette de la fenêtre.
 void SettingsDialog::dressEditorLinks() {
-    // L'adresse est la même des deux côtés et vient de data/links.ini.
+    // L'adresse est commune aux deux pages et provient de data/links.ini.
     const QString anchor = QStringLiteral("<a href=\"%1\" style=\"color: %2\">%1</a>")
                                .arg(cardEditorUrl(), currentPalette().accent.name());
-    // L'adresse sur sa propre ligne, par une coupure posée et non laissée au
-    // hasard de la largeur. À la suite de la phrase elle ne tenait pas, et se
-    // cassait après son tiret -- `white-space: nowrap`, essayé, ne retient pas
-    // le moteur de texte riche de Qt. Or une adresse coupée en deux ne se
-    // recopie plus à l'oeil, et c'est tout ce qu'on lui demande.
+    // L'adresse est placée sur sa propre ligne au moyen d'un saut explicite,
+    // plutôt que laissée au retour automatique. Placée à la suite de la
+    // phrase, elle dépassait la largeur disponible et se coupait après son
+    // trait d'union ; la propriété `white-space: nowrap`, essayée, n'est pas
+    // honorée par le moteur de texte enrichi de Qt. Or une adresse scindée
+    // en deux lignes ne peut plus être recopiée de visu.
     const QString sentence = tr("Un éditeur de cartes est disponible ici :");
     for (QLabel *link : m_editorLinks) {
         link->setText(sentence + QStringLiteral("<br>") + anchor);
@@ -592,7 +594,7 @@ void SettingsDialog::buildFeltPage() {
             recolourSectionHeadings(this);
             dressFelts();
             dressLists();
-            // L'ancre porte la couleur du tapis, qui vient de changer.
+            // L'ancre reprend la couleur du tapis, qui vient de changer.
             dressEditorLinks();
             // Les vignettes des dos sont dessinées aux couleurs du tapis: le
             // treillis que le programme dessine en est fait, le fond sur
