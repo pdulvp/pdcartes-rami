@@ -55,7 +55,7 @@ QIcon builtInIcon() {
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QApplication::setOrganizationName("pdcartes-rami");
+    QApplication::setOrganizationName("pdulvp");
     QApplication::setApplicationName("pdcartes-rami");
     QApplication::setApplicationVersion(fullVersion());
     // What the desktop knows this application by. On Wayland it becomes the
