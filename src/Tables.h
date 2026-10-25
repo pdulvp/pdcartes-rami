@@ -3,53 +3,55 @@
 #include <QString>
 #include <QVector>
 
-// The tables there are to sit at, and how long a game lasts.
+// Les tables disponibles, et la durée d'une partie.
 //
-// Five tables, as five sizes of board: what changes from one to the next is
-// not the rules but how much of the pack is in somebody's hand. At two the
-// pioche is deep and a card you want comes round again; at six, eighty-four
-// of the hundred and eight cards are dealt out before the first turn, and
-// what is thrown away is almost the only place to get anything.
+// Cinq tables, correspondant à cinq nombres de joueurs. Les règles ne varient
+// pas de l'une à l'autre ; ce qui varie, c'est la proportion du jeu distribuée
+// en mains. À deux joueurs, la pioche est profonde et une carte recherchée
+// finit par réapparaître. À six, quatre-vingt-quatre cartes sur cent huit sont
+// distribuées avant le premier tour, et la défausse devient presque la seule
+// source d'approvisionnement.
 //
-// Elles sont toutes du même drap: la couleur du tapis est un goût, elle se
-// choisit dans les réglages et appartient au profil -- voir TableLook.h. Une
-// table de six n'est pas d'une autre couleur qu'une table de deux, elle est
-// seulement plus pleine.
+// Toutes les tables partagent la même apparence : la couleur du tapis est une
+// préférence, choisie dans les réglages et attachée au profil (voir
+// TableLook.h). Une table de six n'a pas une couleur différente d'une table de
+// deux ; elle compte seulement plus de joueurs.
 struct TableKind {
     QString id;
     QString name;
-    int seats;      // you included
+    int seats;      // joueur humain compris
 };
 
 const QVector<TableKind> &tableKinds();
 const TableKind &tableKindById(const QString &id);
 QString defaultTableId();
 
-// Combien de temps la partie dure.
+// Durée d'une partie.
 //
-// The scores are penalties -- what was left in your hand when somebody else
-// went out -- so the winner is the one with the fewest, and the game ends as
-// soon as anybody goes past the target.
+// Les scores sont des pénalités — les points restés en main lorsqu'un joueur
+// sort — de sorte que le vainqueur est celui qui en totalise le moins, et que
+// la partie s'arrête dès qu'un joueur dépasse l'objectif.
 //
-// The target is held as a number of manches rather than as a number of
-// points, because the number of points that makes a game of eight manches is
-// not the same at every table: at a tête-à-tête the loser of a manche is one
-// card behind and pays seven or eight points for it, while at six the cards
-// nobody could place add up to forty a time. A fixed three hundred would be
-// four manches at one table and thirty at the other. So the manches are what
-// is chosen and the points are worked out from the table -- and both are
-// shown, because the points are what the scoreboard counts.
+// L'objectif est exprimé en nombre de manches et non en points, le nombre de
+// points correspondant à une partie de huit manches variant selon la table :
+// en tête-à-tête, le perdant d'une manche a une carte de retard et paie sept
+// ou huit points, alors qu'à six les cartes non placées totalisent une
+// quarantaine de points par manche. Un objectif fixe de trois cents points
+// représenterait quatre manches à une table et trente à l'autre. Le nombre de
+// manches est donc choisi et les points en sont déduits d'après la table ; les
+// deux sont affichés, le tableau des scores comptant en points.
 struct Target {
     QString id;
     QString name;
     QString blurb;
-    int manches;    // one for a single donne, and then the game is that donne
+    int manches;    // un pour une donne unique, la partie se limitant alors à
+                    // cette donne
 };
 
 const QVector<Target> &targets();
 const Target &targetById(const QString &id);
 QString defaultTargetId();
 
-// What the target comes to in points at a table of `seats`. Nought for the
-// game of one manche, which ends when that manche does.
+// Objectif exprimé en points pour une table de `seats` joueurs. Retourne zéro
+// pour la partie d'une seule manche, qui s'achève avec celle-ci.
 int targetPointsFor(const Target &target, int seats);

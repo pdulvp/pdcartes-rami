@@ -5,29 +5,32 @@
 
 class QVariantAnimation;
 
-// Le calque qui fait voler le logo de l'écran titre au menu.
+// Calque assurant le déplacement animé du logo, de l'écran titre vers le
+// menu.
 //
-// Il ne sert qu'une demi-seconde, et il ne sert qu'à ça. Posé par-dessus la
-// pile des pages, transparent au pointeur, il dessine le logo à une taille
-// prise entre celle qu'il avait sur l'écran titre et celle qu'il aura en tête
-// du menu — les deux pages cachant le leur pendant ce temps-là, pour qu'il n'y
-// en ait jamais deux.
+// Il n'est actif que durant l'animation, d'une demi-seconde. Placé au-dessus
+// de la pile de pages et transparent aux événements de pointeur, il dessine le
+// logo à une taille interpolée entre celle qu'il occupait sur l'écran titre et
+// celle qu'il occupera en tête du menu ; les deux pages masquent le leur
+// pendant ce temps, afin qu'un seul logo soit visible.
 //
-// Un vol plutôt qu'une coupe franche, parce que le fond ne change pas d'une
-// page à l'autre: c'est le même drap. Ce qui bouge, c'est ce qui est posé
-// dessus, et le logo est la seule chose que les deux pages ont en commun —
-// le voir descendre se mettre dans son coin dit que c'est la même maison.
+// Une animation est préférée à une transition sèche parce que le fond est
+// identique d'une page à l'autre : seul change ce qui y est posé, et le logo
+// est le seul élément commun aux deux pages. Son déplacement visible établit
+// la continuité entre elles.
 class TitleFlight : public QWidget {
     Q_OBJECT
 
 public:
     explicit TitleFlight(QWidget *parent = nullptr);
 
-    // Part de `from`, arrive à `to`, toutes deux dans les coordonnées du
-    // calque. `landed` est appelé à l'arrivée, et aussi quand le vol est
-    // abrégé: la page du menu doit reprendre son logo dans tous les cas.
+    // Déplace le logo de `from` à `to`, exprimés dans les coordonnées du
+    // calque. `landed` est appelé à l'arrivée, ainsi qu'en cas d'interruption
+    // de l'animation : la page du menu doit reprendre l'affichage de son logo
+    // dans tous les cas.
     void fly(const QRectF &from, const QRectF &to);
-    // Rien à moitié fait si on repasse par là entre-temps.
+    // Interrompt proprement une animation en cours, afin qu'un nouvel appel ne
+    // laisse pas la précédente inachevée.
     void cancel();
 
 Q_SIGNALS:

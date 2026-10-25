@@ -69,8 +69,8 @@ void noteMatchPlayed(bool won, int score) {
     settings.setValue(profileKey(slot, QStringLiteral("gagnees")),
                       settings.value(profileKey(slot, QStringLiteral("gagnees")), 0).toInt() + 1);
 
-    // The fewest points a game was ever won with, which is the only record
-    // worth keeping in a game where the low score wins.
+    // Plus faible total avec lequel une partie a été gagnée : c'est le seul
+    // record significatif dans un jeu où le score le plus bas l'emporte.
     const int standing = settings.value(profileKey(slot, QStringLiteral("meilleur")), -1).toInt();
     if (standing < 0 || score < standing) {
         settings.setValue(profileKey(slot, QStringLiteral("meilleur")), score);
@@ -81,14 +81,15 @@ void forgetProfile(int slot) {
     const int at = clampSlot(slot);
     QSettings settings;
 
-    // Les noms reviennent après: celui du profil, et ceux qu'on a donnés aux
-    // adversaires. Effacer ses parties n'est pas débaptiser la table, et la
-    // question posée avant d'arriver ici ne parle que de parties et de
-    // niveaux.
+    // Les noms sont restaurés ensuite : celui du profil et ceux attribués aux
+    // adversaires. Effacer l'historique des parties n'implique pas de
+    // renommer les adversaires, et la confirmation demandée en amont ne porte
+    // que sur les parties et les niveaux.
     const QString kept = settings.value(profileKey(at, QStringLiteral("nom"))).toString();
 
-    // Relevés à la clé plutôt que demandés aux adversaires: les profils n'ont
-    // pas à savoir qui sont les six.
+    // Les noms sont relevés directement dans les clés de réglages plutôt que
+    // demandés au module des adversaires : la gestion des profils n'a pas à
+    // connaître l'identité des six adversaires.
     const QString branch = QStringLiteral("profil/%1/rival").arg(at);
     QHash<QString, QString> called;
     settings.beginGroup(branch);
@@ -99,10 +100,10 @@ void forgetProfile(int slot) {
     }
     settings.endGroup();
 
-    // The rivals' experience is kept under the profile too, and an absent
-    // figure means "the level this one starts at" -- so taking the whole
-    // branch away is what putting the six of them back to how they were
-    // actually is.
+    // L'expérience des adversaires est également conservée sous le profil, et
+    // une valeur absente signifie « niveau initial de cet adversaire ».
+    // Supprimer la branche entière revient donc exactement à réinitialiser les
+    // six adversaires.
     settings.remove(QStringLiteral("profil/%1").arg(at));
 
     if (!kept.trimmed().isEmpty()) {

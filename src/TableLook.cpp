@@ -9,23 +9,23 @@
 
 namespace {
 
-// Les clés, sous le profil: la cartothèque a les siennes, à plat, qui ne
-// valent que pour le choix courant.
+// Clés de réglages, rangées sous le profil. La cartothèque possède les
+// siennes, non hiérarchisées, qui ne valent que pour la sélection courante.
 QString feltKey(int slot) { return profileKey(slot, QStringLiteral("tapis")); }
 QString deckKey(int slot) { return profileKey(slot, QStringLiteral("cartes/jeu")); }
 QString backKey(int slot) { return profileKey(slot, QStringLiteral("cartes/dos")); }
 QString backDeckKey(int slot) { return profileKey(slot, QStringLiteral("cartes/dosJeu")); }
 
-// Le jeu dont le dos est tiré, gardé chargé.
+// Jeu dont le dos est extrait, maintenu chargé.
 //
-// La cartothèque en garde un, celui des faces ; celui-ci est le second, et il
-// est à nous parce qu'elle n'en connaît pas la notion. Chargé à la demande et
-// relu quand l'identifiant change, comme elle fait du sien.
+// La cartothèque conserve celui des faces ; celui-ci est un second jeu, géré
+// par ce module, la cartothèque n'ayant pas cette notion. Il est chargé à la
+// demande et rechargé lorsque son identifiant change, selon le même principe.
 //
-// Rendu par une fonction plutôt que posé à la portée du fichier: un CardSet
-// porte des QPixmap, et une QPixmap veut qu'une QGuiApplication existe avant
-// d'être faite. Un static dans une fonction est fait au premier appel, qui est
-// longtemps après.
+// Il est fourni par une fonction plutôt que par une variable de portée
+// fichier : un `CardSet` contient des `QPixmap`, dont la construction suppose
+// qu'une `QGuiApplication` existe déjà. Une variable statique locale à une
+// fonction est construite au premier appel, bien plus tard.
 struct BackDeck {
     CardSet set;
     QString loaded;
@@ -37,8 +37,7 @@ BackDeck &backDeck() {
     return kept;
 }
 
-// Celui qu'il faut charger: celui qu'on a dit, ou celui des faces quand on n'a
-// rien dit.
+// Jeu à charger : celui qui a été désigné, ou celui des faces à défaut.
 QString wantedBackDeck() {
     const QString kept = backDeckId();
     return kept.isEmpty() ? CardDecks::instance().chosenId() : kept;
@@ -47,9 +46,9 @@ QString wantedBackDeck() {
 } // namespace
 
 const QVector<FeltColour> &feltColours() {
-    // Six draps, assez loin les uns des autres pour qu'on les distingue d'un
-    // coup d'œil, et tous assez sombres pour que les cartes blanches posées
-    // dessus restent les choses claires de la table.
+    // Six teintes, suffisamment éloignées les unes des autres pour être
+    // distinguées immédiatement, et toutes assez sombres pour que les cartes
+    // blanches posées dessus demeurent les éléments clairs de la table.
     static const QVector<FeltColour> list = {
         {142, QCoreApplication::translate("felt", "Vert")},
         {168, QCoreApplication::translate("felt", "Jade")},
@@ -66,8 +65,8 @@ int defaultFeltHue() { return feltColours().first().hue; }
 int feltHue() {
     const int kept =
         QSettings().value(feltKey(currentProfile()), defaultFeltHue()).toInt();
-    // Une teinte écrite à la main, ou venue d'une version qui en proposait
-    // d'autres, ne doit pas donner un tapis d'une couleur impossible.
+    // Une teinte saisie manuellement, ou provenant d'une version qui en
+    // proposait d'autres, ne doit pas produire une couleur de tapis invalide.
     return (kept >= 0 && kept <= 359) ? kept : defaultFeltHue();
 }
 
@@ -80,22 +79,21 @@ void applyProfileLook() {
     const int slot = currentProfile();
     QSettings settings;
 
-    // Rien d'écrit pour ce profil: on lui laisse le jeu dessiné plutôt que
-    // celui du profil d'avant, qui n'est pas le sien.
+    // Aucune valeur enregistrée pour ce profil : le jeu dessiné lui est
+    // attribué, plutôt que celui du profil précédent.
     const QString deck =
         settings.value(deckKey(slot), CardDecks::builtInId()).toString();
     CardDecks::instance().choose(deck);
-    // Le dos du profil d'avant est encore chargé: il faudra le relire, que ce
-    // profil-ci en nomme un autre ou qu'il suive ses faces.
+    // Le dos du profil précédent est encore chargé ; il doit être rechargé,
+    // que ce profil en désigne un autre ou qu'il suive son jeu de faces.
     backDeck().tried = false;
 }
 
 void rememberDeck(const QString &deckId) {
     CardDecks::instance().choose(deckId);
     QSettings().setValue(deckKey(currentProfile()), deckId);
-    // Quand le dos suit les faces, il vient de changer de jeu lui aussi -- et
-    // le numéro qu'on avait désignait un dos de l'autre jeu, qui n'est pas
-    // celui-là.
+    // Lorsque le dos suit le jeu des faces, il change de jeu avec lui, et
+    // l'index enregistré désignait un dos de l'ancien jeu.
     if (backDeckId().isEmpty()) {
         QSettings().setValue(backKey(currentProfile()), 0);
         backDeck().tried = false;
@@ -109,8 +107,8 @@ QString backDeckId() {
 void rememberBackDeck(const QString &deckId) {
     QSettings settings;
     settings.setValue(backDeckKey(currentProfile()), deckId);
-    // Un autre jeu, d'autres dos: le numéro qu'on avait ne désigne plus rien
-    // de voulu.
+    // Un autre jeu fournit d'autres dos : l'index enregistré ne désigne plus
+    // le dos attendu.
     settings.setValue(backKey(currentProfile()), 0);
     backDeck().tried = false;
 }
@@ -130,8 +128,9 @@ const CardSet *backCards() {
             }
         }
     }
-    // Ses dos, et non ses faces: un jeu qui n'apporte que des dos est ici un
-    // jeu qui sert, là où la cartothèque le tiendrait pour vide.
+    // Ce sont ses dos qui sont requis et non ses faces : un jeu ne fournissant
+    // que des dos est exploitable ici, alors que la cartothèque le
+    // considérerait comme vide.
     return kept.set.backCount() > 0 ? &kept.set : nullptr;
 }
 

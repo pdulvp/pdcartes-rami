@@ -10,16 +10,17 @@
 namespace {
 
 const QVector<Rival> &builtRivals() {
-    // Six, so that the biggest table is full and everybody has a seat. The
-    // levels they start at are spread on purpose: the first table a new
-    // player sits at should have somebody on it they can beat and somebody on
-    // it they cannot.
+    // Six adversaires, de sorte que la table la plus grande soit complète.
+    // Leurs niveaux initiaux sont volontairement étalés : la première table à
+    // laquelle s'assied un nouveau joueur doit comporter des adversaires qu'il
+    // puisse battre et d'autres qu'il ne puisse pas.
     //
-    // Les quatre niveaux innés sont dans l'ordre audace, prudence, vigilance,
-    // calme, et c'est d'eux que leur phrase parle: Lulu est un casse-cou, et
-    // c'est pour cela qu'il pose tard; Nestor est économe, et c'est pour cela
-    // qu'il meurt avec ses jokers en main. Les changer, c'est faire un autre
-    // joueur -- la fiche le dit, et le fait payer.
+    // Les quatre niveaux innés sont donnés dans l'ordre audace, prudence,
+    // vigilance, calme, et la phrase descriptive de chaque adversaire en
+    // découle : Lulu est audacieux, ce qui explique qu'il ouvre tardivement ;
+    // Nestor est prudent, ce qui explique qu'il conserve ses jokers jusqu'à la
+    // fin. Modifier ces niveaux produit un joueur différent, ce que la fiche
+    // signale et sanctionne par la perte de l'expérience.
     static const QVector<Rival> list = {
         {QStringLiteral("lulu"), QCoreApplication::translate("rivals", "Lulu"),
          QCoreApplication::translate("rivals", "Joue vite, pose tard, et s'en moque"), 196, 0, 4,
@@ -47,8 +48,9 @@ QString rivalKey(int slot, const QString &rivalId, const QString &what) {
     return profileKey(slot, QStringLiteral("rival/%1/%2").arg(rivalId, what));
 }
 
-// Le nom sous lequel chaque compétence est rangée. Écrit plutôt que numéroté:
-// un réglage qu'on peut lire est un réglage qu'on peut réparer à la main.
+// Clé sous laquelle chaque compétence est enregistrée. Les clés sont nommées
+// et non numérotées, afin qu'un fichier de réglages reste lisible et
+// modifiable manuellement.
 const char *innateName(Innate which) {
     switch (which) {
     case Innate::Audace: return "audace";
@@ -88,10 +90,10 @@ Innates readInnate(const QSettings &settings, int slot, const Rival &who) {
 }
 
 Pools readPools(const QSettings &settings, int slot, const Rival &who, const Innates &innate) {
-    // Rien d'écrit dans les quatre, c'est un profil d'avant les compétences --
-    // ou un adversaire qui n'a pas encore joué. Dans les deux cas l'expérience
-    // qu'il a se répartit sur les quatre, penchée du côté de ce qu'il est, et
-    // sans qu'un seul point se perde.
+    // Aucune des quatre valeurs n'est enregistrée : il s'agit d'un profil
+    // antérieur à l'introduction des compétences, ou d'un adversaire n'ayant
+    // pas encore joué. Dans les deux cas, l'expérience disponible est répartie
+    // sur les quatre compétences selon le tempérament, sans perte.
     bool known = false;
     for (int i = 0; i < kLearnedCount && !known; ++i) {
         known = settings.contains(poolKey(slot, who.id, Learned(i)));
@@ -110,13 +112,14 @@ Pools readPools(const QSettings &settings, int slot, const Rival &who, const Inn
     return pools;
 }
 
-// Ce qu'une manche rapporte, posé sur les quatre compétences à la fois.
+// Répartit le gain d'expérience d'une manche sur les quatre compétences.
 //
-// C'est le filet de l'ensemble: tout ce qui n'a pas de compétence précise à
-// créditer -- le temps passé à la table, une partie gagnée -- se répartit au
-// prorata de ce qu'il apprend vite. La somme reste celle d'avant les
-// compétences, parce que la courbe de progression sur laquelle le jeu est
-// réglé n'a aucune raison de changer: elle est seulement répartie.
+// Cette fonction traite les gains qui ne se rattachent à aucune compétence
+// précise — le temps passé en partie, une partie gagnée — en les répartissant
+// au prorata des vitesses d'apprentissage. Le total reste celui qui
+// s'appliquait avant l'introduction des compétences : la courbe de
+// progression sur laquelle le jeu est calibré est inchangée, seule sa
+// ventilation diffère.
 void spreadGain(QSettings &settings, int slot, const Rival &who, const Innates &innate,
                 Pools pools, int gained, const Deeds &deeds) {
     if (gained == 0) return;
@@ -124,10 +127,11 @@ void spreadGain(QSettings &settings, int slot, const Rival &who, const Innates &
     qreal weights[kLearnedCount];
     qreal sum = 0.0;
     for (int i = 0; i < kLearnedCount; ++i) {
-        // Ce qu'il apprend vite, et ce qu'il vient de faire. Sans rien de
-        // fait, les quatre se partagent la manche au prorata de son
-        // caractère; dès qu'il s'est passé quelque chose, la manche va
-        // surtout là.
+        // Pondération combinant la vitesse d'apprentissage et les actions
+        // effectivement accomplies. En l'absence d'action, les quatre
+        // compétences se partagent le gain au prorata du tempérament ; dès
+        // qu'une action a eu lieu, le gain est affecté majoritairement à la
+        // compétence correspondante.
         weights[i] = learnRate(innate, Learned(i)) * (1.0 + deeds.at(Learned(i)));
         sum += weights[i];
     }
@@ -138,7 +142,8 @@ void spreadGain(QSettings &settings, int slot, const Rival &who, const Innates &
         shares[i] = int(qRound(gained * weights[i] / sum));
         given += shares[i];
     }
-    // L'arrondi, rendu à la compétence qui apprend le plus vite.
+    // Le reliquat d'arrondi est attribué à la compétence dont la vitesse
+    // d'apprentissage est la plus élevée.
     int left = gained - given;
     int fastest = 0;
     for (int i = 1; i < kLearnedCount; ++i) {
@@ -197,8 +202,8 @@ Innates rivalInnate(const QString &rivalId) {
 void setRivalInnate(const QString &rivalId, const Innates &innate) {
     const Rival &who = rivalById(rivalId);
     const int slot = currentProfile();
-    // Rien qui change, rien qui se perd: ouvrir l'éditeur et le refermer ne
-    // doit pas coûter une expérience.
+    // Aucun changement effectif, aucune perte : ouvrir puis refermer
+    // l'éditeur ne doit pas entraîner la perte de l'expérience.
     if (rivalInnate(who.id, slot) == innate) return;
 
     QSettings settings;
@@ -207,8 +212,8 @@ void setRivalInnate(const QString &rivalId, const Innates &innate) {
         settings.setValue(innateKey(slot, who.id, which), innate.at(which));
     }
     settings.sync();
-    // Et ce qu'il avait appris s'en va, parce qu'il l'avait appris en étant
-    // quelqu'un d'autre.
+    // L'expérience acquise est annulée, ayant été obtenue avec un tempérament
+    // différent.
     resetRivalExperience(who.id);
 }
 
@@ -243,9 +248,10 @@ QString rivalName(const QString &rivalId) { return rivalName(rivalId, currentPro
 void setRivalName(const QString &rivalId, const QString &name) {
     const Rival &who = rivalById(rivalId);
     const QString called = name.trimmed().left(kRivalNameLength);
-    // Lui rendre son nom d'origine, c'est n'en avoir donné aucun: on efface
-    // plutôt que d'écrire la même chose, pour que « a-t-il été rebaptisé »
-    // ait une réponse et une seule.
+    // Restituer le nom d'origine équivaut à n'avoir attribué aucun nom : la
+    // clé est supprimée plutôt que réécrite à l'identique, afin que la
+    // question de savoir si l'adversaire a été renommé admette une réponse
+    // unique.
     if (called.isEmpty() || called == who.name) {
         clearRivalName(rivalId);
         return;
@@ -265,21 +271,21 @@ void noteRivalHand(const QString &rivalId, int place, int seats, bool wentOut,
     const int slot = currentProfile();
     const Learning learning = learningFor(who.id, slot);
 
-    // A manche sat through is worth a little whatever happened in it -- time
-    // at the table is time at the table -- and coming out well is worth more.
-    // The curve this makes is deliberately gentle: a beginner should take
-    // three or four games to stop being one, not one hand.
+    // Toute manche disputée rapporte un gain minimal, indépendamment de son
+    // déroulement, et un bon classement rapporte davantage. La courbe qui en
+    // résulte est volontairement progressive : un débutant doit disputer trois
+    // ou quatre parties avant de changer de niveau, et non une seule manche.
     const int others = std::max(1, seats - 1);
     const int standing = qBound(0, others - qBound(0, place, others), others);
     int gained = 5 + (9 * standing) / others;
     if (wentOut) gained += 8;
 
-    // Et ce que cela vaut à qui en a déjà tant vu. Sans ce palier, le tarif
-    // était plat en expérience: dix parties de six menaient les six au
-    // plafond, parce que la manche d'un adversaire à mille xp rapportait
-    // autant que la manche de celui qui arrive. Le plancher d'un point est la
-    // même phrase qu'au-dessus, tenue jusqu'au bout -- une manche jouée reste
-    // une manche jouée, et le dernier rang reste atteignable.
+    // Le gain est ensuite pondéré par l'expérience déjà acquise. Sans cette
+    // pondération, le gain était constant : dix parties à six joueurs
+    // suffisaient à amener les six au plafond, la manche d'un adversaire à
+    // mille points rapportant autant que celle d'un débutant. Le plancher d'un
+    // point maintient le principe énoncé plus haut jusqu'au bout : toute
+    // manche disputée rapporte, et le dernier rang reste atteignable.
     gained = std::max(1, qRound(gained * learnTaper(learning.xp)));
 
     QSettings settings;
@@ -303,12 +309,12 @@ void noteRivalMatch(const QString &rivalId, bool won) {
         settings.setValue(rivalKey(slot, who.id, QStringLiteral("partiesGagnees")),
                           learning.matchesWon + 1);
     }
-    // Winning a whole game is worth a little more than winning a manche of
-    // it, and it is the only place the figure moves outside a manche.
+    // Gagner une partie complète rapporte un peu plus que gagner une manche,
+    // et c'est le seul cas où l'expérience varie en dehors d'une manche.
     if (!won) return;
-    // Une partie gagnée est une partie gagnée: elle ne crédite pas une
-    // compétence en particulier. Elle se tempère comme une manche, et pour la
-    // même raison: c'est la même expérience.
+    // Une partie gagnée ne se rattache à aucune compétence particulière. Le
+    // gain est pondéré comme celui d'une manche, et pour la même raison : il
+    // s'agit de la même expérience.
     const int prize = std::max(1, qRound(12 * learnTaper(learning.xp)));
     spreadGain(settings, slot, who, rivalInnate(who.id, slot), learning.pools, prize, Deeds{});
 }
@@ -317,10 +323,10 @@ void resetRivalExperience(const QString &rivalId) {
     const Rival &who = rivalById(rivalId);
     const int slot = currentProfile();
     QSettings settings;
-    // Les quatre expériences, le palmarès, et l'ancien chiffre unique s'il
-    // traîne encore. Ce qu'il est et le nom qu'on lui a donné ne sont pas de
-    // l'expérience: les remettre au niveau de départ ne le débaptise pas et
-    // ne le change pas de joueur.
+    // Sont réinitialisés : les quatre expériences, le palmarès, et l'ancienne
+    // valeur unique si elle subsiste. Le tempérament et le nom attribué ne
+    // relèvent pas de l'expérience : la réinitialisation ne renomme pas
+    // l'adversaire et ne modifie pas son tempérament.
     settings.remove(rivalKey(slot, who.id, QStringLiteral("acquis")));
     settings.remove(rivalKey(slot, who.id, QStringLiteral("xp")));
     settings.remove(rivalKey(slot, who.id, QStringLiteral("manches")));

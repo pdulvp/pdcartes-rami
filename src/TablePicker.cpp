@@ -39,49 +39,56 @@ namespace {
 
 constexpr QSize kTableTile(188, 170);
 
-// Ce qui sépare deux choses posées côte à côte sur le drap, tuiles et cartes
-// confondues. Nommé plutôt qu'écrit deux fois, parce que c'est de lui que
-// dépend l'accord des deux largeurs ci-dessous.
+// Espacement entre deux éléments voisins sur le tapis, tuiles et cartes
+// comprises. Cette valeur est nommée plutôt que répétée, l'accord des deux
+// largeurs calculées ci-dessous en dépendant.
 constexpr int kFeltGap = 10;
 
-// La rangée des cinq tables fait la largeur du bloc, et la grille des six s'y
-// range: trois colonnes qui se partagent exactement la place des cinq tuiles,
-// pour que les deux sections aient le même bord droit. Calculé, et non écrit:
-// une tuile qui grandit emmène les cartes avec elle.
+// La rangée des cinq tables détermine la largeur du bloc, et la grille des
+// six adversaires s'y aligne : trois colonnes se partagent exactement la
+// largeur des cinq tuiles, afin que les deux sections aient le même bord
+// droit. La valeur est calculée et non écrite en dur, pour qu'un changement de
+// taille des tuiles se répercute sur les cartes.
 constexpr int kBlockWidth = 5 * kTableTile.width() + 4 * kFeltGap;
 constexpr int kRivalCardWidth = (kBlockWidth - 2 * kFeltGap) / 3;
 
-// La marge de la page, la bande du logo, et la hauteur du logo dedans.
+// Marge de la page, hauteur de la bande du logo, et hauteur du logo dans
+// celle-ci.
 constexpr int kMargin = 34;
 constexpr int kHeaderHeight = 114;
-// La ligne du dessus ne fait plus que le quart de la grande: le logo en tête
-// de page est d'autant plus haut, sans quoi `PDCartes` y tomberait sous la
-// taille où ce trait de fonte se tient encore.
+// La ligne supérieure du logo ne représentant plus que le quart de la
+// grande, le logo en tête de page est augmenté d'autant : à défaut,
+// « PDCartes » y serait rendu en deçà de la taille où cette police reste
+// lisible.
 constexpr int kMarkHeight = 82;
 
-// Ce qui sépare une section de la suivante, et ce qui sépare un titre de
-// section de ce qu'il annonce. Le premier est large et le second serré: c'est
-// l'écart qui dit à quoi un titre appartient, et trois sections également
-// espacées de leur titre et les unes des autres n'en font qu'une longue.
+// Espacement entre deux sections, et entre un titre de section et son
+// contenu. Le premier est large et le second réduit : c'est l'écart qui
+// rattache un titre à son contenu, et des sections espacées de façon uniforme
+// seraient perçues comme un bloc unique.
 constexpr int kSectionGap = 44;
 constexpr int kHeadingGap = 10;
-// Le temps que la page met à paraître derrière le logo qui se pose. Un peu
-// plus court que le vol: le menu est là quand le logo arrive, et non après.
+// Durée du fondu d'apparition de la page pendant le déplacement du logo.
+// Elle est légèrement inférieure à celle de l'animation, afin que le menu soit
+// affiché à l'arrivée du logo et non après.
 constexpr int kEntranceMs = 430;
 
-// Le titre d'une section: trois mots d'or en capitales, et un filet qui court
-// jusqu'au bout de la page. Dessiné par une étiquette et une règle plutôt que
-// par la chrome des dialogues, qui est faite pour un fond pâle.
+// Titre de section : quelques mots en capitales dorées, suivis d'un filet
+// courant jusqu'au bord de la page. Il est composé d'un libellé et d'un trait
+// plutôt que par l'habillage des boîtes de dialogue, lequel est prévu pour un
+// fond clair.
 //
-// En Zen Dots, la fonte de la ligne du dessus du logo: les titres de section
-// sont ce que la page a de plus proche d'une enseigne, et les voir dans la
-// fonte du logo les rattache à lui. Elle n'a pas de bas-de-casse -- ses
-// minuscules sont ses capitales -- si bien que le texte source garde sa
-// casse ordinaire et que `AllUppercase` ne sert qu'au repli: sans la fonte,
-// le titre est en capitales quand même.
+// La police employée est Zen Dots, celle de la ligne supérieure du logo : les
+// titres de section étant les éléments de la page les plus proches d'un
+// intitulé, cette police les rattache visuellement au logo. Cette police ne
+// comporte pas de bas de casse, ses minuscules étant dessinées en capitales ;
+// le texte source conserve donc sa casse ordinaire, et `AllUppercase` ne sert
+// qu'à la police de repli, pour que le titre soit en capitales dans tous les
+// cas.
 //
-// De l'interlettrage, et un corps un peu réduit: Zen Dots est déjà large, et
-// des capitales serrées font un bloc plutôt que des mots.
+// Un interlettrage est appliqué et le corps légèrement réduit : Zen Dots étant
+// large, des capitales trop resserrées formeraient un bloc compact plutôt que
+// des mots distincts.
 QWidget *feltSection(QWidget *parent, const QString &text) {
     auto *heading = new QWidget(parent);
     heading->setObjectName(QStringLiteral("feltSection"));
@@ -107,9 +114,10 @@ QWidget *feltSection(QWidget *parent, const QString &text) {
     return heading;
 }
 
-// Ce qu'une longueur coûte, en une poignée de caractères. Dit par le nombre
-// de manches plutôt que par la phrase qui l'accompagne dans `Tables` -- « Une
-// douzaine de manches » sous « Partie longue » répète ce qu'on vient de lire.
+// Durée d'une partie, exprimée de façon abrégée. Elle est indiquée par le
+// nombre de manches plutôt que par la phrase associée dans `Tables` : une
+// mention telle que « Une douzaine de manches » sous « Partie longue »
+// répéterait l'information du libellé.
 QString lengthCost(const Target &target) {
     if (target.manches <= 1) return QCoreApplication::translate("TablePicker", "1 donne");
     return QCoreApplication::translate("TablePicker", "≈ %1 manches").arg(target.manches);
@@ -118,18 +126,17 @@ QString lengthCost(const Target &target) {
 } // namespace
 
 TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
-    // Le tapis couvre tout, et c'est nous qui le peignons.
+    // Le tapis couvre toute la surface et est peint par cette classe.
     setAttribute(Qt::WA_OpaquePaintEvent);
 
     auto *outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->setSpacing(0);
 
-    // La bande du logo ne défile pas: le logo est l'enseigne de la page, et
-    // une enseigne qui s'en va au premier cran de molette n'en est pas une.
-    // Elle ne peint rien elle-même -- c'est la page qui dessine le logo
-    // dedans, pour que le vol depuis l'écran titre arrive sur le tapis et non
-    // sur un widget.
+    // La bande du logo ne défile pas : le logo identifie la page et doit
+    // rester visible. Elle ne peint rien elle-même, le logo y étant dessiné
+    // par la page, afin que l'animation venue de l'écran titre aboutisse sur
+    // le tapis et non sur un widget.
     m_header = new QWidget(this);
     m_header->setFixedHeight(kHeaderHeight);
     m_header->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -144,12 +151,13 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     auto *scroller = new QScrollArea(m_content);
     scroller->setWidgetResizable(true);
     scroller->setFrameShape(QFrame::NoFrame);
-    // Une barre horizontale quand la fenêtre est trop étroite pour les cinq
-    // tables: sans elle, la sixième place et le troisième adversaire sont
-    // coupés et hors d'atteinte. Elle ne paraît que là.
+    // Une barre de défilement horizontale apparaît lorsque la fenêtre est trop
+    // étroite pour les cinq tables ; sans elle, la sixième table et le
+    // troisième adversaire seraient tronqués et inaccessibles. Elle n'apparaît
+    // que dans ce cas.
     scroller->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    // Le drap se voit à travers: ni la zone, ni sa vitre, ni la page dedans
-    // ne peignent de fond.
+    // Le tapis reste visible au travers : ni la zone de défilement, ni son
+    // conteneur, ni la page qu'elle contient ne peignent de fond.
     scroller->setStyleSheet(QStringLiteral("QScrollArea { background: transparent; border: 0; }"));
     scroller->viewport()->setAutoFillBackground(false);
     scroller->viewport()->setStyleSheet(QStringLiteral("background: transparent;"));
@@ -163,15 +171,15 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     auto *rows = new QVBoxLayout(page);
     rows->setContentsMargins(kMargin, 0, kMargin, 22);
     rows->setSpacing(0);
-    // Deux ressorts, un de chaque côté: la page se tient au milieu de la
-    // place qu'elle a, et se range en haut dès qu'elle n'en a plus -- un
-    // ressort rendu à zéro est un ressort qui ne fait rien, et c'est alors
-    // la barre de défilement qui prend la suite.
+    // Deux ressorts, un de chaque côté : la page est centrée dans l'espace
+    // disponible et se cale en haut dès que celui-ci devient insuffisant, un
+    // ressort réduit à zéro n'ayant plus d'effet ; c'est alors la barre de
+    // défilement qui prend le relais.
     rows->addStretch(1);
 
-    // La longueur de la partie. En tête, parce qu'elle change ce qui est
-    // écrit dans le coin des tuiles -- et parce que presser une table lance
-    // la partie: tout ce qui se choisit avant se lit avant elles.
+    // La durée de la partie, placée en tête : elle modifie la valeur inscrite
+    // dans le coin des tuiles, et l'activation d'une table lance la partie ;
+    // tout choix préalable doit donc être présenté avant les tables.
     QWidget *lengthHeading = feltSection(page, tr("La partie"));
     m_headings.append(lengthHeading);
     rows->addWidget(lengthHeading);
@@ -185,8 +193,8 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         button->setMinimumHeight(50);
 
         auto *stack = new QVBoxLayout(button);
-        // Un pixel de moins en haut qu'en bas, pour la même raison que
-        // partout ailleurs: voir `capCentred` dans Fonts.h.
+        // Un pixel de moins en haut qu'en bas, pour la raison exposée dans
+        // `capCentred` (Fonts.h).
         stack->setContentsMargins(15, 5, 15, 7);
         stack->setSpacing(0);
         auto *name = new QLabel(target.name, button);
@@ -197,7 +205,8 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         }
         blurb->setFont(smaller);
         for (QLabel *line : {name, blurb}) {
-            // Le clic appartient au bouton: les étiquettes le laissent passer.
+            // Le clic est traité par le bouton : les libellés le laissent
+            // passer.
             line->setAttribute(Qt::WA_TransparentForMouseEvents);
             stack->addWidget(line);
         }
@@ -206,7 +215,8 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
         connect(button, &QPushButton::clicked, this, [this, id] {
             if (m_targetId == id) return;
             m_targetId = id;
-            // Les tuiles portent le but dans leur coin: il bouge avec lui.
+            // Les tuiles affichent l'objectif dans leur coin, lequel est mis à
+            // jour en conséquence.
             reread();
             Q_EMIT targetChosen(id);
         });
@@ -217,9 +227,9 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     rows->addLayout(lengths);
     rows->addSpacing(kSectionGap);
 
-    // Les six. Avant les tables, bien qu'on puisse partir sans en inviter un
-    // seul: c'est un choix, et un choix passé sous le déclencheur est un
-    // choix qu'on fait après coup, la partie commencée.
+    // Les six adversaires, présentés avant les tables bien qu'aucune
+    // invitation ne soit requise : il s'agit d'un choix, et un choix placé
+    // après l'élément qui lance la partie ne pourrait plus être exercé.
     QWidget *rivalHeading = feltSection(page, tr("Les adversaires"));
     m_headings.append(rivalHeading);
     rows->addWidget(rivalHeading);
@@ -227,22 +237,24 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     auto *grid = new QGridLayout;
     grid->setHorizontalSpacing(kFeltGap);
     grid->setVerticalSpacing(kFeltGap);
-    // Une quatrième colonne qui ne porte rien et prend tout le reste: sans
-    // elle les trois autres s'étirent jusqu'au bord de la fenêtre, et la
-    // grille cesse de s'aligner sur les tuiles dès qu'on élargit.
+    // Une quatrième colonne vide absorbe l'espace restant : sans elle, les
+    // trois autres s'étireraient jusqu'au bord de la fenêtre et la grille
+    // cesserait de s'aligner sur les tuiles lors d'un élargissement.
     grid->setColumnStretch(3, 1);
     int at = 0;
     for (const Rival &rival : rivals()) {
         auto *card = new RivalCard(rival.id, page);
         card->setPickable(true);
         card->setOnFelt(true);
-        // Fixe, comme une tuile: sur une fenêtre étroite les deux sections
-        // débordent ensemble et la même barre horizontale les rattrape,
-        // plutôt que l'une se resserre pendant que l'autre tient bon.
+        // Largeur fixe, comme celle d'une tuile : dans une fenêtre étroite,
+        // les deux sections débordent conjointement et la même barre de
+        // défilement les couvre, plutôt que l'une se comprime pendant que
+        // l'autre conserve sa taille.
         card->setFixedWidth(kRivalCardWidth);
-        // Pas d'infobulle: c'est l'aperçu de ses compétences qui paraît quand
-        // on reste sur sa carte, et deux panneaux au même survol se marchent
-        // dessus. Ce que les clics font est écrit en bas de page.
+        // Aucune infobulle : c'est l'aperçu des compétences qui s'affiche au
+        // maintien du pointeur sur la carte, et deux panneaux déclenchés par le
+        // même survol se recouvriraient. L'effet des clics est indiqué en bas
+        // de page.
         connect(card, &RivalCard::invitedChanged, this, [this] { reread(); });
         connect(card, &RivalCard::menuWanted, this,
                 [this, card](const QPoint &where) { showRivalMenu(card, where); });
@@ -255,7 +267,8 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     rows->addLayout(grid);
     rows->addSpacing(kSectionGap);
 
-    // Les tables, en dernier: elles ne se choisissent pas, elles partent.
+    // Les tables en dernier : leur activation ne constitue pas un choix mais
+    // lance la partie.
     QWidget *tableHeading = feltSection(page, tr("La table"));
     m_headings.append(tableHeading);
     rows->addWidget(tableHeading);
@@ -277,11 +290,12 @@ TablePicker::TablePicker(QWidget *parent) : QWidget(parent) {
     rows->addLayout(tiles);
     rows->addSpacing(12);
 
-    // La seule ligne de la page. Les trois gestes qu'on ne devine pas, et
-    // rien d'autre: tout le reste est écrit sur la chose elle-même. Au pied
-    // des tuiles plutôt qu'au pied de la fenêtre, pour qu'elle tienne à ce
-    // qu'elle explique -- et ses membres dans l'ordre de la page, celui de
-    // la table en dernier, qui est celui de ce qu'elle a juste au-dessus.
+    // Unique ligne d'aide de la page. Elle décrit les trois actions non
+    // déductibles de l'affichage, le reste étant indiqué sur les éléments
+    // eux-mêmes. Elle est placée au pied des tuiles et non au pied de la
+    // fenêtre, afin de rester rattachée à ce qu'elle décrit ; ses mentions
+    // suivent l'ordre de la page, celle relative aux tables figurant en
+    // dernier, immédiatement sous celles-ci.
     m_footer = new QLabel(page);
     m_footer->setText(tr("Un clic invite  ·  deux clics ouvrent sa fiche  ·  "
                          "une table lance la partie"));
@@ -306,8 +320,8 @@ void TablePicker::setMarkHidden(bool hidden) {
 
 void TablePicker::beginEntrance() {
     if (!m_content) return;
-    // L'effet n'est posé que le temps de la montée: il fait passer toute la
-    // page par un pixmap, ce qui n'a pas à durer au-delà.
+    // L'effet n'est appliqué que pendant le fondu : il fait transiter toute la
+    // page par un pixmap, ce qui n'a pas lieu d'être au-delà.
     auto *fade = new QGraphicsOpacityEffect(m_content);
     fade->setOpacity(0.0);
     m_content->setGraphicsEffect(fade);
@@ -378,8 +392,9 @@ void TablePicker::showRivalMenu(RivalCard *card, const QPoint &where) {
     QAction *rename = menu.addAction(tr("Renommer…"));
     menu.addSeparator();
     QAction *reset = menu.addAction(tr("Remettre son expérience à zéro"));
-    // Rien à remettre quand il n'a rien appris: l'entrée le dit en étant
-    // éteinte, plutôt qu'en posant une question dont la réponse ne fait rien.
+    // Aucune réinitialisation n'est possible si l'adversaire n'a acquis aucune
+    // expérience : l'entrée est alors désactivée, plutôt que d'ouvrir une
+    // confirmation sans effet.
     reset->setEnabled(learning.xp > 0 || learning.handsPlayed > 0);
 
     const QAction *chosen = menu.exec(where);
@@ -401,8 +416,8 @@ void TablePicker::renameRival(const QString &rivalId) {
                          "son nom."),
                       rivalName(rivalId), kRivalNameLength, this);
     if (dialog.exec() != QDialog::Accepted) return;
-    // Un nom vide le fait répondre au sien: c'est setRivalName qui s'en
-    // charge, et c'est la façon de le débaptiser.
+    // Un nom vide rétablit le nom d'origine ; cette opération est effectuée
+    // par `setRivalName`.
     setRivalName(rivalId, dialog.name());
     reread();
 }
@@ -441,11 +456,12 @@ void TablePicker::dressLengths() {
         name.setBold(mine);
         plaque.name->setFont(name);
 
-        // La largeur, dite plutôt que déduite: un QPushButton tire sa taille
-        // de son propre texte, qui est vide ici, et pas de ce qu'on a mis
-        // dedans -- sans cela les plaques se referment sur une lettre. Prise
-        // sur le nom en gras quoi qu'il arrive, pour que la plaque ne change
-        // pas de largeur en étant choisie.
+        // La largeur est imposée et non déduite : un `QPushButton` calcule sa
+        // taille d'après son propre texte, vide ici, et non d'après les widgets
+        // qu'il contient ; sans cela, les plaques se réduiraient à la largeur
+        // d'un caractère. Elle est calculée sur le nom en gras dans tous les
+        // cas, afin que la plaque ne change pas de largeur lors de sa
+        // sélection.
         QFont widest = name;
         widest.setBold(true);
         const qreal room =
@@ -456,8 +472,8 @@ void TablePicker::dressLengths() {
         plaque.name->setStyleSheet(
             QStringLiteral("color: %1; background: transparent;")
                 .arg((mine ? scheme.gold : scheme.feltText).name()));
-        // Ce que la longueur coûte, dans l'or éteint: c'est un chiffre, pas
-        // ce qu'on vient lire.
+        // La durée est affichée dans un doré atténué : il s'agit d'une valeur
+        // secondaire et non de l'information principale.
         plaque.blurb->setStyleSheet(
             QStringLiteral("color: rgba(%1,%2,%3,%4); background: transparent;")
                 .arg(scheme.gold.red())

@@ -19,36 +19,39 @@
 
 namespace {
 
-// Ce dont l'aperçu s'écarte de son bord, l'air entre ses deux moitiés, et ce
-// qui sépare deux lignes: moins que sur la fiche, qui est tout l'objet du
-// resserrement -- huit lignes à l'écart d'une fiche feraient un panneau plus
-// haut que la plaque qu'on survole.
+// Marge intérieure de l'aperçu, espacement entre ses deux colonnes, et
+// interligne. Ces valeurs sont inférieures à celles de la fiche, ce qui
+// constitue l'objet du mode compact : huit lignes à l'interligne de la fiche
+// produiraient un panneau plus haut que la plaque survolée.
 constexpr int kPad = 14;
 constexpr int kBetween = 24;
 constexpr int kTight = 1;
 constexpr qreal kCorner = 10.0;
 
-// De combien il se décale de ce qu'on survole, pour que le bord de l'un ne
-// touche pas le bord de l'autre.
+// Décalage entre l'aperçu et l'élément survolé, afin que leurs bords ne se
+// touchent pas.
 constexpr int kOffset = 6;
 
-// À quelle cadence il regarde où est le pointeur, une fois posé.
+// Période de vérification de la position du pointeur, une fois l'aperçu
+// affiché.
 constexpr int kWatchMs = 120;
 
-// Celui qui est à l'écran, et celui qui l'a demandé. Un seul: deux aperçus
-// ouverts en même temps seraient deux adversaires décrits à la fois.
+// Aperçu actuellement affiché et élément l'ayant demandé. Un seul aperçu est
+// admis à la fois, deux aperçus simultanés décrivant deux adversaires
+// différents.
 QPointer<RivalGlance> g_glance;
 QPointer<QWidget> g_about;
 
-// Où le poser: sous ce qu'on survole, ou dessus, ou à côté -- le premier des
-// quatre qui tienne à l'écran sans recouvrir ni ce qu'on survole ni le
-// pointeur. Un panneau posé sous le pointeur prend le survol de ce qu'il
-// décrit, et c'est de là que venait le clignotement.
+// Détermine la position de l'aperçu : sous l'élément survolé, au-dessus, ou
+// à côté — la première des quatre positions tenant à l'écran sans recouvrir ni
+// l'élément survolé ni le pointeur. Un panneau placé sous le pointeur capte le
+// survol de l'élément qu'il décrit, ce qui provoquait un clignotement.
 QRect glancePlace(const QSize &size, const QRect &avoid, const QRect &room, const QPoint &mouse) {
     const int w = size.width();
     const int h = size.height();
-    // Aligné sur le bord qu'il longe, puis ramené dans l'écran: un aperçu qui
-    // commence au bord gauche de la carte se lit comme sa suite.
+    // Aligné sur le bord qu'il longe, puis ramené dans les limites de
+    // l'écran : un aperçu commençant au bord gauche de la carte se lit comme
+    // son prolongement.
     const int x = std::max(room.left() + 4, std::min(avoid.left(), room.right() - w - 4));
     const int y = std::max(room.top() + 4, std::min(avoid.top(), room.bottom() - h - 4));
 
@@ -72,9 +75,9 @@ RivalGlance::RivalGlance(const QString &rivalId, QWidget *about)
     : QWidget(about, Qt::ToolTip | Qt::FramelessWindowHint), m_rivalId(rivalId) {
     m_hue = rivalById(rivalId).hue;
 
-    // Il ne prend rien: ni le clic, ni le focus, ni le survol -- sans quoi
-    // l'aperçu qui se pose sous le pointeur ferait sortir le pointeur de la
-    // carte qui l'a demandé, et l'aperçu se refermerait aussitôt.
+    // L'aperçu ne capte aucun événement : ni clic, ni focus, ni survol. À
+    // défaut, un aperçu placé sous le pointeur ferait sortir celui-ci de la
+    // carte l'ayant demandé, et l'aperçu se refermerait aussitôt.
     setAttribute(Qt::WA_TransparentForMouseEvents);
     setAttribute(Qt::WA_ShowWithoutActivating);
     setAttribute(Qt::WA_TranslucentBackground);
@@ -140,8 +143,8 @@ void RivalGlance::watch(const QRect &avoid) {
         m_watch = new QTimer(this);
         m_watch->setInterval(kWatchMs);
         connect(m_watch, &QTimer::timeout, this, [this] {
-            // Celui qui n'est plus l'aperçu en cours est déjà en train de
-            // partir: il n'a pas à fermer celui qui l'a remplacé.
+            // Un aperçu qui n'est plus l'aperçu courant est déjà en cours de
+            // fermeture : il ne doit pas fermer celui qui l'a remplacé.
             if (!wanted() && g_glance == this) hideRivalGlance();
         });
     }
@@ -161,9 +164,9 @@ void RivalGlance::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
-    // Le panneau, et son bord dans la couleur de celui qu'il décrit: posé sur
-    // le tapis, à côté de cinq autres plaques, c'est ce qui dit de qui il
-    // parle sans avoir à le réécrire.
+    // Le panneau, bordé de la couleur de l'adversaire décrit : affiché sur le
+    // tapis à côté de cinq autres plaques, c'est ce qui l'identifie sans
+    // répéter son nom.
     const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     painter.setPen(QPen(blendColours(scheme.edge, mine, 0.55), 1.0));
     painter.setBrush(scheme.surface);
@@ -172,17 +175,17 @@ void RivalGlance::paintEvent(QPaintEvent *) {
 
 void showRivalGlance(const QString &rivalId, const QRect &avoid, QWidget *about) {
     if (!about || rivalId.isEmpty()) return;
-    // Celui qui est déjà là reste là: on ne le refait pas pour le même
-    // adversaire au même endroit, parce que le refaire se verrait.
+    // Un aperçu déjà affiché est conservé : il n'est pas reconstruit pour le
+    // même adversaire à la même position, la reconstruction étant visible.
     if (g_glance && g_about == about && g_glance->rivalId() == rivalId) {
         g_glance->watch(avoid);
         return;
     }
     hideRivalGlance();
 
-    // Refait à chaque fois plutôt que gardé: il porte l'expérience du moment
-    // et les couleurs du moment, et une manche jouée entre deux survols a
-    // changé les deux.
+    // Reconstruit à chaque affichage plutôt que conservé : il reflète
+    // l'expérience et les couleurs courantes, qu'une manche jouée entre deux
+    // survols peut avoir modifiées.
     auto *glance = new RivalGlance(rivalId, about);
     glance->adjustSize();
     const QSize size = glance->size();
@@ -192,9 +195,10 @@ void showRivalGlance(const QString &rivalId, const QRect &avoid, QWidget *about)
 
     QRect place = glancePlace(size, avoid, room, QCursor::pos());
     if (place.isNull()) {
-        // Nulle part où le poser sans rien recouvrir: dessous, rentré de
-        // force, et le pointeur peut bien passer dessus -- c'est lui qui
-        // surveille maintenant, et il ne se referme plus sur un leave.
+        // Aucune position ne permet d'éviter tout recouvrement : l'aperçu est
+        // placé en dessous et ramené de force dans l'écran. Le pointeur peut
+        // alors passer dessus, l'aperçu assurant désormais lui-même la
+        // surveillance et ne se fermant plus sur un événement de sortie.
         const int x = std::max(room.left() + 4, std::min(avoid.left(), room.right() -
                                                                            size.width() - 4));
         const int y = std::max(room.top() + 4,
@@ -223,9 +227,10 @@ void hideRivalGlance(const QWidget *about) {
 void releaseRivalGlance(const QWidget *about) {
     if (!g_glance) return;
     if (about && g_about && g_about != about) return;
-    // Le pointeur est sorti de la carte -- ou bien l'aperçu vient de se poser
-    // dessus, ce qui ressemble exactement à la même chose. Il reste tant qu'il
-    // est sous le pointeur, et c'est sa surveillance qui le fermera.
+    // Le pointeur est sorti de la carte, ou bien l'aperçu vient de s'afficher
+    // par-dessus, ce qui produit le même événement. L'aperçu est conservé tant
+    // que le pointeur se trouve sur lui ; sa propre surveillance assurera sa
+    // fermeture.
     if (g_glance->wanted()) return;
     hideRivalGlance();
 }

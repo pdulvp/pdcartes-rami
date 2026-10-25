@@ -16,8 +16,9 @@ void dressMenu(QMenu *menu) {
     menu->setStyleSheet(
         QStringLiteral("QMenu { background: %1; color: %2; border: 1px solid %3;"
                        " border-radius: 8px; padding: 5px; }"
-                       // Un pixel de moins en haut qu'en bas, comme partout où Qt centre
-                       // lui-même: voir `capCentred` dans Fonts.h.
+                       // Un pixel de moins en haut qu'en bas, comme partout où Qt
+                       // effectue lui-même le centrage : voir `capCentred` dans
+                       // Fonts.h.
                        "QMenu::item { padding: 5px 22px 7px 14px;"
                        " border-radius: 5px; }"
                        "QMenu::item:selected { background: %4; color: %5; }"
@@ -29,9 +30,9 @@ void dressMenu(QMenu *menu) {
 
 namespace {
 
-// La même teinture que `tintedIcon`, mais sur une image qu'on apporte: la
-// forme est gardée et la couleur jetée, ce qui est tout ce que teinter une
-// icône d'un seul ton veut dire.
+// Applique la même coloration que `tintedIcon`, mais à une image fournie en
+// argument : la forme est conservée et la couleur d'origine remplacée, ce qui
+// constitue l'intégralité du traitement pour une icône monochrome.
 QIcon tintedFile(const QString &path, const QColor &ink) {
     const QIcon source(path);
     if (source.isNull()) return {};
@@ -59,8 +60,8 @@ QIcon tintedFile(const QString &path, const QColor &ink) {
 } // namespace
 
 QIcon appIcon(const QStringList &names, const QColor &ink) {
-    // Le bureau d'abord: sur une machine qui a un thème, le jeu porte les
-    // icônes de la maison plutôt que les siennes.
+    // Le thème du bureau est consulté en premier : sur une machine qui en
+    // fournit un, l'application adopte ses icônes plutôt que les siennes.
     const QIcon theirs = tintedIcon(names, ink);
     if (!theirs.isNull()) return theirs;
 

@@ -17,36 +17,40 @@
 
 namespace {
 
-// Les deux mots, écrits ici plutôt que traduits : c'est un nom.
+// Les deux mots sont inscrits en clair et non traduits : c'est un nom propre.
 const QLatin1String kUpper("PDCARTES");
 const QLatin1String kLower("RAMI");
 
-// Ce que la ligne du dessus fait de la hauteur de l'enseigne. Petite: c'est
-// la raison sociale posée au-dessus du nom, et non un second nom. Zen Dots
-// est ce qui la rend tenable à cette taille -- des lettres pleines et rondes,
-// là où le trait rainuré de l'enseigne se brouillerait.
+// Hauteur de la ligne supérieure, en proportion de celle du titre. Elle est
+// réduite car il s'agit d'une mention secondaire placée au-dessus du nom et
+// non d'un second nom. La police Zen Dots reste lisible à cette taille, ses
+// lettres étant pleines et arrondies, là où le tracé rainuré de la police du
+// titre deviendrait confus.
 constexpr qreal kSmallShare = 0.20;
-// Les deux lignes partent du même bord. Le bloc tenait avant en escalier,
-// `Rami` rentré vers la droite ; une ligne du quart de la hauteur ne porte
-// plus un décalage pareil -- elle se mettrait de travers au-dessus du vide.
+// Les deux lignes sont alignées sur le même bord gauche. Le bloc était
+// auparavant disposé en décalage, « Rami » étant rentré vers la droite ; une
+// ligne supérieure réduite au quart de la hauteur ne supporte plus un tel
+// décalage, qui la laisserait en porte-à-faux au-dessus du vide.
 constexpr qreal kIndent = 0.0;
-// Ce qui sépare les deux lignes, en part de la hauteur de la grande. Serré :
-// un logo, pas un paragraphe.
+// Interligne séparant les deux lignes, en proportion de la hauteur de la
+// grande. La valeur est faible, s'agissant d'un logo et non d'un texte
+// courant.
 constexpr qreal kLeading = 0.07;
-// L'ombre portée, en part de la hauteur de la grande ligne.
+// Décalage de l'ombre portée, en proportion de la hauteur de la grande ligne.
 constexpr qreal kDrop = 0.022;
 
-// La mesure d'essai dont on tire l'échelle. Les vraies tailles sont mesurées
-// ensuite: une fonte ne grandit pas tout à fait proportionnellement.
+// Corps de référence servant à calculer le facteur d'échelle. Les dimensions
+// définitives sont mesurées ensuite, le rendu d'une police n'étant pas
+// exactement proportionnel à son corps.
 constexpr qreal kTrial = 100.0;
 
 
-// Le bloc mesuré à une taille donnée: les deux fontes, l'encre de chaque
-// ligne, et où poser le coin haut-gauche de chacune.
+// Le bloc mesuré à un corps donné : les deux polices, le rectangle d'encrage
+// de chaque ligne, et la position du coin supérieur gauche de chacune.
 //
-// Mesuré sur l'encre -- `tightBoundingRect` et non la hauteur de ligne --
-// parce qu'un logo se cale sur ce qu'on voit et non sur les blancs que la
-// fonte réserve au-dessus et au-dessous.
+// La mesure porte sur l'encrage réel — `tightBoundingRect` et non la hauteur
+// de ligne — car un logo se cale sur les formes visibles et non sur les blancs
+// que la police réserve au-dessus et au-dessous.
 struct Block {
     QFont upper;
     QFont lower;
@@ -69,13 +73,14 @@ Block measure(const QFont &fallback, qreal pixels) {
     return block;
 }
 
-// Une ligne et son ombre portée : sans elle l'or se perd dans le vert clair
-// du milieu du tapis, où la lampe tombe -- et une carte qui passe dessous le
-// mangerait.
+// Dessine une ligne et son ombre portée. Sans cette ombre, l'or se confond
+// avec le vert clair du centre du tapis, où porte l'éclairage, et une carte
+// passant dessous ferait disparaître le texte.
 void inkLine(QPainter *painter, const QFont &font, const QRectF &ink, const QPointF &at,
              const QString &text, const QColor &colour, const QColor &shade, qreal drop) {
     painter->setFont(font);
-    // `drawText` prend la ligne de base ; on connaît le coin de l'encre.
+    // `drawText` attend la ligne de base, alors que l'on dispose du coin du
+    // rectangle d'encrage.
     const QPointF baseline = at - ink.topLeft();
     painter->setPen(shade);
     painter->drawText(baseline + QPointF(drop * 0.5, drop), text);
@@ -103,14 +108,15 @@ void drawTitleMark(QPainter *painter, const QRectF &box, const QFont &fallback,
                    const Palette &scheme, qreal fade) {
     if (box.height() <= 1.0 || fade <= 0.0) return;
 
-    // L'échelle d'abord à l'essai, puis remesurée: la boîte est au rapport du
-    // bloc, la hauteur suffit donc à le poser.
+    // L'échelle est d'abord estimée au corps de référence, puis le bloc est
+    // remesuré. Le rectangle étant au rapport du bloc, sa hauteur suffit à le
+    // positionner.
     const Block trial = measure(fallback, kTrial);
     const qreal room = box.height() / std::max(1.0, trial.size.height());
     const Block block = measure(fallback, std::max(7.0, kTrial * room));
 
-    // Ce qui reste de jeu entre la boîte demandée et le bloc remesuré: on le
-    // partage, plutôt que de laisser le bloc déborder d'un côté.
+    // L'écart résiduel entre le rectangle demandé et le bloc remesuré est
+    // réparti de part et d'autre, plutôt que laissé d'un seul côté.
     const qreal left = box.left() + (box.width() - block.size.width()) / 2.0;
     const qreal top = box.top() + (box.height() - block.size.height()) / 2.0;
     const qreal pixels = block.lower.pixelSize();

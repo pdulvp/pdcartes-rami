@@ -39,8 +39,8 @@ const TableKind &tableKindById(const QString &id) {
     for (const TableKind &kind : builtTables()) {
         if (kind.id == id) return kind;
     }
-    // The table played at by default, so that a settings file written by a
-    // later version does not leave the game with no table at all.
+    // Table utilisée par défaut, afin qu'un fichier de réglages écrit par une
+    // version ultérieure ne laisse pas l'application sans table.
     return builtTables().at(2);
 }
 
@@ -59,10 +59,11 @@ QString defaultTargetId() { return builtTargets().at(2).id; }
 
 int targetPointsFor(const Target &target, int seats) {
     if (target.manches <= 1) return 0;
-    // Nine points a manche for each player who is not you: measured rather
-    // than guessed, by playing a few thousand manches at every table and
-    // watching how fast the worst score climbs. It is near enough linear in
-    // the number of opponents, which is not a surprise -- every one of them
-    // is another hand of cards that gets counted against somebody.
+    // Neuf points par manche et par adversaire. Cette valeur est mesurée et
+    // non estimée : quelques milliers de manches ont été jouées à chaque
+    // table en observant la vitesse de progression du plus mauvais score. La
+    // relation est sensiblement linéaire en fonction du nombre d'adversaires,
+    // ce qui s'explique : chacun d'eux représente une main supplémentaire dont
+    // les points sont comptés à l'un des joueurs.
     return 9 * std::max(1, seats - 1) * target.manches;
 }

@@ -38,8 +38,8 @@ constexpr int kMenuPage = 1;
 constexpr int kTablePage = 2;
 constexpr int kTopBarHeight = 50;
 
-// L'icône d'un bouton de la bande: son côté, l'air qu'on lui met à droite
-// pour la séparer du mot, et de combien on la redescend. Voir paddedIcon().
+// Icône d'un bouton du bandeau : sa taille, l'espacement ajouté à sa droite
+// pour la séparer du libellé, et son décalage vertical. Voir `paddedIcon()`.
 constexpr int kIconSide = 18;
 constexpr int kIconGap = 6;
 constexpr int kIconDrop = 1;
@@ -57,16 +57,17 @@ QToolButton *barButton(QWidget *parent, const QString &text, const QStringList &
     return button;
 }
 
-// L'icône d'un bouton de la bande, rembourrée de vide transparent.
+// Icône d'un bouton du bandeau, complétée de marges transparentes.
 //
-// Deux défauts se corrigent là, et pas ailleurs. Qt centre l'icône et le mot
-// chacun dans le même rectangle, si bien qu'un rembourrage asymétrique posé
-// sur le bouton -- celui qui remonte le texte, trop bas dans une fonte
-// japonaise -- remonte l'icône avec lui, alors qu'elle était bien placée. Et
-// il ne laisse presque rien entre l'image et le mot. Comme on ne peut viser
-// ni l'un ni l'autre séparément dans un bouton qu'il dessine lui-même, c'est
-// l'image qui porte les deux corrections: du vide en haut pour la redescendre
-// au milieu de son fond, du vide à droite pour l'écarter du mot.
+// Deux défauts sont corrigés ici, faute de pouvoir l'être ailleurs. Qt centre
+// l'icône et le libellé dans un même rectangle : une marge asymétrique
+// appliquée au bouton — celle qui remonte le texte, placé trop bas par une
+// police japonaise — remonte également l'icône, dont la position était
+// correcte. Par ailleurs, Qt ne ménage presque aucun espace entre l'image et
+// le libellé. Ni l'un ni l'autre ne pouvant être traités séparément dans un
+// bouton dessiné par Qt, les deux corrections sont portées par l'image :
+// marge supérieure pour la recentrer verticalement, marge droite pour
+// l'écarter du libellé.
 QIcon paddedIcon(const QIcon &icon, int side, int rightGap, int topDrop) {
     if (icon.isNull()) return icon;
 
@@ -81,8 +82,9 @@ QIcon paddedIcon(const QIcon &icon, int side, int rightGap, int topDrop) {
         room.setDevicePixelRatio(ratio);
         room.fill(Qt::transparent);
         QPainter painter(&room);
-        // En haut le vide, en bas rien: l'image se retrouve plus bas que le
-        // milieu de ce qu'on rend, donc plus bas dans le bouton.
+        // Marge en haut et aucune en bas : l'image se trouve ainsi plus bas
+        // que le centre du rectangle retourné, et donc plus bas dans le
+        // bouton.
         painter.drawPixmap(QRect(0, int(topDrop * ratio * 2.0), asked.width(), asked.height()),
                            art);
         painter.end();
@@ -91,13 +93,15 @@ QIcon paddedIcon(const QIcon &icon, int side, int rightGap, int topDrop) {
     return padded.isNull() ? icon : padded;
 }
 
-// What colour a label in the strip is written in.
+// Définit la couleur d'un libellé du bandeau.
 //
-// Said with a style sheet of the label's own rather than with a palette,
-// which is the obvious way and does not work: the strip carries a style
-// sheet, and a widget under one is repolished whenever anything near it
-// changes -- each repolish handing it back the palette it had when the sheet
-// went on. A rule on the widget itself outranks all of that.
+// La couleur est appliquée par une feuille de style propre au libellé plutôt
+// que par une palette. Cette seconde approche, plus directe, ne fonctionne
+// pas : le bandeau porte une feuille de style, et un widget placé sous une
+// feuille de style est repoli à chaque modification de son voisinage, chaque
+// repolissage lui restituant la palette qu'il avait lors de l'application de
+// la feuille. Une règle portée par le widget lui-même prévaut sur ce
+// mécanisme.
 void inkLabel(QLabel *label, const QColor &colour) {
     const QString rule = QStringLiteral("color: %1;").arg(colour.name());
     if (label->styleSheet() == rule) return;
@@ -110,7 +114,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle(tr("PDCartes Rami"));
 
     readSettings();
-    // Le tapis du profil, et ses cartes: tous deux lui appartiennent.
+    // La couleur de tapis et le jeu de cartes du profil, qui lui sont tous
+    // deux propres.
     setCurrentPalette(feltHue());
     applyProfileLook();
 
@@ -124,13 +129,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         m_settings.targetId = id;
         writeSettings();
     });
-    // Un profil renommé depuis le menu: la bande du haut porte son nom.
+    // Profil renommé depuis le menu : le bandeau supérieur affiche son nom.
 
     m_table = new TablePage(this);
     connect(m_table, &TablePage::stateChanged, this, &MainWindow::updateTopBar);
     connect(m_table, &TablePage::wantsMenu, this, &MainWindow::showMenu);
-    // La molette sur le tapis change la taille des cartes: écrite tout de
-    // suite, comme tout le reste de ce que la fenêtre retient.
+    // La molette sur le tapis modifie la taille des cartes ; la valeur est
+    // enregistrée immédiatement, comme tous les réglages de la fenêtre.
     connect(m_table, &TablePage::zoomChanged, this, [this](int percent) {
         m_settings.zoom = percent;
         writeSettings();
@@ -149,10 +154,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     rows->addWidget(m_pages, 1);
     setCentralWidget(centre);
 
-    // Le calque du vol: enfant du centre et non de la pile, pour qu'il couvre
-    // aussi la bande du haut -- le logo descend de plein cadre jusque sous
-    // elle, et serait coupé net au bord de la pile. Hors de toute disposition,
-    // sa géométrie est posée à la main dans resizeEvent().
+    // Calque d'animation du logo : il est enfant du widget central et non de
+    // la pile de pages, afin de couvrir également le bandeau supérieur. Le
+    // logo se déplace depuis le plein cadre jusqu'en dessous de celui-ci et
+    // serait tronqué au bord de la pile. Le calque étant hors de toute
+    // disposition, sa géométrie est fixée manuellement dans `resizeEvent()`.
     m_flight = new TitleFlight(centre);
     m_flight->setGeometry(centre->rect());
     connect(m_flight, &TitleFlight::landed, this, &MainWindow::flightLanded);
@@ -168,12 +174,12 @@ QWidget *MainWindow::buildTopBar() {
     m_topBar->setFixedHeight(kTopBarHeight);
 
     m_subtitle = new QLabel(m_topBar);
-    // Elle absorbe tout l'espace qui reste et rend ce qu'il faut quand il n'y
-    // en a plus : sans cela, c'est le score à droite qui se fait couper, et un
-    // score coupé se lit comme un autre score -- « 106 pts » devenait
-    // « 06 pts ».
+    // Elle occupe tout l'espace disponible et le restitue lorsqu'il vient à
+    // manquer. Sans ce comportement, c'est le score situé à droite qui était
+    // tronqué, un score tronqué restant lisible comme un autre score :
+    // « 106 pts » devenait « 06 pts ».
     m_subtitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    // Elle se recoupe elle-même quand la bande lui donne une autre largeur.
+    // Elle est retronquée lorsque le bandeau lui attribue une autre largeur.
     m_subtitle->installEventFilter(this);
     m_profileChip = new ProfileChip(m_topBar);
     connect(m_profileChip, &ProfileChip::clicked, this, &MainWindow::showProfileMenu);
@@ -245,25 +251,28 @@ void MainWindow::startGame(const QString &tableId) {
 void MainWindow::leaveTitle() {
     if (m_pages->currentIndex() != kTitlePage) return;
 
-    // D'où il part, mesuré pendant que l'écran titre est encore à l'écran.
+    // Position de départ, mesurée pendant que l'écran titre est encore
+    // affiché.
     const QRectF from = m_titleScreen->markRect().translated(
         m_titleScreen->mapTo(m_flight->parentWidget(), QPoint(0, 0)));
 
     showMenu();
 
-    // Et où il arrive. Mesuré après le changement de page: le menu vient
-    // seulement d'être disposé, et la bande du haut de paraître -- avant
-    // cela, sa tête n'est pas encore à sa place.
+    // Position d'arrivée, mesurée après le changement de page : le menu vient
+    // d'être disposé et le bandeau supérieur d'apparaître ; auparavant, la
+    // position de destination n'est pas encore établie.
     m_picker->ensurePolished();
     const QRectF to = m_picker->markRect().translated(
         m_picker->mapTo(m_flight->parentWidget(), QPoint(0, 0)));
 
-    // Les deux pages lâchent le leur: c'est le calque qui le porte.
+    // Les deux pages masquent leur propre logo, celui-ci étant rendu par le
+    // calque.
     m_titleScreen->setMarkHidden(true);
     m_picker->setMarkHidden(true);
-    // Le menu monte pendant que le logo descend: les deux ensemble font une
-    // page qui s'ouvre, là où l'un sans l'autre fait un logo qui passe
-    // devant une page déjà là.
+    // Le menu apparaît en fondu pendant le déplacement du logo : les deux
+    // animations simultanées produisent une ouverture de page, alors que le
+    // déplacement seul donnerait l'impression d'un logo passant devant une
+    // page déjà affichée.
     m_picker->beginEntrance();
     m_flight->fly(from, to);
 }
@@ -273,13 +282,13 @@ void MainWindow::flightLanded() {
     m_titleScreen->setMarkHidden(false);
 }
 
-// La même perte, et donc la même question, pour les deux façons de quitter
-// une partie en cours: revenir au menu, et en relancer une par-dessus. Seul
-// le nom du bouton change.
+// Même confirmation pour les deux façons d'abandonner une partie en cours :
+// le retour au menu et le lancement d'une nouvelle partie. Seul le libellé du
+// bouton diffère.
 //
-// Rien à demander quand la partie est finie: il n'y a plus de manche à
-// perdre, et une question dont la réponse est toujours oui est un clic de
-// plus.
+// Aucune confirmation n'est demandée lorsque la partie est terminée : il n'y a
+// plus de manche à perdre, et une confirmation dont la réponse est toujours
+// positive constitue une action superflue.
 bool MainWindow::askAbandonMatch(const QString &doIt) {
     if (!m_table->playing()) return true;
     if (m_table->game()->phase() == Phase::MatchOver) return true;
@@ -301,9 +310,9 @@ void MainWindow::showMenu() {
 }
 
 void MainWindow::askLeaveMatch() {
-    // La feuille de marque, elle, a déjà posé la question: elle appelle
-    // showMenu() directement. Ici c'est le joueur qui s'en va de lui-même,
-    // au milieu d'une donne.
+    // La feuille de marque a déjà demandé confirmation et appelle `showMenu()`
+    // directement. Ce chemin correspond au joueur quittant la table de sa
+    // propre initiative, au cours d'une donne.
     if (!askAbandonMatch(tr("Revenir au menu"))) return;
     showMenu();
 }
@@ -311,9 +320,9 @@ void MainWindow::askLeaveMatch() {
 void MainWindow::openSettings() {
     SettingsDialog dialog(m_settings, this);
     const bool kept = dialog.exec() == QDialog::Accepted;
-    // La teinte s'essaie en direct dans la boîte: acceptée elle reste, et
-    // annulée c'est celle du profil qui revient. Dans les deux cas la fenêtre
-    // se repeint, puisque dans les deux cas elle a pu changer en chemin.
+    // La teinte est appliquée en direct dans la boîte de réglages : validée,
+    // elle est conservée ; annulée, celle du profil est rétablie. Dans les deux
+    // cas la fenêtre est repeinte, la teinte ayant pu changer entre-temps.
     setCurrentPalette(kept ? dialog.settings().hue : feltHue());
     applyColours();
     if (!kept) return;
@@ -331,8 +340,8 @@ void MainWindow::showProfileMenu() {
     QMenu menu(this);
     dressMenu(&menu);
 
-    // Rien à éteindre pour cause de partie en cours: la plaque qui ouvre ce
-    // menu n'est à l'écran qu'au menu d'ouverture.
+    // Aucune entrée n'est à désactiver au motif d'une partie en cours : la
+    // plaque qui ouvre ce menu n'est affichée que dans le menu d'ouverture.
     const int here = currentProfile();
     QVector<QAction *> switches;
     for (int slot = 1; slot <= kProfileCount; ++slot) {
@@ -356,7 +365,8 @@ void MainWindow::showProfileMenu() {
     QAction *rename = menu.addAction(tr("Renommer…"));
     QAction *forget = menu.addAction(tr("Tout oublier sur ce profil"));
 
-    // Sous la plaque et alignée sur son bord gauche, comme un menu déroulant.
+    // Positionné sous la plaque et aligné sur son bord gauche, à la manière
+    // d'un menu déroulant.
     const QAction *chosen = menu.exec(m_profileChip->mapToGlobal(
         QPoint(0, m_profileChip->height() + 4)));
     if (!chosen) return;
@@ -364,9 +374,9 @@ void MainWindow::showProfileMenu() {
     const int picked = switches.indexOf(const_cast<QAction *>(chosen));
     if (picked >= 0) {
         setCurrentProfile(picked + 1);
-        // Le tapis, le jeu et le dos appartiennent au profil: ils changent
-        // avec lui, sans quoi on jouerait la partie suivante avec le goût du
-        // précédent.
+        // La couleur de tapis, le jeu de cartes et le dos appartiennent au
+        // profil et changent avec lui ; à défaut, la partie suivante
+        // conserverait les réglages du profil précédent.
         setCurrentPalette(feltHue());
         applyProfileLook();
         applyColours();
@@ -387,7 +397,8 @@ void MainWindow::renameProfile(int slot) {
                          "adversaires."),
                       profileName(slot), kProfileNameLength, this);
     if (dialog.exec() != QDialog::Accepted) return;
-    // Un nom vide rendrait la plaque muette: on garde alors l'ancien.
+    // Un nom vide rendrait la plaque illisible ; l'ancien nom est alors
+    // conservé.
     if (dialog.name().isEmpty()) return;
     setProfileName(slot, dialog.name());
     profileChanged();
@@ -426,15 +437,14 @@ void MainWindow::toggleDark() {
 void MainWindow::applyColours() {
     const Palette &scheme = currentPalette();
 
-    // La feuille de style de la bande d'abord, avant qu'une seule palette
-    // soit distribuée. En poser une fait dépolir tout le sous-arbre par le
-    // style, et rend à chaque widget la palette qu'il avait au premier
-    // polissage -- donc une palette posée avant cet appel est une palette
-    // jetée.
-    // La bande est sombre dans les deux moitiés du jeu de couleurs. Le tapis
-    // l'est, et une bande pâle au-dessus d'un drap vert sombre est une bande
-    // posée sur une autre application; son filet du bas est d'or, comme tout
-    // ce qui borde quelque chose dans ce jeu.
+    // La feuille de style du bandeau est appliquée en premier, avant toute
+    // palette. Son application fait repolir l'ensemble du sous-arbre et
+    // restitue à chaque widget la palette qu'il avait lors du premier
+    // polissage : une palette appliquée avant cet appel serait donc perdue.
+    // Le bandeau est sombre dans les deux modes de couleurs, comme le tapis :
+    // un bandeau clair au-dessus d'un tapis sombre paraîtrait étranger à
+    // l'application. Son filet inférieur est doré, comme tous les éléments de
+    // bordure de l'application.
     const QColor barFace = blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.46);
     const QColor barInk = scheme.feltText;
     QColor barRule = scheme.gold;
@@ -442,11 +452,11 @@ void MainWindow::applyColours() {
     m_topBar->setStyleSheet(
         QStringLiteral("QWidget#topBar { background: %5; border-bottom: 1px solid %6; }"
                        "QToolButton { border: none; border-radius: 7px;"
-                       // Un pixel de moins en haut qu'en bas: Qt centre le
-                       // texte sur la boîte de ligne de la fonte, haute dans
-                       // une fonte japonaise, et le pose donc trop bas. Il
-                       // dessine ces boutons lui-même -- le rembourrage est
-                       // la seule prise. Voir `capCentred` dans Fonts.h.
+                       // Un pixel de moins en haut qu'en bas : Qt centre le
+                       // texte sur la hauteur de ligne de la police, élevée
+                       // dans une police japonaise, et le place donc trop bas.
+                       // Ces boutons étant dessinés par Qt, la marge est le
+                       // seul moyen d'agir. Voir `capCentred` dans Fonts.h.
                        " padding: 5px 10px 7px 10px; color: %1;"
                        " background: transparent; }"
                        "QToolButton:hover { background: %2; color: %3; }"
@@ -505,16 +515,16 @@ void MainWindow::applyColours() {
 
 void MainWindow::updateTopBar() {
     const int page = m_pages->currentIndex();
-    // L'écran titre se passe de la bande du haut: il n'y a là ni score à
-    // lire, ni table à quitter, et le titre est plein cadre.
+    // L'écran titre n'affiche pas le bandeau supérieur : il ne comporte ni
+    // score ni table à quitter, et occupe toute la fenêtre.
     m_topBar->setVisible(page != kTitlePage);
 
     const bool playing = page == kTablePage;
     m_menuButton->setVisible(playing);
     m_againButton->setVisible(playing);
     m_score->setVisible(playing);
-    // La plaque du profil s'efface le temps de la partie: on n'en change pas
-    // en cours de route, et la place est mieux employée par le score.
+    // La plaque de profil est masquée pendant la partie : le profil ne peut
+    // être changé en cours de jeu, et l'espace est employé par le score.
     m_profileChip->setVisible(!playing);
 
     m_profileChip->reread();
@@ -541,7 +551,8 @@ void MainWindow::updateTopBar() {
         m_score->setText(QString());
         return;
     }
-    // Votre score, et si vous menez. C'est une pénalité : le moins possible.
+    // Score du joueur et indication de sa position. Le score étant une
+    // pénalité, le total le plus faible est le meilleur.
     const int mine = game->seat(me).score;
     if (me == best) {
         m_score->setText(tr("%1 pts — vous menez").arg(mine));
@@ -560,27 +571,28 @@ void MainWindow::elideSubtitle() {
     const QFontMetrics metrics(m_subtitle->font());
     const int room = std::max(60, m_subtitle->width());
     const QString cut = metrics.elidedText(m_subtitleText, Qt::ElideRight, room);
-    // Rien à faire si la coupe ne change pas -- et surtout, ne pas réécrire
-    // pour rien: réécrire relance la mise en place, qui nous rappellerait.
+    // Aucune action si la troncature est inchangée. Il importe surtout de ne
+    // pas réécrire inutilement : une réécriture relance la disposition, qui
+    // rappellerait cette fonction.
     if (cut == m_subtitle->text()) return;
     m_subtitle->setText(cut);
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
-    // La ligne d'état est écrite avant que la bande soit redisposée: entrer
-    // en partie fait paraître trois boutons et disparaître la plaque du
-    // profil, et la ligne était coupée d'après la largeur qu'elle avait
-    // avant. Elle le restait jusqu'au premier coup joué, qui repassait par
-    // updateTopBar() avec une bande enfin en place.
+    // La ligne d'état est écrite avant la redisposition du bandeau : le
+    // passage en partie fait apparaître trois boutons et disparaître la plaque
+    // de profil, et la ligne était tronquée selon sa largeur antérieure. Elle
+    // le restait jusqu'au premier coup joué, qui repassait par
+    // `updateTopBar()` avec un bandeau enfin disposé.
     if (watched == m_subtitle && event->type() == QEvent::Resize) elideSubtitle();
     return QMainWindow::eventFilter(watched, event);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event) {
     QMainWindow::resizeEvent(event);
-    // Le calque est hors disposition: il se recadre lui-même sur ce qu'il
-    // couvre. Un vol en cours est abrégé plutôt que suivi -- les deux bouts
-    // viennent de bouger sous lui.
+    // Le calque étant hors disposition, il recalcule lui-même sa géométrie
+    // d'après la zone qu'il couvre. Une animation en cours est interrompue
+    // plutôt que suivie, ses deux extrémités venant de se déplacer.
     if (m_flight && m_flight->parentWidget()) {
         m_flight->setGeometry(m_flight->parentWidget()->rect());
         m_flight->cancel();
@@ -615,8 +627,9 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
 void MainWindow::readSettings() {
     QSettings settings;
     m_settings.tableId = settings.value(QStringLiteral("table/taille"), defaultTableId()).toString();
-    // A table from a settings file that is not one of the tables on offer --
-    // written by a later version, or edited by hand -- is not sat at.
+    // Une table lue dans le fichier de réglages mais ne figurant pas parmi
+    // celles proposées — écrite par une version ultérieure ou modifiée
+    // manuellement — n'est pas retenue.
     if (tableKindById(m_settings.tableId).id != m_settings.tableId) {
         m_settings.tableId = defaultTableId();
     }
@@ -631,8 +644,8 @@ void MainWindow::readSettings() {
     m_settings.pace = qBound(0, settings.value(QStringLiteral("aide/rythme"), 1).toInt(), 2);
     m_settings.zoom = qBound(80, settings.value(QStringLiteral("aide/zoom"), 100).toInt(), 200);
     setDarkMode(settings.value(QStringLiteral("look/sombre"), false).toBool());
-    // La teinte du drap n'est pas rangée là: elle appartient au profil, et
-    // c'est TableLook qui la garde sous lui.
+    // La teinte du tapis n'est pas enregistrée ici : elle appartient au profil
+    // et relève de `TableLook`.
     m_settings.hue = feltHue();
 }
 

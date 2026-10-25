@@ -37,29 +37,30 @@ namespace {
 
 constexpr int kHeadingGap = 8;
 
-// La liste des pages, à gauche. Assez large pour le plus long des quatre noms,
-// et pas plus: ce qui reste est pour la page.
+// Liste des pages, à gauche. Sa largeur est ajustée au plus long des noms de
+// page, l'espace restant étant dévolu au contenu.
 constexpr int kSectionsWidth = 172;
 constexpr int kSectionRowHeight = 30;
 
-// La hauteur d'un aperçu de dos. Assez grand pour qu'un motif se reconnaisse,
-// assez petit pour que les dos d'un jeu tiennent sur une ligne.
+// Hauteur d'un aperçu de dos : suffisante pour que le motif soit
+// identifiable, assez réduite pour que les dos d'un jeu tiennent sur une
+// ligne.
 constexpr int kBackHeight = 92;
 
-// Et celle des figures. Plus courte que les dos: il y en a huit sur la ligne
-// et il faut qu'elles tiennent, là où un dos est seul à dire ce qu'il est.
+// Hauteur des figures, inférieure à celle des dos : huit figures doivent
+// tenir sur une ligne, alors qu'un dos est présenté seul.
 constexpr int kFaceHeight = 78;
 constexpr qreal kFaceGap = 5.0;
 
-// L'air entre les cartes et le bord du panneau qui les porte.
+// Espacement entre les cartes et le bord du panneau qui les contient.
 constexpr int kStripPad = 9;
 
 QCheckBox *switchRow(QWidget *parent, const QString &text, bool on) {
     auto *box = new QCheckBox(text, parent);
     box->setChecked(on);
-    // Told the table's ink rather than left to inherit it: a platform style
-    // hands a checkbox a palette of its own, which outranks the one the
-    // dialog's body is wearing.
+    // La couleur est imposée plutôt qu'héritée : un style de plateforme
+    // attribue à une case à cocher une palette propre, qui prévaut sur celle du
+    // corps de la boîte.
     QPalette ink = box->palette();
     ink.setColor(QPalette::WindowText, currentPalette().surfaceText);
     ink.setColor(QPalette::Text, currentPalette().surfaceText);
@@ -76,7 +77,8 @@ QRadioButton *choiceRow(QWidget *parent, const QString &text) {
     return button;
 }
 
-// Une étiquette posée devant un champ, dans l'encre du corps de la boîte.
+// Libellé placé devant un champ, dans la couleur de texte du corps de la
+// boîte.
 QLabel *fieldLabel(QWidget *parent, const QString &text) {
     auto *label = new QLabel(text, parent);
     QPalette ink = label->palette();
@@ -85,7 +87,7 @@ QLabel *fieldLabel(QWidget *parent, const QString &text) {
     return label;
 }
 
-// Une ligne d'explication sous le champ qu'elle explique.
+// Ligne explicative placée sous le champ qu'elle décrit.
 QLabel *asideLabel(QWidget *parent, const QString &text) {
     auto *label = new QLabel(text, parent);
     label->setWordWrap(true);
@@ -93,13 +95,13 @@ QLabel *asideLabel(QWidget *parent, const QString &text) {
     return label;
 }
 
-// Un bouton d'icône, à droite du champ sur lequel il agit.
+// Bouton d'icône, placé à droite du champ sur lequel il agit.
 //
-// L'aperçu d'un dos, dessiné comme la table le dessinera.
+// Aperçu d'un dos, rendu exactement comme il le sera sur la table.
 //
-// `set` nul -- ou un dos que le jeu choisi n'a pas -- rend le treillis que le
-// programme dessine lui-même, qui est bien ce qui serait sur la table dans ce
-// cas-là. L'aperçu porte donc toujours la vérité.
+// Un `set` nul — ou un dos absent du jeu sélectionné — produit le treillis
+// dessiné par le programme, qui est précisément ce qui serait affiché sur la
+// table dans ce cas. L'aperçu reflète donc toujours le rendu réel.
 QPixmap backPreview(const CardSet *set, int at, const QSizeF &box) {
     const qreal dpr = qApp->devicePixelRatio();
     QPixmap tile(QSize(int(std::ceil(box.width() * dpr)), int(std::ceil(box.height() * dpr))));
@@ -131,17 +133,16 @@ QPixmap backPreview(const CardSet *set, int at, const QSizeF &box) {
     return tile;
 }
 
-// La main d'exemple.
+// Main d'exemple présentée dans l'aperçu.
 //
-// Le joker d'abord, parce que c'est la carte où les jeux diffèrent le plus --
-// et au rami c'est celle qui coûte vingt-cinq points, donc celle qu'on
-// regarde. Puis l'as et les trois figures, qui sont les dessins ; puis quatre
-// nombres, qui sont la mise en page des pips.
+// Le joker figure en premier : c'est la carte qui varie le plus d'un jeu à
+// l'autre, et celle qui vaut vingt-cinq points au rami. Viennent ensuite l'as
+// et les trois figures, qui sont les cartes illustrées, puis quatre cartes
+// numérales, qui montrent la disposition des symboles.
 //
-// Huit cartes à couleur, soit les quatre couleurs deux fois chacune: le joker
-// n'en consomme pas, n'en ayant pas. Neuf cartes suffisent à dire à quoi un
-// jeu ressemble, et la quatorzaine qu'on tient vraiment en main n'y tiendrait
-// pas assez grande pour qu'on la lise.
+// Huit cartes portent une couleur, soit deux par couleur, le joker n'en ayant
+// pas. Neuf cartes suffisent à caractériser un jeu ; les quatorze d'une main
+// réelle ne pourraient être affichées à une taille lisible.
 QVector<Card> sampleHand() {
     static const int ranks[] = {kAs, kRoi, kDame, kValet, 10, 7, 5, 3};
     static const Suit suits[] = {Suit::Pique, Suit::Coeur, Suit::Carreau, Suit::Trefle};
@@ -164,17 +165,17 @@ QVector<Card> sampleHand() {
 
 } // namespace
 
-// Les figures du jeu choisi, posées côte à côte.
+// Figures du jeu sélectionné, affichées côte à côte.
 //
-// La même idée que les dos, et pour la même raison: le nom d'un jeu ne dit pas
-// à quoi ses cartes ressemblent, et c'est la seule chose qu'on veuille en
-// savoir. Mais on n'en choisit pas une -- c'est le jeu entier qu'on prend dans
-// la liste au-dessus -- alors la bande se regarde et ne se clique pas: ni
-// survol, ni sélection, ni passage au clavier.
+// Le principe est celui des dos, pour la même raison : le nom d'un jeu
+// n'indique pas l'apparence de ses cartes, seule information recherchée. La
+// sélection ne porte toutefois pas sur une carte mais sur le jeu entier, choisi
+// dans la liste située au-dessus ; la bande est donc purement visuelle et ne
+// répond ni au survol, ni à la sélection, ni au clavier.
 //
-// Dessinée plutôt que mise dans une liste: une QListWidget dont rien n'est
-// sélectionnable est une liste qui ment sur ce qu'elle est, et il n'y a ici
-// qu'une rangée d'images à peindre.
+// Elle est dessinée plutôt que construite comme une liste : une `QListWidget`
+// dont aucun élément n'est sélectionnable présenterait une apparence trompeuse,
+// alors qu'il ne s'agit ici que d'une rangée d'images à peindre.
 class CardStrip : public QWidget {
 public:
     explicit CardStrip(QWidget *parent = nullptr) : QWidget(parent), m_hand(sampleHand()) {
@@ -196,8 +197,8 @@ protected:
         painter.setRenderHint(QPainter::Antialiasing, true);
         painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-        // Le même panneau que la liste des dos, pour que les deux bandes
-        // soient visiblement deux bandes de la même sorte.
+        // Même panneau que la liste des dos, afin que les deux bandes
+        // apparaissent de même nature.
         const QRectF panel = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
         QPainterPath shape;
         shape.addRoundedRect(panel, 8, 8);
@@ -210,10 +211,10 @@ protected:
         const int count = m_hand.size();
         if (count <= 0) return;
 
-        // La hauteur qu'on voudrait, et celle qui tient. Un jeu installé
-        // apporte sa propre proportion -- les CARDS.DLL de Windows sont plus
-        // larges que les cartes dessinées -- et la même rangée de huit y est
-        // plus large d'autant.
+        // Hauteur souhaitée et hauteur effectivement possible. Un jeu installé
+        // impose sa propre proportion — les fichiers CARDS.DLL de Windows sont
+        // plus larges que les cartes dessinées — et la même rangée de huit
+        // cartes y occupe une largeur supérieure.
         const qreal room = panel.width() - 2 * kStripPad - kFaceGap * (count - 1);
         const qreal fits = cardSizeForWidth(room / count).height();
         const QSizeF card = cardSizeForHeight(std::max(24.0, std::min(qreal(kFaceHeight), fits)));
@@ -240,8 +241,8 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
 
     const DialogChrome chrome = applyDialogChrome(this, tr("Réglages"));
 
-    // La liste des pages, et les pages. Une liste plate: les cinq groupes
-    // n'ont rien sous eux.
+    // La liste des pages et les pages elles-mêmes. La liste est plate, les
+    // cinq groupes ne comportant pas de sous-niveau.
     m_sections = new QTreeWidget(this);
     m_sections->setFixedWidth(kSectionsWidth);
     m_sections->setHeaderHidden(true);
@@ -258,17 +259,18 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     columns->addWidget(m_pages, 1);
     chrome.fields->addLayout(columns, 1);
 
-    // Dans l'ordre où l'on y pense: ce qui touche au jeu d'abord, le décor
-    // après, puisqu'il ne change rien à la partie, et ce qui règle la lecture
-    // en dernier.
+    // Les pages sont classées par ordre d'importance : les paramètres
+    // affectant le jeu d'abord, l'apparence ensuite, celle-ci n'ayant aucune
+    // incidence sur la partie, et l'accessibilité en dernier.
     buildDuringPage();
     buildCardsPage();
     buildBacksPage();
     buildFeltPage();
     buildAccessPage();
 
-    // Après les pages, et non au bout de celle des cartes: remplir la liste
-    // des jeux remplit aussi celle des dos, qui est sur la page d'après.
+    // Après la construction des pages et non à la fin de celle des cartes :
+    // le remplissage de la liste des jeux remplit également celle des dos,
+    // située sur la page suivante.
     fillDecks();
     dressLists();
     // Après la construction des pages également : les deux étiquettes de
@@ -281,7 +283,7 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
             });
     m_sections->setCurrentItem(m_sections->topLevelItem(0));
 
-    // --- Le pied.
+    // --- Pied de la boîte.
     auto *buttons = new QDialogButtonBox(this);
     buttons->addButton(tr("Annuler"), QDialogButtonBox::RejectRole);
     QPushButton *ok = buttons->addButton(tr("Valider"), QDialogButtonBox::AcceptRole);
@@ -293,11 +295,12 @@ SettingsDialog::SettingsDialog(const GameSettings &settings, QWidget *parent)
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    // Haute de ce qu'il faut à la plus remplie des cinq pages -- les dos, à
-    // cause de leur rangée de vignettes et de la notice sous elle -- pour que
-    // passer de l'une à l'autre ne redimensionne jamais la fenêtre: le mou
-    // reste en bas des pages qui en demandent moins. Et assez courte pour tenir sur un écran d'ordinateur
-    // portable, ce que la colonne unique de huit cents pixels ne faisait pas.
+    // La hauteur est celle qu'exige la page la plus remplie des cinq — celle
+    // des dos, en raison de sa rangée de vignettes et de la notice qui la
+    // suit — afin que le passage d'une page à l'autre ne redimensionne jamais
+    // la fenêtre, l'espace excédentaire restant en bas des pages moins
+    // remplies. Elle reste par ailleurs compatible avec un écran d'ordinateur
+    // portable, ce que la colonne unique de huit cents pixels n'était pas.
     resize(780, 490);
 }
 
@@ -346,13 +349,13 @@ void SettingsDialog::buildDuringPage() {
     rows->addStretch(1);
 }
 
-// Les deux boutons qui accompagnent une liste de jeux: ouvrir le dossier où
-// on les dépose, et le relire sans sortir de la boîte.
+// Les deux boutons accompagnant une liste de jeux : ouvrir le dossier
+// d'installation, et le relire sans quitter la boîte.
 //
-// Posés par une fonction plutôt qu'écrits sur chaque page: les figures et les
-// dos ont chacune leur liste, les deux lisent le même dossier, et avoir le
-// bouton sur l'une des deux seulement obligeait à changer de page pour
-// relire ce qu'on venait d'y déposer.
+// Ils sont ajoutés par une fonction plutôt que répétés sur chaque page : les
+// figures et les dos disposent chacun de leur liste, toutes deux lisant le
+// même dossier, et ne placer les boutons que sur l'une des deux obligeait à
+// changer de page pour relire un jeu qui venait d'y être installé.
 void SettingsDialog::addDeckFolderButtons(QWidget *page, QHBoxLayout *row) {
     auto *openFolder = iconButton(page,
                                   {QStringLiteral("folder-open-symbolic"),

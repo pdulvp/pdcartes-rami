@@ -13,7 +13,8 @@
 
 namespace {
 
-// Assez grand pour la main agrandie, assez petit pour un fichier raisonnable.
+// Résolution suffisante pour l'affichage agrandi de la main, tout en
+// conservant une taille de fichier raisonnable.
 constexpr int kHeight = 420;
 
 QByteArray renderOne(const Card &card, bool back) {
@@ -48,7 +49,8 @@ QByteArray renderOne(const Card &card, bool back) {
 } // namespace
 
 bool exportDrawnDeck(const QString &path, QString *why) {
-    // Les cartes dessinées prennent la teinte de la table : on en fige une.
+    // Les cartes dessinées adoptent la teinte de la table : une teinte fixe
+    // est donc imposée pour l'export.
     setDarkMode(false);
     setCurrentPalette(defaultFeltHue());
 

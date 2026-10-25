@@ -3,46 +3,46 @@
 #include <QString>
 #include <QVector>
 
-// Les huit compétences d'un adversaire, et ce qu'elles font de lui.
+// Les huit compétences d'un adversaire et leur effet sur son jeu.
 //
-// Nothing in this file reads or writes anything: it is the table of what the
-// compétences are, and the one function that turns a given adversaire into
-// the handful of numbers his brain plays on. Where those figures are kept per
-// profile is Rivals.h, and what is done with them is Brain.cpp. Keeping the
-// three apart is what lets the arène measure a brain without a profile and
-// without a screen.
+// Ce fichier n'effectue aucune lecture ni écriture persistante : il contient
+// la description des compétences et la fonction qui convertit un adversaire
+// donné en les quelques valeurs numériques exploitées par sa logique de jeu.
+// Le stockage de ces valeurs par profil relève de Rivals.h, et leur
+// exploitation de Brain.cpp. Cette séparation permet à l'arène d'évaluer une
+// logique de jeu sans profil ni affichage.
 //
-// Elles sont de deux familles, et la différence est la seule chose qu'il faut
-// retenir:
+// Les compétences se répartissent en deux familles :
 //
-//   les innées    Four of them, each on four levels, and they never move.
-//                 They are what he is: how far he gambles, how tightly he
-//                 holds his cards, how much of the table he watches, how well
-//                 he keeps his head. They can be changed from his fiche --
-//                 and changing them costs him everything he has learnt,
-//                 because experience earned as one player is not experience
-//                 the other one has.
-//   les acquises  Four as well, each on four rungs, each with its own
-//                 expérience filled by playing. They are what he knows:
-//                 reading his hand, remembering the table, choosing what to
-//                 give away, and not fumbling.
+//   les innées    Au nombre de quatre, sur quatre niveaux, et invariables.
+//                 Elles décrivent le tempérament du joueur : sa propension au
+//                 risque, sa réticence à se séparer de ses cartes, son
+//                 attention au jeu des autres, et son sang-froid. Elles sont
+//                 modifiables depuis sa fiche, au prix de la perte de toute
+//                 son expérience : l'expérience acquise avec un tempérament
+//                 donné n'est pas transposable à un autre.
+//   les acquises  Au nombre de quatre également, sur quatre rangs, chacune
+//                 disposant de sa propre expérience alimentée par les parties
+//                 jouées. Elles décrivent son savoir-faire : analyse de sa
+//                 main, mémorisation du jeu, choix de sa défausse, et absence
+//                 d'erreurs.
 //
-// Les innées règlent la vitesse des acquises -- un distrait apprend la
-// mémoire lentement -- ce qui fait que deux adversaires qui ont joué autant
-// de manches ne sont pas devenus le même joueur.
+// Les innées déterminent la vitesse d'acquisition des acquises — un joueur
+// peu attentif développe lentement sa mémoire — de sorte que deux adversaires
+// ayant joué autant de manches ne sont pas devenus des joueurs équivalents.
 //
-// L'équilibre, écrit ici une fois pour toutes: **les rangs portent la force,
-// les innées portent la saveur**. Une innée décale un levier d'au plus ce
-// qu'un rang vaut, et ne débloque jamais un rang. Aucun réglage ne fait donc
-// jouer un débutant comme un expert, et la pastille de niveau sur la plaque
-// continue de dire vrai.
+// Principe d'équilibrage, valable pour l'ensemble du fichier : les rangs
+// déterminent la force, les innées déterminent le style. Une innée décale un
+// paramètre d'au plus la valeur d'un rang et ne débloque jamais un rang.
+// Aucun réglage ne permet donc à un débutant de jouer comme un expert, et
+// l'indicateur de niveau affiché sur la plaque reste exact.
 
 // ---------------------------------------------------------------------------
-// Ce qu'il est.
+// Le tempérament.
 
 enum class Innate { Audace, Prudence, Vigilance, Calme };
 
-// Ce qu'il a appris.
+// Le savoir-faire.
 enum class Learned { Lecture, Memoire, Defausse, Maitrise };
 
 inline constexpr int kInnateCount = 4;
@@ -52,14 +52,15 @@ inline constexpr int kLearnedCount = 4;
 inline constexpr int kInnateTop = 3;
 inline constexpr int kRungCount = 4;
 
-// Ce qu'une acquise peut accumuler. Les quatre ensemble font les 1200 de
-// l'expérience totale, qui est ce que la carte affiche et ce dont le niveau
-// -- débutant, intermédiaire, expert -- est tiré.
+// Expérience maximale accumulable par une acquise. Les quatre réunies
+// totalisent les 1200 points d'expérience affichés sur la carte de
+// l'adversaire, dont est déduit son niveau : débutant, intermédiaire ou
+// expert.
 inline constexpr int kPoolCeiling = 300;
 
-// Les quatre niveaux innés d'un adversaire, et les quatre expériences.
-// Volontairement des structures plates et copiables: elles passent de la
-// fiche au cerveau sans rien allouer.
+// Les quatre niveaux innés d'un adversaire et ses quatre expériences. Ces
+// structures sont délibérément plates et copiables : elles transitent de la
+// fiche à la logique de jeu sans allocation.
 struct Innates {
     int level[kInnateCount] = {1, 1, 1, 1};
 
@@ -77,15 +78,16 @@ struct Pools {
     int total() const;
 };
 
-// Ce qu'une manche a vu un adversaire faire, compétence par compétence.
+// Actions accomplies par un adversaire au cours d'une manche, ventilées par
+// compétence.
 //
-// La table les compte au fil de la manche -- une carte ramassée qui servait,
-// une carte donnée qu'on lui a reprise, un joker racheté -- et c'est d'après
-// eux que l'expérience de la manche se répartit. Ce qu'une manche rapporte en
-// tout ne change pas pour autant: c'est la même somme qu'avant les
-// compétences, posée là où il s'est passé quelque chose plutôt qu'en
-// quatre parts égales. Un adversaire qui a passé la manche le nez sur la
-// défausse apprend la défausse.
+// La table les comptabilise au fil de la manche — une carte ramassée qui a
+// servi, une carte défaussée qu'un adversaire a reprise, un joker racheté —
+// et l'expérience de la manche est répartie en fonction de ces comptes. Le
+// total attribué par manche reste inchangé : c'est la même somme qu'avant
+// l'introduction des compétences, affectée là où une action a eu lieu plutôt
+// que répartie en quatre parts égales. Un adversaire ayant principalement
+// exploité la défausse progresse donc dans cette compétence.
 struct Deeds {
     int count[kLearnedCount] = {0, 0, 0, 0};
 
@@ -97,55 +99,58 @@ struct Deeds {
 };
 
 // ---------------------------------------------------------------------------
-// Le niveau, qui est une lecture des quatre acquises ensemble.
+// Le niveau, lecture d'ensemble des quatre acquises.
 //
-// Trois noms sont posés sur les plages de l'expérience totale, parce que
-// « niveau 437 » n'est pas quelque chose qu'on a envie de lire:
+// Trois appellations sont associées à des plages d'expérience totale, un
+// affichage tel que « niveau 437 » n'étant pas exploitable par le joueur :
 //
-//     débutant        0 - 199     throws away what it needs, opens late,
-//                                 misreads its own hand
-//     intermédiaire 200 - 599     reads its hand properly, watches the
-//                                 défausse, keeps what might serve
-//     expert        600 - 1200    remembers every card thrown, will not feed
-//                                 you, and buys its jokers back
+//     débutant        0 - 199     se défausse de cartes utiles, ouvre
+//                                 tardivement, analyse mal sa main
+//     intermédiaire 200 - 599     analyse correctement sa main, surveille la
+//                                 défausse, conserve ce qui peut servir
+//     expert        600 - 1200    mémorise toutes les cartes défaussées,
+//                                 évite d'alimenter les adversaires, et
+//                                 rachète ses jokers
 
 enum class Level { Debutant, Intermediaire, Expert };
 
-// Les quatre compétences pleines, et pas un point de plus.
+// Expérience maximale : les quatre compétences au plafond.
 inline constexpr int kMaxExperience = kLearnedCount * kPoolCeiling;
 
 Level levelOf(int xp);
 QString levelName(Level level);
-int levelStars(Level level);           // one, two or three
+int levelStars(Level level);           // une, deux ou trois
 int levelFloor(Level level);
 int levelCeiling(Level level);
 
-// Nought to one across the whole range: what the gauge on their card is
-// filled to.
+// Progression de zéro à un sur l'échelle entière : taux de remplissage de la
+// jauge figurant sur la carte de l'adversaire.
 qreal masteryOf(int xp);
 
-// Nought to one inside the level they are at, for the gauge under the name.
+// Progression de zéro à un à l'intérieur du niveau courant, pour la jauge
+// placée sous le nom.
 qreal progressWithin(int xp);
 
 // ---------------------------------------------------------------------------
-// Ce qu'on en dit à l'écran.
+// Libellés affichés.
 
-// Une innée: son nom, sa couleur, le mot de chacun de ses quatre niveaux, et
-// ce que ce niveau change à la table -- une ligne au présent, sur ce qui se
-// passe, jamais sur un coefficient.
+// Description d'une innée : son nom, sa couleur, l'intitulé de chacun de ses
+// quatre niveaux, et l'effet de ce niveau en cours de partie. Cet effet est
+// formulé en termes de comportement observable et jamais sous forme de
+// coefficient.
 struct InnateSpec {
     QString name;
-    int hue;                      // la sienne, chaude: voir rivalColour()
+    int hue;                      // teinte propre, dans les tons chauds
     QString levels[kInnateTop + 1];
     QString says[kInnateTop + 1];
-    QString blurbs[kInnateTop + 1];   // la phrase de la carte, quand c'est elle qui domine
+    QString blurbs[kInnateTop + 1];   // phrase de la carte, si cette innée domine
 };
 
-// Une acquise: son nom, sa couleur, le nom de chacun de ses quatre rangs, et
-// ce que le rang change.
+// Description d'une acquise : son nom, sa couleur, l'intitulé de chacun de
+// ses quatre rangs, et l'effet de ce rang.
 struct LearnedSpec {
     QString name;
-    int hue;                      // la sienne, froide
+    int hue;                      // teinte propre, dans les tons froids
     QString rungs[kRungCount];
     QString says[kRungCount];
 };
@@ -156,105 +161,114 @@ const LearnedSpec &learnedSpec(Learned which);
 // ---------------------------------------------------------------------------
 // Les rangs.
 
-// Ce qu'il faut d'expérience, dans cette compétence-là, pour en être au rang
-// qu'on est. Le premier rang est acquis d'emblée: un joueur qui n'a jamais
-// joué sait déjà jouer mal.
+// Expérience requise, dans une compétence donnée, pour atteindre un rang.
+// Le premier rang est acquis d'emblée.
 int rungFloor(int rung);
 int rungOf(int poolXp);
-// Ce qui manque pour le rang suivant, et zéro au dernier.
+// Expérience manquante pour atteindre le rang suivant ; zéro au dernier rang.
 int rungGap(int poolXp);
-// Le rang en chiffres romains, I à IV: c'est ainsi qu'il s'écrit partout où
-// on le montre -- sur la fiche et dans l'aperçu -- et une moitié des rangs
-// écrite autrement que l'autre se remarque.
+// Rang en chiffres romains, de I à IV. Cette notation est employée partout où
+// le rang est affiché — sur la fiche et dans l'aperçu — afin que tous les
+// rangs soient présentés de façon uniforme.
 QString rungRoman(int rung);
-// Nought to one inside the rung one is at, for the little gauge on the row.
+// Progression de zéro à un à l'intérieur du rang courant, pour la jauge de la
+// ligne correspondante.
 qreal rungProgress(int poolXp);
 
-// Zéro à un sur les quatre rangs d'un coup: ce qu'une compétence vaut, prise
-// de bout en bout, pour les leviers qui montent sans marche -- la bourde, le
-// seuil de la défausse. Le rang est ce qui se voit, ceci est ce qui se sent.
+// Progression de zéro à un sur l'ensemble des quatre rangs : valeur continue
+// d'une compétence, destinée aux paramètres qui varient sans palier, tels que
+// la fréquence des erreurs ou le seuil d'acceptation de la défausse. Le rang
+// est la grandeur affichée, celle-ci est la grandeur effectivement jouée.
 qreal depthOf(int poolXp);
 
 // ---------------------------------------------------------------------------
-// Ce que le cerveau joue.
+// Paramètres exploités par la logique de jeu.
 //
-// A level is not a number multiplied into a strength somewhere. It is a list
-// of things a player does or does not do, and each of them is a thing you can
-// watch happen across the table -- which is why they are spelled out one by
-// one rather than hidden behind a single difficulty.
+// Un niveau n'est pas un coefficient appliqué à une force globale, mais un
+// ensemble de comportements que le joueur adopte ou non, chacun observable en
+// cours de partie. C'est la raison pour laquelle ils sont énumérés
+// individuellement plutôt que résumés en un seul réglage de difficulté.
 struct Skill {
-    qreal mastery = 0.0;         // zéro à un, sur l'échelle entière
+    qreal mastery = 0.0;         // de zéro à un, sur l'échelle entière
 
-    // Ce qu'il a appris, rang par rang. Chacun de ces champs est un rang
-    // précis d'une des quatre acquises, et c'est là que la force est: un
-    // adversaire devient meilleur en les gagnant, pas en étant réglé.
-    bool thorough = false;       // Lecture II : reads the hand exactly
-    bool countsOpening = false;  // Lecture III : no pose begun that falls short
-    bool watches = false;        // Mémoire III : counts what cannot come back
-    bool readsTakes = false;     // Mémoire IV : remembers what you picked up
-    bool guardsFeed = false;     // Défausse III : will not feed the tapis
-    bool readsEndgame = false;   // Défausse IV : plays the last cards as such
-    bool buysJokers = false;     // Maîtrise IV
-    qreal blunder = 0.0;         // Maîtrise : how often the wrong move is made
-    qreal layoffSight = 1.0;     // Maîtrise : how often a card that fits is seen
-    qreal pileThreshold = 2.0;   // Mémoire : how much better the défausse must look
-    qreal potentialWeight = 1.0; // Lecture : what a combination one card away is worth
+    // Savoir-faire acquis, rang par rang. Chacun de ces champs correspond à un
+    // rang précis de l'une des quatre acquises. C'est là que réside la force
+    // du joueur : un adversaire progresse en atteignant ces rangs, non par
+    // modification de ses réglages.
+    bool thorough = false;       // Lecture II : analyse exactement sa main
+    bool countsOpening = false;  // Lecture III : n'entame pas de pose insuffisante
+    bool watches = false;        // Mémoire III : compte les cartes définitivement sorties
+    bool readsTakes = false;     // Mémoire IV : retient les cartes ramassées par autrui
+    bool guardsFeed = false;     // Défausse III : évite d'alimenter le tapis
+    bool readsEndgame = false;   // Défausse IV : adapte son jeu en fin de manche
+    bool buysJokers = false;     // Maîtrise IV : rachète les jokers
+    qreal blunder = 0.0;         // Maîtrise : fréquence des coups erronés
+    qreal layoffSight = 1.0;     // Maîtrise : probabilité de voir une carte plaçable
+    qreal pileThreshold = 2.0;   // Mémoire : avantage minimal exigé de la défausse
+    qreal potentialWeight = 1.0; // Lecture : valeur d'une combinaison à une carte près
 
-    // Ce qu'il est, qui ne le rend ni meilleur ni pire -- seulement
-    // reconnaissable. A timid expert and a reckless expert are both experts.
-    int openingSlack = 0;        // points past the fifty-one it waits for
-    qreal jokerGrip = 0.0;       // reluctance to put a joker down
-    qreal keepWeight = 1.0;      // how dearly what might serve is held
-    qreal recall = 1.0;          // how reliably the memory actually works
-    qreal eagerness = 1.0;       // how readily what can go down goes down
+    // Traits de tempérament. Ils ne rendent le joueur ni meilleur ni moins
+    // bon, mais le rendent reconnaissable : un expert prudent et un expert
+    // audacieux restent l'un et l'autre des experts.
+    int openingSlack = 0;        // points attendus au-delà des cinquante et un
+    qreal jokerGrip = 0.0;       // réticence à poser un joker
+    qreal keepWeight = 1.0;      // attachement aux cartes susceptibles de servir
+    qreal recall = 1.0;          // fiabilité effective de la mémoire
+    qreal eagerness = 1.0;       // empressement à poser ce qui peut l'être
 };
 
-// Un adversaire, réduit à ce que son cerveau joue. La seule fonction qui
-// compte ici, et la seule qui ait le droit de décider ce qu'une compétence
-// vaut.
+// Convertit un adversaire en les paramètres exploités par sa logique de jeu.
+// C'est la fonction principale de ce fichier, et la seule habilitée à fixer la
+// valeur d'une compétence.
 Skill composeSkill(const Innates &innates, const Pools &pools);
 
-// Ce que le meilleur joueur que le jeu sache faire jouerait: le bouton
-// Conseil, et l'étalon de l'arène. Tous les rangs au dernier, toutes les
-// innées au bout utile, et pas une bourde.
+// Paramètres du meilleur joueur que le programme sache simuler, employés par
+// le bouton Conseil et comme référence dans l'arène : tous les rangs au
+// maximum, toutes les innées à leur valeur la plus efficace, et aucune
+// erreur.
 Skill bestSkill();
 
-// Une expérience unique répartie sur les quatre compétences, penchée du côté
-// de ce que l'adversaire est. Sert deux fois: pour le niveau de départ des
-// six, et pour reprendre l'expérience d'un profil d'avant les compétences.
+// Répartit une expérience globale sur les quatre compétences, en la pondérant
+// selon le tempérament de l'adversaire. Employée dans deux cas : pour fixer le
+// niveau initial des six adversaires, et pour convertir l'expérience d'un
+// profil antérieur à l'introduction des compétences.
 Pools poolsFromXp(int xp, const Innates &innates);
 
-// À quelle vitesse cette compétence-là s'apprend, chez lui. Un entre un et un
-// et demi: les innées pressent l'apprentissage, elles ne le remplacent pas.
+// Vitesse d'acquisition d'une compétence donnée chez cet adversaire. La valeur
+// est comprise entre un et un et demi : les innées accélèrent l'apprentissage
+// sans s'y substituer.
 qreal learnRate(const Innates &innates, Learned which);
 
-// Ce qu'une manche vaut à qui en a déjà vu beaucoup.
+// Coefficient appliqué au gain d'expérience d'une manche en fonction de
+// l'expérience déjà acquise.
 //
-// L'expérience d'une manche ne dépend que de la place (Rivals.cpp): un
-// adversaire à mille xp en gagnait autant qu'un qui en a dix. Le haut de
-// l'échelle se remplissait donc au même train que le bas -- dix parties de six
-// et les six avaient tous leurs rangs, mesuré à l'arène -- alors que le bas
-// est la seule partie qui ait été réglée pour aller vite.
+// L'expérience attribuée par manche ne dépendait que du classement
+// (Rivals.cpp) : un adversaire à mille points en gagnait autant qu'un
+// adversaire à dix. Le haut de l'échelle se remplissait donc aussi vite que
+// le bas — dix parties à six joueurs suffisaient pour que les six atteignent
+// tous leurs rangs, valeur mesurée à l'arène — alors que seul le bas de
+// l'échelle avait été calibré pour une progression rapide.
 //
-// Plein tarif tant qu'il débute, et de moins en moins ensuite: la part qu'il a
-// déjà est ce qui ralentit la suivante. Jamais rien, cela dit -- voir le
-// plancher dans noteRivalHand.
+// Le gain est donc intégral tant que l'adversaire débute, puis décroît :
+// l'expérience déjà acquise ralentit l'acquisition suivante. Le gain ne
+// devient jamais nul, un plancher étant appliqué dans `noteRivalHand`.
 //
-//     expérience   une manche vaut   pour en arriver là, en parties de six
-//            200   plein tarif        2
+//     expérience   gain par manche   parties à six requises pour y parvenir
+//            200   intégral           2
 //            600   un tiers          11
 //            920   un cinquième      25
 //           1200   un sixième        41
 qreal learnTaper(int xp);
 
-// Jusqu'où une manche vaut ce qu'elle a toujours valu. C'est très exactement
-// « cesser d'être débutant »: les trois ou quatre parties que cela demande
-// sont voulues ainsi, et ne bougent pas.
+// Seuil en deçà duquel le gain par manche reste intégral. Il coïncide
+// exactement avec la sortie du niveau débutant : les trois ou quatre parties
+// que cela demande constituent un calibrage délibéré.
 inline constexpr int kLearnFullUntil = 200;
 
-// La phrase qui le décrit, tirée de ses innées -- celle que porte sa carte
-// quand on l'a changé, pour qu'elle ne mente pas sur ce qu'il est devenu.
+// Phrase décrivant l'adversaire, déduite de ses innées. Elle figure sur sa
+// carte et est recalculée après modification de son tempérament, afin de
+// rester conforme à ce qu'il est devenu.
 QString blurbFrom(const Innates &innates);
 
-// Celle de ses innées qui frappe le plus, sur laquelle la phrase est prise.
+// Innée la plus marquée, sur laquelle la phrase descriptive est fondée.
 Innate dominantInnate(const Innates &innates);

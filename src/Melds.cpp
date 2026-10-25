@@ -8,8 +8,8 @@
 
 namespace {
 
-// How far the ladder a suite is counted on reaches: one for l'as under the
-// deux, fourteen for l'as above the roi.
+// Étendue de l'échelle sur laquelle les suites sont comptées : un pour l'as
+// placé sous le deux, quatorze pour l'as placé au-dessus du roi.
 constexpr int kLowest = 1;
 constexpr int kHighest = 14;
 
@@ -18,12 +18,12 @@ int runRankOf(const Card &card, bool aceHigh) {
     return card.rank;
 }
 
-// The card a slot on the ladder holds, which is the rank with l'as put back
-// where it belongs.
+// Carte occupant une position de l'échelle, c'est-à-dire le rang auquel l'as
+// est ramené à sa valeur propre.
 int cardRankForRun(int runRank) { return runRank >= kHighest ? kAs : runRank; }
 
-// A suite built from a window on the ladder: the cards that are there go in
-// their places and the joker takes the one that is not.
+// Construit une suite à partir d'un intervalle de l'échelle : les cartes
+// présentes occupent leur position, et le joker occupe la position manquante.
 bool buildSuite(const QVector<Card> &cards, bool aceHigh, Meld *out) {
     const int length = cards.size();
 
@@ -53,10 +53,10 @@ bool buildSuite(const QVector<Card> &cards, bool aceHigh, Meld *out) {
     }
     if (highest - lowest + 1 > length) return false;
 
-    // Where the window starts. As high as it will go, so that a joker which
-    // could sit at either end sits at the top one: it is worth more there,
-    // and -- more to the point -- the answer has to be the same every time
-    // the same cards are laid.
+    // Position de départ de l'intervalle, choisie la plus haute possible afin
+    // qu'un joker pouvant occuper l'une ou l'autre extrémité occupe la plus
+    // élevée : sa valeur y est supérieure et, surtout, le résultat doit être
+    // identique chaque fois que les mêmes cartes sont posées.
     const int start = std::min(lowest, kHighest - length + 1);
     if (start < std::max(kLowest, highest - length + 1)) return false;
     if (start < kLowest || start + length - 1 > kHighest) return false;
@@ -121,15 +121,15 @@ bool buildSerie(const QVector<Card> &cards, Meld *out) {
 }
 
 // ---------------------------------------------------------------------------
-// Reading a hand.
+// Décomposition d'une main.
 //
-// Every combination the hand holds is listed first, and then the best set of
-// them that do not want the same card is picked out. The picking is exact
-// rather than approximate: a hand is fifteen cards, so the set of cards
-// already spoken for fits in fifteen bits, and there are only thirty-odd
-// thousand of those -- which means the question "what is the most this hand
-// can be worth" is answered by looking at every answer rather than by
-// guessing well.
+// Toutes les combinaisons que contient la main sont d'abord énumérées, puis le
+// meilleur sous-ensemble de combinaisons ne se disputant aucune carte est
+// sélectionné. Cette sélection est exacte et non approchée : une main compte
+// quinze cartes, l'ensemble des cartes déjà employées tient donc sur quinze
+// bits, soit un peu plus de trente mille combinaisons possibles. La valeur
+// maximale d'une main est ainsi obtenue par énumération exhaustive plutôt que
+// par heuristique.
 
 struct Candidate {
     quint32 mask = 0;
@@ -162,11 +162,12 @@ void addCandidate(QVector<Candidate> &into, const QVector<Card> &hand,
     into.append(candidate);
 }
 
-// Every way of picking one copy of each wanted card. Two packs are shuffled
-// together, so a hand can hold the same card twice, and then the same
-// combination can be built two ways -- which matters only when the other copy
-// is wanted by another combination at the same time. Rare, so the product is
-// walked rather than reasoned about.
+// Énumère toutes les façons de choisir un exemplaire de chaque carte requise.
+// Deux jeux étant mélangés ensemble, une main peut contenir deux exemplaires
+// d'une même carte, et une même combinaison peut alors être construite de deux
+// manières. Ce cas n'a d'incidence que si l'autre exemplaire est simultanément
+// requis par une autre combinaison. La situation étant rare, le produit
+// cartésien est énuméré plutôt que traité analytiquement.
 void eachChoice(const QVector<QVector<int>> &options, const QVector<int> &extra,
                 QVector<Candidate> &into, const QVector<Card> &hand) {
     QVector<int> at(options.size(), 0);
@@ -198,7 +199,7 @@ QVector<Candidate> candidatesFor(const QVector<Card> &hand) {
         if (hand.at(i).joker()) jokers.append(i);
     }
 
-    // Les séries: a rank, and three or four colours of it.
+    // Les séries : un rang, décliné en trois ou quatre couleurs.
     for (int rank = kAs; rank <= kRoi; ++rank) {
         QVector<QVector<int>> bySuit(4);
         int present = 0;
@@ -222,13 +223,13 @@ QVector<Candidate> candidatesFor(const QVector<Card> &hand) {
             }
             if (chosen.size() >= 3) eachChoice(chosen, {}, found, hand);
             if (chosen.size() == 2) {
-                // Two colours and a joker for the third.
+                // Deux couleurs, le joker tenant lieu de la troisième.
                 for (int joker : jokers) eachChoice(chosen, {joker}, found, hand);
             }
         }
     }
 
-    // Les suites: a colour, and a window on the ladder.
+    // Les suites : une couleur, et un intervalle de l'échelle.
     for (int suit = 0; suit < 4; ++suit) {
         for (int aceHigh = 0; aceHigh < 2; ++aceHigh) {
             QVector<QVector<int>> byRank(kHighest + 2);
@@ -238,8 +239,9 @@ QVector<Candidate> candidatesFor(const QVector<Card> &hand) {
                 const int at = runRankOf(card, aceHigh != 0);
                 byRank[at].append(i);
             }
-            // L'as counted the other way round is the same window, so it is
-            // only worth walking the high ladder when there is an as in it.
+            // L'as compté dans l'autre sens donne le même intervalle ; il n'est
+            // donc utile de parcourir la partie haute de l'échelle que si elle
+            // contient un as.
             if (aceHigh != 0 && byRank.at(kHighest).isEmpty()) continue;
 
             for (int start = kLowest; start <= kHighest - 2; ++start) {
@@ -267,9 +269,10 @@ QVector<Candidate> candidatesFor(const QVector<Card> &hand) {
         }
     }
 
-    // The same combination can be reached twice over -- a window walked from
-    // either end of the ladder, say -- and the picking below does not care,
-    // but the work does.
+    // Une même combinaison peut être obtenue deux fois, par exemple par un
+    // intervalle parcouru depuis l'une ou l'autre extrémité de l'échelle. La
+    // sélection effectuée plus bas y est indifférente, mais le volume de
+    // calcul ne l'est pas.
     std::stable_sort(found.begin(), found.end(), [](const Candidate &a, const Candidate &b) {
         if (a.mask != b.mask) return a.mask < b.mask;
         return a.value > b.value;
@@ -336,10 +339,12 @@ QString Meld::spell() const {
 bool makeMeld(const QVector<Card> &cards, Meld *out) {
     if (!out || cards.size() < 3) return false;
 
-    // Two cards of the same rank and a joker could be read either way round
-    // if the two were the same colour, and they cannot be: a série wants them
-    // different, a suite wants them the same. So the two tests cannot both
-    // say yes, and the order they are asked in does not matter.
+    // Deux cartes de même rang accompagnées d'un joker ne pourraient
+    // s'interpréter des deux façons que si ces deux cartes étaient de même
+    // couleur, ce qui est impossible : une série les exige de couleurs
+    // différentes, une suite les exige de même couleur. Les deux tests ne
+    // peuvent donc être satisfaits simultanément, et leur ordre est
+    // indifférent.
     int firstRank = 0;
     bool oneRank = true;
     for (const Card &card : cards) {
@@ -368,10 +373,10 @@ bool shorten(const Meld &meld, int cardId, Meld *out) {
     rest.remove(at);
     if (rest.size() < 3) return false;
 
-    // Une suite dont on ôte un bout: ce qui reste est déjà en ordre et suit
-    // toujours, et le joker est toujours la carte qu'il remplaçait -- son
-    // rang est `low` plus sa place, et quand la première carte s'en va les
-    // deux bougent du même pas.
+    // Suite dont on retire une extrémité : le reste est déjà ordonné et
+    // demeure consécutif, et le joker continue de représenter la même carte.
+    // Son rang vaut `low` augmenté de sa position ; lorsque la première carte
+    // est retirée, les deux varient du même pas.
     if (meld.kind == MeldKind::Suite && (at == 0 || at == meld.cards.size() - 1)) {
         Meld kept = meld;
         kept.cards = rest;
@@ -380,9 +385,9 @@ bool shorten(const Meld &meld, int cardId, Meld *out) {
         return true;
     }
 
-    // Tout le reste -- une série, ou une suite ouverte par le milieu -- se
-    // relit: une suite à qui on retire une carte du milieu ne tient que si
-    // le joker vient boucher le trou, et c'est makeMeld qui le dit.
+    // Tous les autres cas — une série, ou une suite entamée en son milieu —
+    // sont réinterprétés : une suite privée d'une carte médiane n'est valide
+    // que si le joker comble le vide, ce que détermine `makeMeld`.
     return makeMeld(rest, out);
 }
 
@@ -432,7 +437,8 @@ bool canExtend(const Meld &meld, const Card &card, Meld *out) {
     }
 
     if (card.suit != meld.suit()) return false;
-    // L'as goes on either end of the ladder, so both of its places are tried.
+    // L'as peut occuper l'une ou l'autre extrémité de l'échelle ; les deux
+    // positions sont donc essayées.
     for (int aceHigh = 0; aceHigh < 2; ++aceHigh) {
         const int at = runRankOf(card, aceHigh != 0);
         if (card.rank != kAs && aceHigh != 0) break;
@@ -467,7 +473,8 @@ QVector<Card> jokerWants(const Meld &meld) {
         return wanted;
     }
 
-    // A série missing one colour, or two: the joker answers to any of them.
+    // Série à laquelle il manque une ou deux couleurs : le joker peut
+    // représenter n'importe laquelle d'entre elles.
     bool taken[4] = {false, false, false, false};
     for (const Card &held : meld.cards) {
         if (!held.joker()) taken[int(held.suit)] = true;
@@ -502,9 +509,10 @@ Plan readHand(const QVector<Card> &hand, Reading how) {
     QVector<Meld> chosen;
 
     if (how == Reading::Greedy) {
-        // The biggest first, and then whatever still fits. It is what a
-        // beginner does, and it is wrong often enough to matter: three
-        // combinations of three can be worth more than one of five.
+        // La plus grande combinaison d'abord, puis celles qui s'y ajoutent.
+        // C'est la façon de procéder d'un débutant, et elle est suffisamment
+        // souvent sous-optimale pour avoir une incidence : trois combinaisons
+        // de trois cartes peuvent valoir plus qu'une seule de cinq.
         QVector<Candidate> order = candidates;
         std::stable_sort(order.begin(), order.end(),
                          [](const Candidate &a, const Candidate &b) { return a.value > b.value; });
@@ -515,9 +523,9 @@ Plan readHand(const QVector<Card> &hand, Reading how) {
             chosen.append(candidate.meld);
         }
     } else {
-        // Every set of combinations that do not want the same card, by way of
-        // the set of cards already spoken for. `best[mask]` is the most the
-        // cards outside `mask` can come to.
+        // Tous les ensembles de combinaisons ne se disputant aucune carte,
+        // représentés par l'ensemble des cartes déjà employées. `best[mask]`
+        // est la valeur maximale atteignable avec les cartes hors de `mask`.
         const int deadweight = (how == Reading::Balanced) ? 1 : 0;
         const quint32 full = (count >= 32) ? 0xffffffffu : ((quint32(1) << count) - 1);
 
@@ -530,8 +538,8 @@ Plan readHand(const QVector<Card> &hand, Reading how) {
         best[size_t(full)] = 0;
         took[size_t(full)] = -1;
 
-        // Downwards from the full mask: a mask's answer only ever depends on
-        // masks with more bits set than it has.
+        // Parcours décroissant depuis le masque complet : la valeur d'un
+        // masque ne dépend que de masques comportant davantage de bits.
         for (qint64 mask = qint64(full) - 1; mask >= 0; --mask) {
             const quint32 at = quint32(mask);
             int free1 = -1;
@@ -543,7 +551,7 @@ Plan readHand(const QVector<Card> &hand, Reading how) {
             }
             if (free1 < 0) continue;
 
-            // Left in the hand, which costs what it costs.
+            // Carte laissée en main, comptée pour sa pénalité.
             int answer = best[size_t(at | (quint32(1) << free1))] -
                          deadweight * penaltyValue(hand.at(free1));
             int by = -1;
@@ -577,7 +585,7 @@ Plan readHand(const QVector<Card> &hand, Reading how) {
         }
     }
 
-    // What was taken, and what the hand is left holding.
+    // Cartes retenues dans les combinaisons, et cartes restant en main.
     plan.melds = chosen;
     plan.points = 0;
     plan.rest.clear();

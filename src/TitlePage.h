@@ -10,37 +10,37 @@
 
 class QTimer;
 
-// L'écran titre : le tapis, des cartes au trait qui dérivent dessus, le logo
-// en grand, et « Cliquer pour commencer » qui respire en dessous.
+// Écran titre : le tapis, des cartes tracées au trait qui s'y déplacent, le
+// logo en grand format, et la mention « Cliquer pour commencer » animée en
+// dessous.
 //
-// Le seuil de la séance. Il porte les couleurs du profil comme le reste du
-// jeu — c'est le même tapis que celui sur lequel on va jouer — et il ne
-// demande rien : un clic n'importe où, ou une touche quelconque, et le menu
-// paraît en emportant le logo avec lui.
+// Cet écran adopte les couleurs du profil, comme le reste de l'application, et
+// n'attend aucune saisie : un clic quelconque ou une touche quelconque fait
+// apparaître le menu, le logo se déplaçant vers sa position dans le menu.
 //
-// Les cartes sont dessinées ici, au trait d'or et non en couleurs : derrière
-// un titre, une figure peinte est une tache. Elles ne viennent pas du jeu
-// installé pour la même raison — ce sont des formes de cartes, le rang et
-// l'enseigne, rien de plus.
+// Les cartes sont tracées au trait doré et non en couleurs : des figures
+// peintes seraient trop visibles derrière un titre. Elles ne proviennent pas
+// du jeu installé pour la même raison : seuls le contour, le rang et le
+// symbole de couleur sont représentés.
 class TitlePage : public QWidget {
     Q_OBJECT
 
 public:
     explicit TitlePage(QWidget *parent = nullptr);
 
-    // Les couleurs ont changé — la teinte du profil, ou la moitié sombre du
-    // jeu. Les deux couches en cache sont à refaire.
+    // Signale un changement de couleurs, qu'il s'agisse de la teinte du profil
+    // ou du mode sombre. Les deux couches en cache doivent être régénérées.
     void refresh();
 
-    // Où le logo se tient, dans les coordonnées de la page : c'est d'ici que
-    // part le vol vers le menu.
+    // Position du logo dans les coordonnées de la page : point de départ de
+    // l'animation vers le menu.
     QRectF markRect() const;
-    // Le temps du vol, c'est le calque qui porte le logo : la page le cache
-    // pour qu'il ne soit pas dessiné deux fois.
+    // Pendant l'animation, le logo est rendu par le calque dédié ; la page le
+    // masque afin qu'il ne soit pas dessiné deux fois.
     void setMarkHidden(bool hidden);
 
 Q_SIGNALS:
-    // Le joueur veut commencer.
+    // Le joueur demande à commencer.
     void start();
 
 protected:
@@ -48,15 +48,16 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
-    // Rien ne bouge quand la page n'est pas à l'écran : un timer qui bat
-    // derrière le tapis d'une partie serait un timer pour rien.
+    // L'animation est suspendue lorsque la page n'est pas affichée : une
+    // minuterie active derrière la table d'une partie en cours serait
+    // inutile.
     void showEvent(QShowEvent *event) override;
     void hideEvent(QHideEvent *event) override;
 
 private:
-    // Une carte qui traverse l'écran. Sa place et sa taille sont en parts de
-    // la fenêtre et non en pixels : redimensionner déplace le tapis sous
-    // elles sans rebattre les cartes.
+    // Carte traversant l'écran. Sa position et sa taille sont exprimées en
+    // proportions de la fenêtre et non en pixels, de sorte qu'un
+    // redimensionnement ne réinitialise pas leur disposition.
     struct Drifter {
         Card card;
         bool back = false;   // de dos, un simple treillis au trait

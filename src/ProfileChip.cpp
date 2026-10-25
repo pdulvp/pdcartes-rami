@@ -73,7 +73,7 @@ void ProfileChip::setOnDark(bool onDark) {
 
 void ProfileChip::paintEvent(QPaintEvent *) {
     const Palette &scheme = currentPalette();
-    // Le fond de la bande, son encre, et la couleur de la pastille.
+    // Couleur de fond du bandeau, couleur du texte, et couleur de la pastille.
     const QColor face =
         m_onDark ? blendColours(scheme.feltEdge, QColor(0, 0, 0), 0.46) : scheme.face;
     const QColor ink = m_onDark ? scheme.feltText : scheme.faceText;
@@ -88,17 +88,17 @@ void ProfileChip::paintEvent(QPaintEvent *) {
     const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     const qreal radius = box.height() / 2.0;
 
-    // Le fond: rien au repos, pour que la bande reste une bande. Les deux
-    // teintes du survol et de l'appui sont celles des boutons d'à côté --
-    // c'est ce qui fait que la plaque en est une et pas une pièce rapportée.
+    // Fond : aucun au repos, afin que le bandeau conserve son aspect continu.
+    // Les teintes de survol et d'appui sont celles des boutons voisins, ce qui
+    // rattache visuellement la plaque au bandeau plutôt que de l'en détacher.
     if (isDown() || m_hovered) {
         QPainterPath pill;
         pill.addRoundedRect(box, radius, radius);
         painter.fillPath(pill, blendColours(face, glow, isDown() ? 0.36 : 0.22));
     }
 
-    // La pastille et l'initiale: le profil se reconnaît à sa lettre avant
-    // qu'on ait lu son nom.
+    // Pastille et initiale : l'initiale permet d'identifier le profil avant
+    // même la lecture de son nom.
     const qreal disc = box.height() - 10.0;
     QRectF medal(box.left() + kPadLeft, box.center().y() - disc / 2.0, disc, disc);
     painter.setPen(Qt::NoPen);
@@ -123,8 +123,8 @@ void ProfileChip::paintEvent(QPaintEvent *) {
     painter.drawText(QRectF(textLeft, box.top(), metrics.horizontalAdvance(m_name), box.height()),
                      Qt::AlignLeft | Qt::AlignVCenter, m_name);
 
-    // Le chevron, dessiné et non écrit: un caractère « v » dépend de la
-    // police installée, un trait non.
+    // Le chevron est tracé et non composé : un caractère « v » dépendrait de
+    // la police installée, un tracé non.
     const qreal cx = box.right() - kPadRight - kChevron / 2.0;
     const qreal cy = box.center().y() + 1.0;
     QColor mark = ink;

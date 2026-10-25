@@ -10,115 +10,123 @@
 class QPainter;
 class QFont;
 
-// Le dessin : le tapis, et les cartes posées dessus.
+// Dessin du tapis et des cartes qui y sont posées.
 //
-// Everything here is drawn rather than loaded. A card game wants fifty-four
-// pictures, and fifty-four pictures is either an artist or a folder of files
-// that has to be found at run time and is not there on somebody else's
-// machine. Drawn, they come out in the table's own colours, they are sharp at
-// any size, and the whole game is still one binary.
+// Tout est dessiné par le programme plutôt que chargé depuis des images. Un
+// jeu de cartes en demanderait cinquante-quatre, ce qui supposerait soit un
+// travail d'illustration, soit un dossier de fichiers à localiser à
+// l'exécution et susceptible d'être absent. Dessinées, les cartes adoptent
+// les couleurs de la palette courante, restent nettes à toute taille, et
+// l'application demeure un fichier unique.
 
-// The proportion a card keeps, whatever size it is drawn at. The real ones
-// are 2.25 by 3.5 inches, and the eye knows it.
+// Proportion conservée par une carte quelle que soit sa taille de rendu. Les
+// cartes réelles mesurent 2,25 sur 3,5 pouces, rapport auquel l'œil est
+// habitué.
 //
-// Cette proportion est celle des cartes dessinées. Un jeu installé apporte la
-// sienne ; tout le tapis se dispose d'après cardAspect().
+// Cette valeur est celle des cartes dessinées par le programme. Un jeu
+// installé fournit la sienne ; la disposition du tapis repose sur
+// `cardAspect()`.
 inline constexpr qreal kCardRatio = 0.642;
 qreal cardAspect();
 
-// L'arrondi du coin d'une carte de cette taille. Partagé, parce qu'un aperçu
-// de dos ailleurs dans le programme doit couper la sienne exactement comme le
-// tapis coupe les siennes.
+// Rayon d'arrondi des coins d'une carte de cette taille. La fonction est
+// partagée afin qu'un aperçu de dos affiché ailleurs dans le programme
+// adopte exactement le même arrondi que les cartes du tapis.
 qreal cardCornerFor(const QRectF &box);
 QSizeF cardSizeForHeight(qreal height);
 QSizeF cardSizeForWidth(qreal width);
 
-// Le tapis : the cloth, with the light falling on the middle of it, a weave
-// you can see if you look, and a braid round the edge.
+// Dessine le tapis : le tissu, éclairé en son centre, dont la trame est
+// visible de près, bordé d'un galon.
 //
-// `braid` pour le galon. On le laisse tomber quand le drap n'est pas une
-// table mais un fond -- le menu d'ouverture est posé dessus, et un galon
-// derrière une page de plaques est un cadre de plus qui ne cadre rien.
+// `braid` commande le galon. Il est omis lorsque le tapis sert de fond et non
+// de table : le menu d'ouverture est affiché par-dessus, et un galon derrière
+// une page de plaques ajouterait un encadrement sans objet.
 void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool braid = true);
 
-// Ce qu'on pose sur le drap, et ce qui le borde.
+// Couleur de remplissage d'une plaque posée sur le tapis.
 //
-// Écrit ici et non dans chaque page, parce que le menu d'ouverture et la
-// table portent la même tenue et qu'une recette répétée est une recette qui
-// se met à diverger. Presque noir et translucide, pour que le tissage se
-// devine dessous -- c'est ce qui fait que la plaque est posée sur le tapis et
-// non découpée dedans.
+// Définie ici plutôt que dans chaque page, le menu d'ouverture et la table
+// partageant la même apparence : une formule répétée finirait par diverger
+// d'un endroit à l'autre. La couleur est presque noire et translucide, afin
+// que la trame reste perceptible au travers ; c'est ce qui donne à la plaque
+// l'aspect d'un élément posé sur le tapis plutôt que découpé dedans.
 //
-// `lift` tire la plaque vers l'or quand elle est choisie ou allumée.
+// `lift` déplace la couleur vers l'or lorsque la plaque est sélectionnée ou
+// mise en évidence.
 QColor feltPlaqueFill(const Palette &scheme, qreal lift = 0.0);
-// L'or des filets, à la force qu'on veut: un cheveu au repos, franc quand la
-// chose est choisie.
+// Couleur dorée des filets, à l'intensité demandée : discrète au repos,
+// marquée lorsque l'élément est sélectionné.
 QColor feltGold(const Palette &scheme, qreal strength);
-// Le fond des deux bandes, celle du haut et celle du bas: plus sombre encore
-// que les plaques, parce qu'une bande n'est pas posée sur le drap -- elle le
-// borde.
+// Couleur de fond des deux bandeaux, supérieur et inférieur. Plus sombre que
+// celle des plaques, ces bandeaux bordant le tapis au lieu d'y être posés.
 QColor feltBarFace(const Palette &scheme);
 
-// The weave on its own, as a tile to brush other things with. Made once per
-// scheme and kept: a cross-hatch drawn line by line over a window-sized area
-// is a thousand lines a repaint.
+// Motif de trame seul, sous forme de tuile servant de brosse. Il est produit
+// une fois par palette puis conservé : tracer ce quadrillage ligne à ligne
+// sur une surface de la taille de la fenêtre représenterait un millier de
+// segments à chaque rafraîchissement.
 const QPixmap &weaveTile(const Palette &scheme);
 
-// Une carte, face en haut. `lit` for the one under the pointer, `chosen` for
-// one the player has picked out of their hand, `glow` for the one that has
-// just been played -- which is how a game played by five other people is
-// followed at all.
+// État de rendu d'une carte face visible. `lit` désigne la carte survolée par
+// le pointeur, `chosen` une carte sélectionnée dans la main du joueur, et
+// `glow` la carte qui vient d'être jouée — mise en évidence sans laquelle les
+// coups des cinq autres joueurs seraient difficiles à suivre.
 struct CardLook {
     bool lit = false;
     bool chosen = false;
-    qreal glow = 0.0;       // nought to one, fading
-    bool dimmed = false;    // a card that cannot be played now
+    qreal glow = 0.0;       // de zéro à un, en fondu
+    bool dimmed = false;    // carte non jouable dans l'état courant
     bool noShadow = false;  // pour dessiner une carte hors du tapis
 };
 
 void drawCardFace(QPainter *painter, const QRectF &box, const Card &card, const Palette &scheme,
                   const CardLook &look = CardLook{});
 
-// Une carte, face en bas: the back, in the table's colour.
+// Dessine une carte face cachée : le dos, dans la couleur de la palette.
 void drawCardBack(QPainter *painter, const QRectF &box, const Palette &scheme,
                   const CardLook &look = CardLook{});
 
-// La place vide: where the pioche was, or where the défausse has nothing on
-// it yet. A dashed outline with a word in it, so that an empty place still
-// says what belongs there.
+// Dessine un emplacement vide : la pioche épuisée, ou la défausse encore
+// vierge. Le contour est en pointillés et porte un libellé, afin qu'un
+// emplacement vide indique malgré tout ce qui doit s'y trouver.
 void drawCardSlot(QPainter *painter, const QRectF &box, const Palette &scheme,
                   const QString &label);
 
-// La police du peintre, remise à plat.
+// Retourne la police du peintre réinitialisée.
 //
-// QPainter keeps the font it was last given, and these drawings run one after
-// another on the same painter -- so a heading set in spaced capitals leaves
-// the next thing drawn in spaced capitals too, however little it wants to be.
-// Every font used below is derived from this rather than from painter->font(),
-// which is what keeps one player's plaque from catching the one before it.
+// `QPainter` conserve la dernière police qui lui a été donnée, et ces
+// fonctions de dessin s'enchaînent sur le même peintre : un titre composé en
+// capitales espacées laisserait le dessin suivant dans la même composition.
+// Toutes les polices employées ci-dessous dérivent de cette fonction plutôt
+// que de `painter->font()`, ce qui évite qu'une plaque hérite des réglages de
+// la précédente.
 QFont plainFont(const QPainter *painter);
 
-// Le symbole, seul: for a legend, or the corner of a plaque.
+// Dessine le symbole de couleur seul, pour une légende ou le coin d'une plaque.
 void drawSuitPip(QPainter *painter, const QRectF &box, Suit suit, const QColor &ink);
 
-// Le médaillon d'un adversaire: a ring in their own colour with a mark and
-// their initial in it. Six marks, one each, so that a plaque is known by its
-// shape as well as by its colour.
+// Dessine le médaillon d'un adversaire : un anneau à sa couleur, contenant un
+// symbole et son initiale. Les six adversaires ont chacun leur symbole, de
+// sorte qu'une plaque se reconnaisse à sa forme autant qu'à sa couleur.
 //
-// Un `emblem` négatif ne dessine pas de marque: c'est le médaillon de votre
-// propre plaque, et la marque est précisément ce qui sépare les six.
+// Un `emblem` négatif supprime le symbole : c'est le cas du médaillon de la
+// plaque du joueur, le symbole servant précisément à distinguer les six
+// adversaires entre eux.
 void drawRivalEmblem(QPainter *painter, const QRectF &box, int emblem, const QString &initial,
                      const QColor &ink, const QColor &back);
 
-// Les étoiles du niveau: one for a beginner, two, three for an expert.
+// Dessine les étoiles de niveau : une pour un débutant, deux pour un
+// intermédiaire, trois pour un expert.
 void drawLevelStars(QPainter *painter, const QRectF &box, int stars, int outOf,
                     const QColor &ink, const QColor &empty);
 
-// Une petite jauge: how far along they are inside their level.
+// Dessine une jauge indiquant la progression à l'intérieur du niveau.
 void drawGauge(QPainter *painter, const QRectF &box, qreal filled, const QColor &ink,
                const QColor &back);
 
-// Un petit tas de cartes, de dos: what a rival's hand looks like from across
-// the table. `cards` is how many they are holding.
+// Dessine un petit tas de cartes face cachée, représentant la main d'un
+// adversaire vue depuis l'autre côté de la table. `cards` est le nombre de
+// cartes qu'il détient.
 void drawHandPile(QPainter *painter, const QRectF &box, int cards, const Palette &scheme,
                   const QColor &tint);

@@ -2,30 +2,31 @@
 
 #include <QAbstractButton>
 
-// Un grand bouton avec une image et un nom.
+// Grand bouton associant une image et un libellé.
 //
-// Le jeu est un jeu : ce qui le lance doit être une chose qu'on montre du
-// doigt, pas une ligne dans une liste déroulante. Les cinq tables du menu
-// d'ouverture, chacune dans sa couleur, et rien d'autre -- les longueurs de
-// partie, qui s'en servaient aussi, sont passées aux boutons radio des
-// réglages.
+// Ce type de bouton présente les choix principaux sous une forme directement
+// désignable plutôt que sous forme d'entrées de liste. Il n'est plus employé
+// que pour les cinq tables du menu d'ouverture, chacune dans sa couleur ; les
+// durées de partie, qui l'utilisaient également, sont passées aux boutons
+// radio des réglages.
 class TileButton : public QAbstractButton {
     Q_OBJECT
 
 public:
     explicit TileButton(QWidget *parent = nullptr);
 
-    // La petite table dessinée sur la tuile, et combien de places elle a.
+    // Définit le nombre de places de la table représentée sur la tuile.
     void setSeats(int seats);
 
-    // Un chiffre dans le coin: le nombre de points qu'une partie de cette
-    // longueur demande, ce genre de chose.
+    // Définit la valeur affichée dans le coin de la tuile, par exemple le
+    // nombre de points que demande une partie de cette durée.
     void setCorner(const QString &corner);
 
     void setTileSize(const QSize &size);
-    // Posée sur le drap plutôt que sur une page pâle: la plaque devient
-    // sombre et bordée d'or. Demandé par le menu, et non supposé -- la même
-    // tuile sert ailleurs, sur fond clair.
+    // Indique que la tuile est posée sur le tapis et non sur un fond clair :
+    // elle est alors rendue sombre et bordée d'or. Ce mode est demandé
+    // explicitement par le menu, la même tuile servant ailleurs sur fond
+    // clair.
     void setOnFelt(bool onFelt);
 
     QSize sizeHint() const override;

@@ -5,26 +5,28 @@
 #include <algorithm>
 #include <cmath>
 
-// Les huit compétences, et la seule fonction qui décide ce qu'elles valent.
+// Les huit compétences et la fonction qui détermine leur valeur effective.
 //
-// Tout l'équilibre du jeu tient dans composeSkill, et il tient en une phrase:
-// les rangs portent la force, les innées portent la saveur. Un levier est tiré
-// d'une seule compétence acquise -- la bourde de la Maîtrise, le seuil de la
-// défausse de la Mémoire -- et une innée ne fait que le décaler, d'au plus ce
-// qu'un rang vaut, borné sur place. C'est ce qui permet de régler un
-// adversaire sans jamais lui faire dépasser le meilleur joueur que le jeu
-// sache faire, ni descendre sous le débutant qu'il était.
+// L'équilibrage du jeu repose entièrement sur `composeSkill`, selon le
+// principe suivant : les rangs déterminent la force, les innées déterminent le
+// style. Chaque paramètre est dérivé d'une seule compétence acquise — la
+// fréquence des erreurs de la Maîtrise, le seuil d'acceptation de la défausse
+// de la Mémoire — et une innée se borne à le décaler, d'au plus la valeur d'un
+// rang, la borne étant appliquée sur place. C'est ce qui permet de régler un
+// adversaire sans qu'il dépasse jamais le meilleur joueur simulé par le
+// programme, ni qu'il descende sous le niveau débutant initial.
 
 namespace {
 
-// Ce qu'il faut d'expérience pour chaque rang d'une compétence. Le premier est
+// Expérience requise pour chaque rang d'une compétence. Le premier rang est
 // acquis d'emblée.
 constexpr int kRungFloors[kRungCount] = {0, 60, 140, 230};
 
-// Ce que chaque acquise apprend de lui. Une innée par acquise, pour que
-// chacune des quatre serve à quelque chose et qu'on puisse dire laquelle:
-// l'audace fait lire sa main, la prudence fait choisir ce qu'on donne, la
-// vigilance fait retenir, le calme fait le geste juste.
+// Innée associée à chaque acquise, déterminant sa vitesse d'acquisition.
+// L'association est bijective afin que chacune des quatre innées ait un effet
+// identifiable : l'audace favorise l'analyse de la main, la prudence le choix
+// de la défausse, la vigilance la mémorisation, et le calme la justesse
+// d'exécution.
 Innate feeds(Learned which) {
     switch (which) {
     case Learned::Lecture: return Innate::Audace;
@@ -141,22 +143,23 @@ const QVector<LearnedSpec> &learnedSpecs() {
     return list;
 }
 
-// Ce que l'audace fait attendre avant d'ouvrir. Borné court exprès: un
-// casse-cou qui attendrait trente points de plus ne poserait jamais, et une
-// manche où personne n'ouvre n'est pas une manche.
+// Points attendus au-delà des cinquante et un avant d'ouvrir, en fonction de
+// l'audace. La borne est délibérément basse : un joueur qui attendrait trente
+// points supplémentaires n'ouvrirait jamais, et une manche sans ouverture ne
+// progresse pas.
 constexpr int kOpeningSlack[kInnateTop + 1] = {0, 4, 10, 18};
 
-// Ce que la prudence fait tenir: la réticence à dépenser un joker, et le prix
-// qu'on met à ce qui pourrait servir.
+// Effets de la prudence : la réticence à poser un joker, et la valeur
+// attribuée aux cartes susceptibles de servir.
 constexpr qreal kJokerGrip[kInnateTop + 1] = {0.0, 0.25, 0.60, 1.00};
 constexpr qreal kKeepWeight[kInnateTop + 1] = {0.80, 1.00, 1.20, 1.40};
 
-// Ce que le calme rend de mémoire. Un soupe-au-lait a la mémoire qu'il a: il
-// ne s'en sert qu'une fois sur deux, ce qui est très exactement « compte les
-// cartes, la plupart du temps ».
+// Fiabilité d'exploitation de la mémoire, en fonction du calme. Un joueur peu
+// calme dispose de la même mémoire mais ne l'exploite qu'une fois sur deux, ce
+// qui correspond à un comptage des cartes effectué de façon irrégulière.
 constexpr qreal kRecall[kInnateTop + 1] = {0.55, 0.75, 0.90, 1.00};
 
-// Et ce qu'elle retient de poser tout de suite.
+// Et son effet sur l'empressement à poser.
 constexpr qreal kEagerness[kInnateTop + 1] = {1.00, 1.00, 0.85, 0.65};
 
 } // namespace
@@ -289,9 +292,10 @@ qreal progressWithin(int xp) {
 Skill composeSkill(const Innates &innates, const Pools &pools) {
     const int total = pools.total();
 
-    // Ce qu'il a appris, compétence par compétence. Chaque levier est tiré
-    // d'une seule des quatre -- ce qui est la raison d'être des quatre: on
-    // peut dire laquelle, et la fiche le montre.
+    // Savoir-faire acquis, compétence par compétence. Chaque paramètre est
+    // dérivé d'une seule des quatre acquises, ce qui justifie leur
+    // distinction : la compétence responsable est identifiable et la fiche
+    // l'indique.
     const int lecture = rungOf(pools.at(Learned::Lecture));
     const int memoire = rungOf(pools.at(Learned::Memoire));
     const int defausse = rungOf(pools.at(Learned::Defausse));
@@ -311,18 +315,20 @@ Skill composeSkill(const Innates &innates, const Pools &pools) {
     skill.guardsFeed = defausse >= 2;
     skill.buysJokers = maitrise >= 3;
 
-    // Steep at the bottom and flat at the top: the difference between a brand
-    // new player and one who has sat through ten manches should be the thing
-    // you notice, and the difference between two experts should not be luck.
+    // Courbe raide au bas de l'échelle et plate au sommet : l'écart entre un
+    // joueur débutant et un joueur ayant disputé dix manches doit être
+    // perceptible, tandis que l'écart entre deux experts ne doit pas dépendre
+    // du hasard.
     skill.blunder = 0.30 * std::pow(1.0 - maitriseDepth, 1.6);
     skill.layoffSight = 0.55 + 0.45 * maitriseDepth;
     skill.pileThreshold = 10.0 - 8.5 * memoireDepth;
     skill.potentialWeight = 0.22 + 0.78 * lectureDepth;
 
-    // Ce qu'il est. Deux d'entre elles décalent un levier que les rangs ont
-    // déjà posé -- la vigilance pèse sur la défausse, le calme sur la bourde
-    // -- et le décalage est borné à ce qu'un rang vaut, jamais plus: une
-    // innée n'a pas le droit de faire d'un débutant un expert.
+    // Traits de tempérament. Deux d'entre eux décalent un paramètre déjà fixé
+    // par les rangs : la vigilance agit sur le seuil d'acceptation de la
+    // défausse, le calme sur la fréquence des erreurs. Le décalage est borné à
+    // la valeur d'un rang, de sorte qu'une innée ne puisse faire d'un débutant
+    // un expert.
     const int vigilance = innates.at(Innate::Vigilance);
     const int calme = innates.at(Innate::Calme);
     static constexpr qreal kPileTilt[kInnateTop + 1] = {1.25, 1.00, 0.85, 0.70};
@@ -337,8 +343,8 @@ Skill composeSkill(const Innates &innates, const Pools &pools) {
     skill.jokerGrip = kJokerGrip[innates.at(Innate::Prudence)];
     skill.keepWeight = kKeepWeight[innates.at(Innate::Prudence)];
     skill.recall = kRecall[calme];
-    // Jouer la fin de manche comme une fin de manche s'apprend -- et certains
-    // l'ont de naissance.
+    // L'adaptation du jeu à la fin de manche s'acquiert, mais une vigilance
+    // élevée la procure également.
     skill.readsEndgame = defausse >= 3 || calme >= 2;
     return skill;
 }
@@ -364,9 +370,10 @@ Pools poolsFromXp(int xp, const Innates &innates) {
     const int wanted = qBound(0, xp, kMaxExperience);
     if (wanted <= 0) return pools;
 
-    // Penché du côté de ce qu'il est: celui qui est aux aguets arrive avec de
-    // la mémoire plutôt qu'avec de la lecture. Les poids sont doux -- deux et
-    // demi contre un au plus -- parce que c'est une répartition, pas un don.
+    // La répartition est pondérée selon le tempérament : un adversaire
+    // vigilant débute avec davantage de mémoire que de capacité d'analyse. Les
+    // poids restent modérés — au plus deux et demi contre un — s'agissant
+    // d'une répartition d'une expérience donnée et non d'un bonus.
     qreal weights[kLearnedCount];
     qreal sum = 0.0;
     for (int i = 0; i < kLearnedCount; ++i) {
@@ -381,8 +388,9 @@ Pools poolsFromXp(int xp, const Innates &innates) {
         given += share;
     }
 
-    // Ce que l'arrondi et les plafonds ont laissé de côté, posé là où il reste
-    // de la place: l'expérience d'avant ne doit pas s'évaporer en chemin.
+    // Le reliquat dû aux arrondis et aux plafonds est reporté là où il reste
+    // de la capacité, afin qu'aucune expérience antérieure ne soit perdue lors
+    // de la conversion.
     int left = wanted - given;
     for (int round = 0; round < kLearnedCount && left != 0; ++round) {
         for (int i = 0; i < kLearnedCount && left != 0; ++i) {
@@ -403,17 +411,18 @@ qreal learnRate(const Innates &innates, Learned which) {
 qreal learnTaper(int xp) {
     const int seen = qBound(0, xp, kMaxExperience);
     if (seen <= kLearnFullUntil) return 1.0;
-    // La part qu'il a déjà, renversée: une hyperbole plutôt qu'un palier, pour
-    // qu'il n'y ait pas une manche où l'on sent que le tarif a changé. Elle
-    // n'atteint jamais zéro -- un plafond qu'on ne peut plus approcher n'est
-    // pas un plafond, c'est un mur.
+    // Décroissance hyperbolique en fonction de l'expérience déjà acquise,
+    // plutôt que par paliers, afin qu'aucune manche ne marque une rupture
+    // perceptible du rythme de progression. Le coefficient n'atteint jamais
+    // zéro : un plafond inatteignable ne serait plus un plafond.
     return qreal(kLearnFullUntil) / seen;
 }
 
 Innate dominantInnate(const Innates &innates) {
-    // Celle qui s'écarte le plus du milieu -- zéro et trois frappent autant,
-    // un et deux presque pas. À égalité, le niveau le plus haut, parce qu'un
-    // excès se remarque plus qu'un manque.
+    // L'innée dont le niveau s'écarte le plus de la valeur médiane : les
+    // niveaux zéro et trois sont également marquants, les niveaux un et deux
+    // le sont peu. En cas d'égalité, le niveau le plus élevé est retenu, un
+    // excès étant plus perceptible qu'un défaut.
     int best = 0;
     qreal far = -1.0;
     for (int i = 0; i < kInnateCount; ++i) {

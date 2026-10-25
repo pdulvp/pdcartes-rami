@@ -4,17 +4,17 @@
 
 // Les trois profils.
 //
-// One machine, more than one player -- or one player who would rather not
-// have last month's run of luck counted against this month's. A profile is
-// the name a game is played under and, more to the point, the place the
-// rivals' experience is kept: the Lulu you have beaten forty times on the
-// first profile is a different Lulu from the one on the second, and switching
-// profiles is the only way back to a table of beginners.
+// Une même machine peut servir à plusieurs joueurs, ou à un joueur souhaitant
+// séparer plusieurs séries de parties. Un profil est le nom sous lequel une
+// partie est jouée et, surtout, l'emplacement où est conservée l'expérience
+// des adversaires : un adversaire affronté quarante fois sur le premier profil
+// est distinct de son homonyme sur le deuxième, et changer de profil est le
+// seul moyen de retrouver une table de débutants.
 inline constexpr int kProfileCount = 3;
 
-// Ce qui tient sur une plaque du menu d'ouverture. Un nom plus long y serait
-// coupé, et une plaque dont le nom est coupé ne dit plus lequel des trois
-// elle est.
+// Longueur maximale d'un nom de profil, déterminée par la largeur des plaques
+// du menu d'ouverture. Un nom plus long y serait tronqué et ne permettrait
+// plus d'identifier le profil.
 inline constexpr int kProfileNameLength = 24;
 
 struct ProfileRecord {
@@ -35,16 +35,16 @@ void setProfileName(int slot, const QString &name);
 
 ProfileRecord profileRecord(int slot);
 
-// Written as the game goes rather than at the end: a session that ends badly
-// still ends with the games it played counted.
+// Enregistré au fil de la partie et non à son terme, afin qu'une session
+// interrompue anormalement conserve le décompte des parties jouées.
 void noteHandPlayed(bool won);
 void noteMatchPlayed(bool won, int score);
 
-// Everything this profile has: its own tally and the experience of all six
-// rivals, back to the day it was new.
+// Réinitialise l'intégralité du profil : son propre décompte et l'expérience
+// des six adversaires, ramenés à leur état initial.
 void forgetProfile(int slot);
 
-// Where a thing belonging to a profile is kept in the settings file. One
-// place that knows how the key is spelled, so that reading and writing cannot
-// drift apart.
+// Emplacement d'une donnée de profil dans le fichier de réglages. La
+// composition de la clé est définie en un seul endroit, afin que la lecture et
+// l'écriture ne puissent diverger.
 QString profileKey(int slot, const QString &suffix);

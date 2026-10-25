@@ -30,9 +30,10 @@ QVector<Card> freshPack() {
 }
 
 void shuffleCards(QVector<Card> &cards) {
-    // Fisher-Yates, drawing from Qt's generator rather than from std::shuffle:
-    // one source of randomness in the program, and it is the one the deal and
-    // the rivals' hesitations both come out of.
+    // Mélange de Fisher-Yates, alimenté par le générateur de Qt plutôt que par
+    // `std::shuffle` : le programme n'utilise qu'une seule source d'aléa, dont
+    // procèdent aussi bien la distribution que les hésitations simulées des
+    // adversaires.
     for (int i = cards.size() - 1; i > 0; --i) {
         const int j = QRandomGenerator::global()->bounded(i + 1);
         std::swap(cards[i], cards[j]);
@@ -117,8 +118,8 @@ int setRankValue(int rank) {
 
 void sortBySuit(QVector<Card> &cards) {
     std::stable_sort(cards.begin(), cards.end(), [](const Card &a, const Card &b) {
-        // Jokers at the right-hand end of the hand, where they are not in the
-        // way of reading a suite off the cards beside them.
+        // Les jokers sont placés à l'extrémité droite de la main, où ils ne
+        // gênent pas la lecture d'une suite parmi les cartes voisines.
         if (a.joker() != b.joker()) return b.joker();
         if (a.joker()) return a.id < b.id;
         if (a.suit != b.suit) return int(a.suit) < int(b.suit);

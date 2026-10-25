@@ -6,32 +6,37 @@ class QFont;
 class QPainter;
 struct Palette;
 
-// Le logo : `PDCartes` posé en haut à gauche de `Rami`, deux fois plus petit.
+// Logo de l'application : « PDCartes » placé en haut à gauche de « Rami »,
+// à la moitié de sa taille.
 //
-// Dessiné et non composé. Le décalage des deux lignes se décide au pixel
-// d'après ce que mesure la fonte -- aucune disposition de QLabel ne tient deux
-// lignes de tailles différentes serrées comme un logo -- et il est le même à
-// toutes les tailles, ce qui est tout l'intérêt : l'écran titre le dessine en
-// grand, le menu le dessine petit en tête de page, et le calque qui va de
-// l'un à l'autre le dessine à chaque taille entre les deux. Une seule chose,
-// dessinée trois fois.
+// Le logo est dessiné et non composé à partir de widgets. L'écart entre les
+// deux lignes est calculé au pixel près d'après les métriques des polices,
+// aucune disposition de `QLabel` ne permettant de maintenir deux lignes de
+// tailles différentes aussi resserrées. Cet écart reste proportionnel à
+// toutes les tailles, ce qui est l'intérêt du procédé : l'écran titre affiche
+// le logo en grand, le menu l'affiche en petit en tête de page, et
+// l'animation qui relie les deux l'affiche à toutes les tailles
+// intermédiaires.
 //
-// Deux fontes d'affichage, tirées du binaire (`:/fonts/`) : Zen Dots pour la
-// ligne du dessus, Zen Tokyo Zoo pour l'enseigne. Quand une ressource manque
-// -- ce qui ne devrait pas arriver, elles sont compilées dedans -- la ligne
-// se rabat sur la fonte qu'on lui passe, en gras : moins beau, pas cassé.
+// Deux polices d'affichage sont employées, chargées depuis les ressources du
+// binaire (`:/fonts/`) : Zen Dots pour la ligne supérieure, Zen Tokyo Zoo
+// pour le titre. Si une ressource est absente — cas qui ne devrait pas se
+// produire —, la ligne concernée est rendue en gras dans la police passée en
+// argument.
 
-// Le rapport largeur sur hauteur du bloc. Mesuré une fois et gardé: c'est lui
-// qui dit quelle boîte le logo veut.
+// Rapport largeur sur hauteur du bloc. Mesuré une fois puis conservé ; il
+// détermine les proportions du rectangle que le logo requiert.
 qreal titleMarkAspect(const QFont &fallback);
 
-// La boîte que le logo occupe vraiment dans `area`, à hauteur donnée en part
-// de `area`: le bloc garde son rapport et se centre sur la largeur. C'est
-// aussi d'où et vers où le vol se fait.
+// Rectangle effectivement occupé par le logo dans `area`, pour une hauteur
+// exprimée en proportion de `area`. Le bloc conserve son rapport et est
+// centré horizontalement. Ce rectangle sert également de position de départ
+// et d'arrivée à l'animation.
 QRectF titleMarkBox(const QRectF &area, const QFont &fallback, qreal heightShare,
                     qreal middleShare);
 
-// Le logo, mis dans `box` -- qui est une boîte au rapport du bloc, telle que
-// `titleMarkBox()` la rend. `fade` de zéro à un pour le faire paraître.
+// Dessine le logo dans `box`, rectangle au rapport du bloc tel que le
+// retourne `titleMarkBox()`. `fade` varie de zéro à un et commande
+// l'apparition progressive.
 void drawTitleMark(QPainter *painter, const QRectF &box, const QFont &fallback,
                    const Palette &scheme, qreal fade = 1.0);

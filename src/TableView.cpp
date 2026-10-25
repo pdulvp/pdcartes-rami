@@ -26,75 +26,86 @@ namespace {
 
 constexpr int kFrameMs = 16;
 
-// What each band of the cloth is given, before anything is squeezed.
+// Hauteur allouée à chaque zone du tapis, avant ajustement.
 constexpr qreal kSeatsHeight = 104.0;
 constexpr qreal kStacksWidth = 178.0;
-// Le rail, au-dessus de la main: ce qu'on a commencé à poser y attend.
+// Le rail, situé au-dessus de la main, où la pose en cours est mise en
+// attente.
 //
-// Il tenait des cartes de 44 quand le tapis en donnait 56 -- déjà petites, et
-// franchement perdues depuis que le tapis est à 96. Or ces cartes-là sont
-// exactement celles qui vont partir sur le tapis: les voir en miniature puis
-// les retrouver au double un instant plus tard est un à-coup pour rien.
+// Ses cartes mesuraient 44 pixels lorsque celles du tapis en mesuraient 56 ;
+// l'écart est devenu excessif depuis que celles du tapis en mesurent 96. Or
+// ce sont précisément ces cartes qui vont être déposées sur le tapis : les
+// afficher réduites puis au double de leur taille un instant plus tard
+// produisait une discontinuité inutile.
 constexpr qreal kRailHeight = 82.0;
 constexpr qreal kPoseTall = 62.0;
 
-// Le va-et-vient des flèches: de combien elles glissent, et à quelle vitesse.
+// Oscillation des flèches de pioche : amplitude et période.
 //
-// Trois pixels et un aller-retour en une seconde et demie. Assez pour que
-// l'œil l'attrape au bord du regard, trop peu pour qu'on ait envie qu'elles
-// s'arrêtent -- elles restent là tant qu'on n'a pas pioché.
-// L'allure des cartes qui voyagent, en part du trajet par image.
+// Trois pixels, pour un aller-retour d'une seconde et demie. L'amplitude est
+// suffisante pour que le mouvement soit perçu en vision périphérique et assez
+// faible pour ne pas devenir gênant, les flèches restant affichées tant que le
+// joueur n'a pas pioché.
+// Vitesse des cartes animées, exprimée en fraction du trajet par image.
 //
-// Une seule pour tout le monde. La carte que vous piochiez allait à 0,048
-// quand celle d'en face allait à 0,072 -- l'idée étant qu'on veut suivre la
-// sienne -- et la main s'écartait à 0,048 elle aussi. Mais deux allures sur
-// la même table se remarquent, et de deux c'est la lente qu'on remarque:
-// tout ce qui touchait votre main paraissait traîner à côté du reste.
+// Une seule valeur est employée pour tous les joueurs. La carte piochée par le
+// joueur se déplaçait auparavant à 0,048 et celle d'un adversaire à 0,072,
+// l'intention étant de rendre la première plus facile à suivre ;
+// l'écartement de la main était également à 0,048. Deux vitesses différentes
+// sur une même table sont toutefois perceptibles, et c'est la plus lente qui
+// est remarquée : tout ce qui concernait la main du joueur paraissait plus
+// lent que le reste.
 //
-// Poser reste un peu plus posé, et l'est pour tout le monde pareil.
+// La pose conserve une vitesse légèrement inférieure, identique pour tous les
+// joueurs.
 constexpr qreal kFlightSpeed = 0.072;
 constexpr qreal kLaySpeed = 0.055;
 
-// Ce qu'une combinaison attend que la précédente ait pris d'avance, en part
-// du trajet.
+// Décalage entre deux combinaisons successives, exprimé en fraction du
+// trajet.
 //
-// Ouvrir met toute la pose sur le tapis d'un coup -- souvent trois
-// combinaisons -- et trois volées parties ensemble ne se lisent pas: on voit
-// le tapis se remplir sans voir ce qui s'y pose. L'une après l'autre, on
-// suit. À 0,055 par image, 0,45 fait une demi-douzaine d'images entre deux.
+// L'ouverture dépose l'intégralité de la pose sur le tapis en une seule
+// opération, soit fréquemment trois combinaisons. Trois animations simultanées
+// ne sont pas lisibles : le tapis se remplit sans que le détail soit
+// perceptible. Un décalage les rend distinctes. À 0,055 par image, une valeur
+// de 0,45 représente environ six images d'écart.
 constexpr qreal kLayStagger = 0.45;
 
-// Votre pioche, seule, prend le temps de se retourner -- et ce temps-là suit
-// la distance qu'elle a à couvrir.
+// Durée de l'animation de pioche du joueur, seule animation comportant un
+// retournement de carte. Cette durée dépend de la distance à parcourir.
 //
-// Une allure donnée en part du trajet par image fait arriver tous les vols
-// en autant d'images, quelle que soit leur longueur: la carte qui se range
-// à côté de la pioche et celle qui traverse toute la main mettent le même
-// temps, donc la seconde va trois ou quatre fois plus vite. C'est justement
-// celle-là qu'on rate -- elle file trop pour qu'on voie le demi-tour, alors
-// que la courte, elle, allait bien.
+// Une vitesse exprimée en fraction du trajet par image fait aboutir toutes les
+// animations en un même nombre d'images, quelle que soit leur longueur : une
+// carte se rangeant près de la pioche et une carte traversant toute la main
+// prennent le même temps, la seconde se déplaçant donc trois à quatre fois
+// plus vite. C'est précisément celle-là dont le retournement n'était pas
+// perceptible, alors que le trajet court convenait.
 //
-// La durée est donc un fond plus tant de millisecondes par largeur de table
-// parcourue -- rapportée à la largeur, pour que le réglage tienne quelle que
-// soit la taille de la fenêtre.
+// La durée est donc constituée d'une valeur fixe augmentée d'un nombre de
+// millisecondes par largeur de table parcourue, la distance étant rapportée à
+// la largeur afin que le réglage reste valable quelle que soit la taille de la
+// fenêtre.
 //
-// Les deux nombres sont pris sur la table elle-même. La pioche est en haut à
-// droite et la main en bas, si bien que la descente compte autant que
-// l'écart: à 1220 sur 850, la case la plus proche est déjà à 582 pixels et
-// la plus lointaine à 1202, soit le double et non le quintuple.
+// Les deux valeurs sont déduites de la géométrie de la table. La pioche se
+// trouvant en haut à droite et la main en bas, la composante verticale
+// intervient autant que la composante horizontale : pour une fenêtre de 1220
+// sur 850, la position la plus proche est à 582 pixels et la plus éloignée à
+// 1202, soit un rapport de deux et non de cinq.
 //
-//     à côté de la pioche    582 px    242 ms    38 px par image
-//     au milieu              772 px    269 ms    46
-//     à l'autre bout       1 202 px    330 ms    58
+//     près de la pioche      582 px    242 ms    38 px par image
+//     position médiane       772 px    269 ms    46
+//     extrémité opposée    1 202 px    330 ms    58
 //
-// Celle d'à côté garde les 242 ms qui allaient bien. Celle du bout prend le
-// tiers de plus qu'il lui faut pour qu'on voie le demi-tour -- pas davantage:
-// à une demi-seconde elle traînait, et une pioche qu'on attend est pire
-// qu'une pioche qu'on voit mal. L'écart de vitesse apparente passe ainsi du
-// simple au double à une fois et demie, ce qui suffit à ne plus se voir.
+// Le trajet court conserve les 242 ms qui convenaient. Le trajet long reçoit
+// le tiers supplémentaire nécessaire à la perception du retournement, sans
+// aller au-delà : à une demi-seconde, l'animation devenait trop lente, et une
+// pioche que l'on attend est plus gênante qu'une pioche mal perçue. L'écart de
+// vitesse apparente passe ainsi d'un rapport de deux à un rapport d'un et
+// demi, ce qui le rend imperceptible.
 //
-// C'est le seul vol réglé ainsi: les autres gardent l'allure unique de la
-// table, qui est ce qui l'empêche de se remarquer.
+// C'est la seule animation réglée de cette façon ; les autres conservent la
+// vitesse unique de la table, ce qui est précisément ce qui la rend
+// imperceptible.
 constexpr qreal kDrawMsBase = 159.0;
 constexpr qreal kDrawMsPerWidth = 173.0;
 constexpr qreal kDrawMsLeast = 200.0;
@@ -103,67 +114,72 @@ constexpr qreal kDrawMsMost = 380.0;
 constexpr qreal kBeckonSwing = 3.0;
 constexpr qreal kBeckonSpeed = 0.07;
 
-// De combien les tas débordent de la boîte de leur carte: la pioche est un
-// empilement dont chaque épaisseur dépasse en haut à gauche, la défausse
-// laisse voir un bord de la carte d'en dessous, en haut à droite.
+// Débordement des tas par rapport au rectangle de leur carte : la pioche est
+// représentée par un empilement dont chaque épaisseur dépasse en haut à
+// gauche, la défausse laisse apparaître un bord de la carte inférieure, en
+// haut à droite.
 constexpr qreal kStockLayerStep = 1.6;
 constexpr qreal kPileUnderStep = 3.0;
 
-// L'air entre les deux tas, sous le mot qui annonce chacun.
+// Espacement entre les deux tas, sous le libellé de chacun.
 //
-// Il en faut plus qu'il n'y paraît: le compte de la pioche s'écrit sous elle
-// et le mot « défausse » au-dessus de l'autre, si bien que l'écart porte deux
-// lignes de texte et non pas une. À dix-huit, la seconde commençait au pixel
-// où la première finissait et les deux tas n'en faisaient qu'un.
+// Il doit être plus important qu'il n'y paraît : le nombre de cartes de la
+// pioche est inscrit sous celle-ci et le libellé « défausse » au-dessus de
+// l'autre, de sorte que l'espacement doit loger deux lignes de texte et non
+// une. À dix-huit pixels, la seconde ligne commençait là où la première se
+// terminait et les deux tas paraissaient confondus.
 constexpr qreal kStackGap = 36.0;
-// La bande au-dessus d'un tas, où s'écrit son nom, et l'air qu'elle garde
-// sous le texte: sans lui le titre touchait sa carte. Partagée entre la mise
-// en place et le dessin, qui doivent s'accorder.
+// Bandeau surmontant un tas, portant son libellé, et espacement conservé sous
+// le texte, sans lequel le libellé toucherait la carte. Cette valeur est
+// partagée entre le calcul de disposition et le rendu, qui doivent
+// concorder.
 constexpr qreal kStackLabel = 27.0;
 constexpr qreal kStackLabelAir = 8.0;
-// Le corps des trois enseignes du tapis. Zen Dots est large: ce qui est petit
-// dans une fonte de texte y est encore lisible, mais ces trois-là nomment des
-// endroits et non des détails, et se lisent de loin.
+// Corps des trois libellés du tapis. La police Zen Dots étant large, un corps
+// réduit y reste lisible ; ces libellés désignant des zones et non des
+// détails, ils doivent être lisibles à distance.
 constexpr qreal kStackLabelSize = 13.0;
 
-// Ce dont votre plaque se retire des bords de sa colonne.
+// Retrait de la plaque du joueur par rapport aux bords de sa colonne.
 //
-// Les deux cartes sont centrées et laissent déjà large de chaque côté; la
-// plaque, elle, prenait toute la largeur et venait buter contre le bord de
-// la fenêtre, à la marge près.
+// Les deux cartes sont centrées et laissent déjà un espace de chaque côté,
+// alors que la plaque occupait toute la largeur et venait au contact du bord
+// de la fenêtre, à la marge près.
 constexpr qreal kPlaqueInset = 13.0;
 
-// Les corps de texte d'une plaque d'adversaire, et la hauteur utile où ils
-// valent. Ce sont ceux de la carte du même adversaire dans le menu
-// d'ouverture (`RivalCard`): c'est la même personne décrite de la même
-// manière, et la lire plus gros à la table qu'au menu la fait passer pour
-// deux objets. Le score n'a pas d'équivalent au menu -- il prend celui de la
-// plaque `Vous`, juste en dessous, qui est le seul autre endroit où un score
-// s'écrit.
+// Corps de texte d'une plaque d'adversaire, et hauteur de référence pour
+// laquelle ils sont définis. Ce sont ceux employés par la carte du même
+// adversaire dans le menu d'ouverture (`RivalCard`) : il s'agit du même
+// adversaire décrit de la même façon, et des corps différents entre la table
+// et le menu les feraient percevoir comme deux éléments distincts. Le score
+// n'ayant pas d'équivalent au menu, il reprend le corps de la plaque du
+// joueur, située juste en dessous, seul autre endroit où un score est
+// affiché.
 constexpr int kPlaqueNameSize = 15;
 constexpr int kPlaqueScoreSize = 17;
 constexpr int kPlaqueAsideSize = 11;
 constexpr int kPlaqueBadgeSize = 10;
-// Ce qui reste d'une plaque quand on lui a retiré ses marges du haut et du
-// bas, la fenêtre lui laissant toute sa place.
+// Hauteur utile d'une plaque, marges supérieure et inférieure déduites,
+// lorsque la fenêtre lui accorde toute sa place.
 constexpr qreal kPlaqueInnerFull = kSeatsHeight - 14.0;
 
-// Votre propre plaque, sous la défausse: ce qu'on lui réserve dans la colonne
-// et ce qu'on lui accorde au mieux. Elle porte moins que celle d'un
-// adversaire -- ni étoiles, ni jauge, ni tas de cartes en main -- et tient
-// donc en deux lignes à côté de son médaillon.
+// Plaque du joueur, située sous la défausse : hauteur réservée dans la
+// colonne et hauteur maximale accordée. Elle comporte moins d'éléments que
+// celle d'un adversaire — ni étoiles, ni jauge, ni représentation de la main —
+// et tient donc en deux lignes à côté de son médaillon.
 constexpr qreal kMinePlaqueHeight = 60.0;
 constexpr qreal kMinePlaqueMax = 72.0;
 constexpr qreal kMinePlaqueInnerFull = kMinePlaqueHeight - 12.0;
 
-// Ce qui sépare l'enseigne `LE TAPIS` du bord gauche du tapis.
+// Retrait du libellé « LE TAPIS » par rapport au bord gauche du tapis.
 constexpr qreal kTapisLabelPad = 14.0;
 
-// Le corps d'un texte de plaque, à la hauteur qu'elle a. La rangée des
-// plaques se réduit avec la fenêtre (`min(kSeatsHeight, hauteur * 0.22)`), et
-// un corps fixe y déborderait: le texte garde donc sa réduction. Ce qu'il
-// n'a plus, c'est le droit de grandir -- la taille du menu est un plafond, et
-// non une valeur de départ qu'une plaque entière multipliait par un tiers.
+// Corps du texte d'une plaque, pour la hauteur dont elle dispose. La rangée
+// de plaques se réduit avec la fenêtre (`min(kSeatsHeight, hauteur * 0.22)`),
+// et un corps fixe y déborderait : le texte est donc réduit en proportion. Il
+// ne peut en revanche pas être agrandi, le corps employé par le menu
+// constituant un plafond et non une valeur de référence qu'une plaque de
+// pleine hauteur multipliait d'un tiers.
 int plaqueTextSize(qreal innerHeight, int atFullHeight, int floor,
                    qreal fullHeight = kPlaqueInnerFull) {
     const qreal scale = std::min(1.0, innerHeight / fullHeight);
@@ -175,42 +191,45 @@ constexpr qreal kHandHeight = 134.0;
 constexpr qreal kMargin = 14.0;
 constexpr qreal kGap = 10.0;
 
-// How far apart the cards of a combination sit. Enough of each one shows for
-// its corner to be read, which is the whole trick of a fanned hand.
+// Écartement des cartes d'une combinaison. Il laisse apparaître de chaque
+// carte la portion nécessaire à la lecture de son coin, selon le principe
+// d'une main disposée en éventail.
 constexpr qreal kMeldStep = 0.60;
 
-// Ce que le tapis accorde à une carte posée, au mieux et au pire.
+// Hauteur maximale et minimale accordée à une carte posée sur le tapis.
 //
-// Le plafond était à 56, et la boucle qui descend de quatre en quatre n'avait
-// jamais à descendre: même trente combinaisons tiennent à cette taille-là sur
-// un tapis de fenêtre ordinaire. Les cartes posées étaient donc petites tout
-// le temps, et pour rien -- la moitié de celles de la main, sur un tapis aux
-// neuf dixièmes vide.
+// Le plafond était fixé à 56 pixels, et la boucle de réduction par pas de
+// quatre n'avait jamais à s'appliquer : même trente combinaisons tiennent à
+// cette taille dans une fenêtre de dimensions courantes. Les cartes posées
+// étaient donc systématiquement réduites sans nécessité, à la moitié de la
+// taille de celles de la main, sur un tapis très largement vide.
 //
-// À 96 elles se lisent tant que le tapis est clair, et la boucle retrouve son
-// office quand il se remplit: 92 à dix-huit combinaisons, 80 à vingt-quatre,
-// 72 à trente -- qui reste au-dessus de ce qu'on avait en permanence avant.
+// À 96 pixels, elles restent lisibles tant que le tapis est peu rempli, et la
+// boucle de réduction retrouve son utilité lorsqu'il se remplit : 92 pixels à
+// dix-huit combinaisons, 80 à vingt-quatre, 72 à trente, valeur qui demeure
+// supérieure à celle appliquée auparavant en permanence.
 constexpr qreal kMeldTall = 96.0;
 constexpr qreal kMeldShort = 26.0;
 
-// La plus grande carte qui tienne dans la boîte, dans les deux sens.
+// Plus grande carte tenant dans le rectangle donné, dans les deux dimensions.
 //
-// Tout le tapis se dispose en hauteur, et la colonne de droite est la seule
-// place où la largeur est, elle, arrêtée d'avance: une carte plus large que
-// sa colonne y débordait sur le tapis, et c'est exactement ce que le zoom et
-// un jeu large font arriver.
-// La flèche qui dit où l'on peut prendre: un trait et une pointe, couchée
-// vers la droite, dans la place qu'on lui laisse.
+// La disposition du tapis est calculée en hauteur, et la colonne de droite est
+// le seul emplacement dont la largeur est fixée a priori : une carte plus
+// large que sa colonne y débordait sur le tapis, situation que produisent
+// précisément le zoom et un jeu aux cartes larges.
+// Flèche indiquant un emplacement où piocher : un trait terminé par une
+// pointe, orienté vers la droite, dans l'espace qui lui est réservé.
 //
-// Elle remplace le pointillé qui faisait le tour des deux tas. Un cadre en
-// pointillé autour d'une carte ressemble à une carte sélectionnée, et il en
-// entourait deux à la fois sans dire laquelle: la flèche, elle, montre, et
-// deux flèches côte à côte se lisent comme « l'un ou l'autre ».
+// Elle remplace le contour en pointillés qui entourait les deux tas. Un
+// contour en pointillés autour d'une carte évoque une sélection, et il en
+// entourait deux simultanément sans désigner l'une ou l'autre. Une flèche
+// désigne un emplacement, et deux flèches côte à côte s'interprètent comme un
+// choix entre les deux.
 void drawTurnArrow(QPainter *painter, const QRectF &box, const QColor &ink) {
-    // Courte et grasse plutôt que longue et fine: ce qu'elle a à dire tient
-    // dans sa pointe, et un long trait traversant la marge ne faisait que
-    // mener l'œil loin de la carte qu'il désigne. Elle n'occupe donc que la
-    // moitié de la place offerte, serrée contre la carte.
+    // La flèche est courte et épaisse plutôt que longue et fine : l'information
+    // réside dans sa pointe, et un trait long traversant la marge éloignait le
+    // regard de la carte désignée. Elle n'occupe donc que la moitié de
+    // l'espace disponible et reste proche de la carte.
     const qreal tall = std::min(box.height(), 26.0);
     const qreal head = tall * 0.64;
     const qreal span = box.width() * 0.5 + 4.0;
@@ -242,16 +261,17 @@ QSizeF cardWithin(qreal height, qreal width) {
     return card;
 }
 
-// How much a chosen card rises out of the hand.
+// Élévation d'une carte sélectionnée au-dessus de la main.
 constexpr qreal kLift = 18.0;
 
-// Les bornes du zoom, et le cran de la molette. En deçà les figures ne se
-// lisent plus, au-delà la main de quatorze cartes ne tient plus en largeur.
+// Bornes du zoom et pas de la molette. En deçà de la borne inférieure, les
+// figures deviennent illisibles ; au-delà de la borne supérieure, la main de
+// quatorze cartes ne tient plus en largeur.
 constexpr int kZoomMin = 80;
 constexpr int kZoomMax = 200;
 constexpr int kZoomStep = 10;
 
-// L'allure d'une pioche qui a `reach` pixels à couvrir sur une table large
+// Durée d'une animation de pioche couvrant `reach` pixels sur une table large
 // de `across`.
 qreal drawSpeedFor(qreal reach, qreal across) {
     const qreal part = across > 1.0 ? std::clamp(reach / across, 0.0, 2.0) : 0.5;
@@ -260,19 +280,21 @@ qreal drawSpeedFor(qreal reach, qreal across) {
 }
 
 qreal plateau(qreal along) {
-    // Starts quickly and lands softly: a card thrown onto a table does not
-    // arrive at a constant speed.
+    // Départ rapide et arrivée amortie : une carte lancée sur une table ne se
+    // déplace pas à vitesse constante.
     const qreal at = std::clamp(along, 0.0, 1.0);
     return 1.0 - (1.0 - at) * (1.0 - at);
 }
 
-// Le corps d'une plaque -- celle d'un adversaire, et la vôtre.
+// Fond d'une plaque, qu'il s'agisse de celle d'un adversaire ou de celle du
+// joueur.
 //
-// Sombre et translucide à filet d'or, comme les cartes du menu d'ouverture:
-// un panneau blanc sur un drap vert est un trou dans le drap, et les deux
-// pages doivent se ressembler. Celui dont c'est le tour s'éclaire un peu et
-// prend sa propre couleur dans le filet -- c'est la seule chose qui distingue
-// encore les six d'un coup d'oeil.
+// Sombre et translucide, bordé d'un filet doré, comme les cartes du menu
+// d'ouverture : un panneau clair sur un tapis sombre romprait la continuité
+// visuelle, et les deux pages doivent présenter la même apparence. La plaque
+// du joueur dont c'est le tour est légèrement éclaircie et son filet prend sa
+// couleur propre, seul élément permettant de distinguer les six adversaires
+// d'un coup d'œil.
 void paintPlaqueBody(QPainter *painter, const QRectF &box, const Palette &scheme,
                      const QColor &mine, bool active) {
     QPainterPath shape;
@@ -288,8 +310,8 @@ void paintPlaqueBody(QPainter *painter, const QRectF &box, const Palette &scheme
     painter->drawPath(shape);
 }
 
-// L'encre d'une plaque, et son aparté: claires, maintenant qu'elle est
-// sombre.
+// Couleurs du texte d'une plaque, principale et secondaire : claires, le fond
+// étant sombre.
 QColor plaqueInk(const Palette &scheme) { return scheme.feltText; }
 
 QColor plaqueAside(const Palette &scheme) {
@@ -310,8 +332,9 @@ TableView::TableView(QWidget *parent) : QWidget(parent) {
     m_ticker->setInterval(kFrameMs);
     connect(m_ticker, &QTimer::timeout, this, &TableView::tick);
 
-    // L'aperçu d'un adversaire, le temps qu'on reste sur sa plaque: ce qu'il
-    // est et ce qu'il a appris, sans ouvrir sa fiche au milieu d'une manche.
+    // Aperçu d'un adversaire, affiché pendant le survol de sa plaque : son
+    // tempérament et son expérience, consultables sans ouvrir sa fiche au
+    // cours d'une manche.
     m_glanceBeat = new QTimer(this);
     m_glanceBeat->setSingleShot(true);
     m_glanceBeat->setInterval(kGlanceDelayMs);
@@ -320,8 +343,9 @@ TableView::TableView(QWidget *parent) : QWidget(parent) {
         const QString who = m_game->seat(m_hoveredSeat).rivalId;
         for (const Spot &spot : m_seatBoxes) {
             if (spot.id != m_hoveredSeat) continue;
-            // La plaque, en coordonnées d'écran: l'aperçu se pose dessous,
-            // sur le tapis, où il ne cache ni la plaque ni votre main.
+            // Position de la plaque en coordonnées d'écran : l'aperçu est
+            // affiché en dessous, sur le tapis, où il ne masque ni la plaque
+            // ni la main du joueur.
             showRivalGlance(who, QRect(mapToGlobal(spot.box.topLeft().toPoint()),
                                        spot.box.size().toSize()),
                             this);
@@ -358,9 +382,9 @@ void TableView::clearChosen() {
 void TableView::say(const QString &line) {
     m_line = line;
     m_trouble = false;
-    // La ligne change au moment précis où le tour passe: c'est l'occasion de
-    // remettre l'horloge en marche pour que les flèches se mettent à battre.
-    // Elle s'arrête d'elle-même s'il n'y a rien à animer.
+    // La ligne d'état change au moment où le tour passe : c'est l'occasion de
+    // relancer la minuterie afin que les flèches reprennent leur oscillation.
+    // Elle s'arrête d'elle-même en l'absence d'animation.
     wake();
     update();
 }
@@ -399,14 +423,15 @@ void TableView::stopAnimations() {
 }
 
 QRectF TableView::arrowBox(const QRectF &card) const {
-    // Treize pixels entre la pointe et la carte, et la flèche à sa hauteur.
+    // Treize pixels entre la pointe et la carte, la flèche étant centrée
+    // verticalement sur celle-ci.
     //
-    // Réglée sur la boîte de la carte, qui est la même pour les deux tas, et
-    // non sur ce qui dépasse autour -- l'empilement de la pioche, le bord de
-    // la carte sous la défausse. Les régler là-dessus a été essayé: comme un
-    // dessin de dos et un dessin de face ne laissent pas la même marge
-    // blanche au bord de leur image, cela ne rapproche rien et écarte les
-    // deux flèches de trois pixels pour de bon.
+    // La position est calculée sur le rectangle de la carte, identique pour les
+    // deux tas, et non sur le débordement qui l'entoure — l'empilement de la
+    // pioche, le bord de la carte sous la défausse. Ce second calcul a été
+    // essayé : les dessins de dos et de face ne ménageant pas la même marge au
+    // bord de leur image, il ne rapprochait rien et décalait durablement les
+    // deux flèches de trois pixels.
     const qreal from = m_stacks.left() + 2.0;
     return QRectF(from, card.center().y() - 13.0, card.left() - 13.0 - from, 26.0);
 }
@@ -430,9 +455,9 @@ QRect TableView::beckonArea() const {
 void TableView::noteTakenBack(const QVector<int> &cardIds) {
     if (!m_game || cardIds.isEmpty()) return;
 
-    // Les cartes sont déjà rentrées en main: la disposition d'abord, pour
-    // savoir où chacune s'est rangée, puis chacune repart de la place
-    // qu'elle tenait sur le rail.
+    // Les cartes sont déjà revenues en main : la disposition est donc calculée
+    // d'abord, afin de connaître la position de chacune, puis chaque carte est
+    // animée depuis la position qu'elle occupait sur le rail.
     relayout();
 
     for (int id : cardIds) {
@@ -482,7 +507,7 @@ QPointF TableView::seatAnchor(int at) const {
     for (const Spot &spot : m_seatBoxes) {
         if (spot.id == at) return spot.box.center();
     }
-    // Your own cards come up out of your hand.
+    // Les cartes du joueur partent de sa main.
     return QPointF(m_handRow.center().x(), m_handRow.center().y());
 }
 
@@ -494,12 +519,12 @@ void TableView::noteDiscard(int seat, const Card &card) {
     flight.to = m_pileBox.topLeft();
     flight.speed = kFlightSpeed;
 
-    // La vôtre part de la place qu'elle tenait dans votre main.
+    // La carte du joueur part de la position qu'elle occupait dans sa main.
     //
-    // seatAnchor() ne connaît que les plaques d'en face, et la vôtre n'en est
-    // pas une: pour vous elle rendait le milieu de la rangée, d'où aucune
-    // carte n'était jamais partie. La disposition de la main n'est pas encore
-    // refaite à cet instant, la place de la carte y est donc toujours.
+    // `seatAnchor()` ne connaît que les plaques d'adversaire ; pour le joueur,
+    // elle retournait le centre de la rangée, d'où aucune carte ne part
+    // jamais. La disposition de la main n'étant pas encore recalculée à cet
+    // instant, la position de la carte y figure toujours.
     QRectF leaves;
     if (m_game && m_game->seat(seat).human()) leaves = m_handWas.value(card.id);
     if (leaves.isNull()) {
@@ -507,8 +532,9 @@ void TableView::noteDiscard(int seat, const Card &card) {
         flight.from =
             seatAnchor(seat) - QPointF(flight.size.width() / 2, flight.size.height() / 2);
     } else {
-        // Et elle rétrécit en chemin, la main étant dessinée plus grand que
-        // les deux tas -- l'inverse exact du voyage qu'elle a fait en venant.
+        // La carte est réduite en cours de déplacement, la main étant dessinée
+        // à une taille supérieure à celle des deux tas : c'est l'inverse du
+        // trajet effectué lors de la pioche.
         flight.size = leaves.size();
         flight.from = leaves.topLeft();
         flight.grow = m_pileBox.size();
@@ -522,12 +548,13 @@ void TableView::noteDiscard(int seat, const Card &card) {
 void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
     if (!card.valid() || !m_game) return;
 
-    // La vôtre vole du tas jusqu'à la place qu'elle vient de prendre dans
-    // votre main. C'est la seule façon de voir où elle est allée: la main se
-    // range toute seule après la pioche, et une quinzième carte rangée par
-    // couleur atterrit au milieu des quatorze autres.
+    // La carte du joueur est animée du tas jusqu'à la position qu'elle vient
+    // d'occuper dans sa main. C'est le seul moyen d'en suivre la destination :
+    // la main est retriée automatiquement après la pioche, et une quinzième
+    // carte triée par couleur s'insère au milieu des quatorze autres.
     if (m_game->seat(seat).human()) {
-        // La disposition d'abord, parce que c'est là qu'on cherche la place.
+        // La disposition est calculée d'abord, la position de destination y
+        // étant lue.
         relayout();
         QRectF landing;
         for (const Spot &spot : m_handBoxes) {
@@ -537,17 +564,17 @@ void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
             Flight flight;
             flight.card = card;
             flight.faceUp = true;
-            // De la pioche, elle se retourne en chemin: elle était de dos sur
-            // le tas et vous ne savez ce que c'est qu'une fois en main. De la
-            // défausse, il n'y a rien à retourner -- elle était face en haut,
-            // et c'est pour ça que vous l'avez prise.
+            // Une carte venant de la pioche se retourne en cours de
+            // déplacement : elle était face cachée sur le tas et n'est
+            // identifiable qu'une fois en main. Une carte venant de la défausse
+            // ne se retourne pas, étant déjà face visible.
             flight.flips = !fromPile;
             flight.size = (fromPile ? m_pileBox : m_stockBox).size();
             flight.from = (fromPile ? m_pileBox : m_stockBox).topLeft();
             flight.to = landing.topLeft();
-            // Le temps de voir la carte se retourner, d'autant plus qu'elle
-            // va loin; de la défausse il n'y a rien à retourner, et elle va
-            // à l'allure de la table.
+            // Durée permettant de percevoir le retournement, d'autant plus
+            // longue que le trajet l'est ; une carte venant de la défausse ne
+            // se retournant pas, elle suit la vitesse ordinaire de la table.
             flight.speed = flight.flips
                                ? drawSpeedFor(QLineF(flight.from, flight.to).length(), width())
                                : kFlightSpeed;
@@ -558,10 +585,10 @@ void TableView::noteDrawn(int seat, bool fromPile, const Card &card) {
         return;
     }
 
-    // Celle de quelqu'un d'autre vole du tas vers sa plaque, face en haut si
-    // elle vient de la défausse -- une carte ramassée là est une carte que
-    // tout le monde a vue -- et face en bas si elle vient de la pioche, où
-    // tout ce qu'on apprend est de quel tas il a pris.
+    // La carte d'un adversaire est animée du tas vers sa plaque : face visible
+    // si elle provient de la défausse, cette carte ayant été vue de tous ; face
+    // cachée si elle provient de la pioche, auquel cas seule l'origine du
+    // tirage est connue.
     Flight flight;
     flight.card = card;
     flight.faceUp = fromPile;
@@ -580,12 +607,12 @@ void TableView::noteLaid(const QVector<int> &cardIds, int by) {
         return;
     }
 
-    // La disposition d'abord: la combinaison est sur le tapis, c'est là
-    // qu'on va chercher la place de chacune de ses cartes.
+    // La disposition est calculée d'abord : la combinaison se trouvant sur le
+    // tapis, c'est là que la position de chacune de ses cartes est lue.
     relayout();
 
-    // Les combinaisons dans l'ordre où elles arrivent: chacune attend que la
-    // précédente soit partie.
+    // Les combinaisons sont animées dans leur ordre d'arrivée, chacune
+    // attendant le départ de la précédente.
     QVector<int> order;
 
     for (int id : cardIds) {
@@ -604,10 +631,10 @@ void TableView::noteLaid(const QVector<int> &cardIds, int by) {
                 which = meld->id;
             }
         }
-        // Une pose qui n'est pas encore descendue sur le tapis attend sur le
-        // rail: c'est là qu'il faut aller la chercher. Poser se fait en deux
-        // temps -- la main vers le rail, puis le rail vers le tapis -- et les
-        // deux méritent d'être vus.
+        // Une pose non encore déposée sur le tapis se trouve sur le rail,
+        // d'où elle doit être animée. La pose s'effectue en deux étapes — de
+        // la main vers le rail, puis du rail vers le tapis — qui doivent
+        // toutes deux être perceptibles.
         if (to.isNull()) {
             for (const Spot &spot : m_poseBoxes) {
                 const Meld *meld = m_game->meldById(spot.id);
@@ -623,9 +650,10 @@ void TableView::noteLaid(const QVector<int> &cardIds, int by) {
         }
         if (to.isNull() || owner < 0 || owner >= m_game->seatCount()) continue;
 
-        // D'où elle vient, et c'est tout l'intérêt: une carte qui part de la
-        // plaque de Zéphyr dit que c'est Zéphyr qui l'a posée, ce qu'un tapis
-        // qui se remplit tout seul ne disait pas.
+        // L'origine de l'animation identifie l'auteur du coup : une carte
+        // partant de la plaque d'un adversaire indique que c'est lui qui l'a
+        // posée, information qu'un tapis se remplissant sans animation ne
+        // donnait pas.
         if (which >= 0 && !order.contains(which)) order.append(which);
 
         Flight flight;
@@ -634,14 +662,15 @@ void TableView::noteLaid(const QVector<int> &cardIds, int by) {
         flight.to = to.topLeft();
         flight.grow = to.size();
         flight.speed = kLaySpeed;
-        // Négatif: la carte est en vol et n'est donc dessinée nulle part,
-        // mais elle n'a pas encore quitté sa plaque. Voir paintFlights().
+        // Une valeur négative indique que la carte est en cours de
+        // déplacement : elle n'est donc dessinée nulle part, n'ayant pas
+        // encore quitté sa plaque. Voir `paintFlights()`.
         const qsizetype rank = std::max(qsizetype(0), order.indexOf(which));
         flight.along = -kLayStagger * qreal(rank);
 
-        // Celui qui la joue, qui n'est pas forcément celui à qui la
-        // combinaison appartient: une carte mise sur la combinaison d'un
-        // adversaire part de la main de qui la met.
+        // L'auteur du coup, qui n'est pas nécessairement le propriétaire de la
+        // combinaison : une carte ajoutée à la combinaison d'un adversaire part
+        // de la main de celui qui l'ajoute.
         const int player = (by >= 0 && by < m_game->seatCount()) ? by : owner;
 
         const QRectF leaves = m_handWas.value(id);
@@ -697,9 +726,9 @@ void TableView::tick() {
     if (busy) {
         update();
     } else if (nudging) {
-        // Rien d'autre ne bouge: on ne redemande que les deux flèches, pour
-        // qu'un tour passé à réfléchir ne repeigne pas tout le tapis soixante
-        // fois par seconde.
+        // Rien d'autre ne change : seules les deux flèches sont redessinées,
+        // afin qu'un tour d'attente ne provoque pas le rafraîchissement
+        // complet du tapis soixante fois par seconde.
         update(beckonArea());
     } else {
         update();
@@ -708,15 +737,14 @@ void TableView::tick() {
 }
 
 // ---------------------------------------------------------------------------
-// Où tout se place.
+// Calcul de la disposition.
 
 void TableView::setZoom(int percent) {
     const int now = qBound(kZoomMin, percent, kZoomMax);
     if (now == m_zoom) return;
     m_zoom = now;
-    // Les images mises à l'échelle sont gardées par taille: en changer toutes
-    // les tailles d'un coup laisse derrière soi un cache qui ne resservira
-    // plus.
+    // Les images mises à l'échelle sont mises en cache par taille : un
+    // changement global de taille rend l'intégralité du cache inutilisable.
     if (const CardSet *set = CardDecks::instance().current()) set->forgetDrawings();
     forgetBackDrawings();
     relayout();
@@ -725,9 +753,10 @@ void TableView::setZoom(int percent) {
 }
 
 void TableView::wheelEvent(QWheelEvent *event) {
-    // Ctrl et la molette, comme partout ailleurs. La molette seule est
-    // laissée tranquille: on la pousse sans y penser en jouant, et une table
-    // qui change de taille toute seule serait une mauvaise surprise.
+    // Le zoom s'effectue avec Ctrl et la molette, selon l'usage courant. La
+    // molette seule n'est pas interceptée : elle est actionnée par inadvertance
+    // en cours de partie, et un changement de taille non sollicité serait
+    // indésirable.
     if (!event->modifiers().testFlag(Qt::ControlModifier)) {
         QWidget::wheelEvent(event);
         return;
@@ -743,14 +772,16 @@ void TableView::resizeEvent(QResizeEvent *event) {
 }
 
 void TableView::relayout() {
-    // Les places d'avant ne valent plus rien si la table change de forme.
+    // Les positions précédentes deviennent caduques si les dimensions de la
+    // table changent.
     if (m_slideAlong >= 1.0) m_slideFrom.clear();
     const QRectF all = QRectF(rect()).adjusted(kMargin, kMargin, -kMargin, -kMargin);
     if (all.width() < 80 || all.height() < 80) return;
 
-    // Les deux bornes de chaque bande sont tirées par le zoom, pas seulement
-    // la première: sans cela, à cent pour cent rien ne bouge -- c'est voulu --
-    // mais au-delà la bande reste et la carte déborde.
+    // Les deux bornes de chaque zone sont affectées par le zoom, et non
+    // seulement la borne inférieure : dans le cas contraire, rien ne change à
+    // cent pour cent — comportement voulu — mais au-delà la zone conserve sa
+    // taille et la carte déborde.
     const qreal z = m_zoom / 100.0;
     const qreal seats = std::min(kSeatsHeight, all.height() * 0.22);
     const qreal hand = std::min(kHandHeight * z, all.height() * 0.26 * z);
@@ -771,25 +802,26 @@ void TableView::relayout() {
     layoutMelds();
     layoutHand();
 
-    // La pioche et la défausse, l'une sous l'autre dans la colonne de droite,
-    // avec de la place sous elles pour votre propre plaque.
+    // La pioche et la défausse, superposées dans la colonne de droite, avec
+    // l'espace nécessaire en dessous pour la plaque du joueur.
     const qreal cardHeight = std::min(104.0 * z, std::max(56.0 * z, m_stacks.height() * 0.30));
     const QSizeF card = cardWithin(cardHeight, m_stacks.width() - 10.0);
     const qreal left = m_stacks.left() + (m_stacks.width() - card.width()) / 2.0;
     const qreal labels = kStackLabel;
     m_stockBox = QRectF(left, m_stacks.top() + labels, card.width(), card.height());
-    // L'écart se resserre quand la colonne est courte, au lieu de pousser
-    // votre plaque dehors: sur une petite fenêtre, deux tas un peu proches
-    // valent mieux qu'un score qu'on ne voit plus. Ce qu'il faut sous eux,
-    // c'est la hauteur des deux cartes, les deux lignes de titre, l'air sous
-    // la défausse et de quoi poser la plaque -- celle-ci porte un médaillon
-    // et deux lignes depuis qu'elle a la facture des autres, et ce qu'on lui
-    // réservait avant la coupait en bas.
+    // L'écartement est réduit lorsque la colonne est courte, plutôt que de
+    // faire sortir la plaque du joueur : dans une fenêtre de petite taille,
+    // deux tas rapprochés sont préférables à un score non visible. L'espace
+    // requis comprend la hauteur des deux cartes, les deux lignes de libellé,
+    // l'espacement sous la défausse et la hauteur de la plaque ; celle-ci
+    // comporte un médaillon et deux lignes depuis qu'elle a été alignée sur
+    // les autres, et l'espace réservé auparavant la tronquait.
     const qreal spare = m_stacks.height() -
                         (labels * 2.0 + card.height() * 2.0 + 20.0 + kMinePlaqueHeight);
-    // Le plancher tient compte de ce qui vit dans cet écart: le compte de
-    // cartes sous la pioche, puis l'enseigne de la défausse. Serrées à
-    // dix-huit pixels elles se touchaient, l'enseigne ayant grandi.
+    // La valeur plancher tient compte du contenu de cet écartement : le
+    // nombre de cartes inscrit sous la pioche, puis le libellé de la défausse.
+    // À dix-huit pixels, les deux se touchaient, le libellé ayant été
+    // agrandi.
     const qreal stackGap = std::clamp(spare, 24.0, kStackGap);
     m_pileBox =
         QRectF(left, m_stockBox.bottom() + labels + stackGap, card.width(), card.height());
@@ -799,8 +831,8 @@ void TableView::layoutSeats() {
     m_seatBoxes.clear();
     if (!m_game || m_game->seatCount() < 2) return;
 
-    // Everybody but you. Your own cards are in front of you and your own
-    // plaque is under the défausse, where there is room for it.
+    // Tous les joueurs sauf le joueur humain : ses cartes sont affichées
+    // devant lui et sa plaque sous la défausse, où l'espace est disponible.
     QVector<int> others;
     for (int at = 0; at < m_game->seatCount(); ++at) {
         if (!m_game->seat(at).human()) others.append(at);
@@ -823,19 +855,21 @@ void TableView::layoutMelds() {
     m_meldBoxes.clear();
     if (!m_game) return;
 
-    // Groupées par poseur, pour que le tapis se lise: vingt combinaisons en
-    // vrac ne disent rien, les mêmes vingt en six blocs se parcourent. Le
-    // bloc ne dit plus de qui il est -- une combinaison posée n'appartient à
-    // personne -- il dit seulement qu'elles sont arrivées ensemble, ce qui
-    // suffit à ne pas les lire comme un tas.
+    // Les combinaisons sont regroupées par auteur afin de rendre le tapis
+    // lisible : vingt combinaisons disposées sans ordre sont difficiles à
+    // parcourir, alors que les mêmes réparties en six groupes le sont. Le
+    // groupe n'identifie plus son auteur — une combinaison posée n'appartient
+    // à personne — mais indique seulement que ces combinaisons ont été posées
+    // ensemble, ce qui suffit à les distinguer les unes des autres.
     QVector<Meld> order = m_game->table();
     std::stable_sort(order.begin(), order.end(),
                      [](const Meld &a, const Meld &b) { return a.owner < b.owner; });
     if (order.isEmpty()) return;
 
-    // The cards come down in size until the whole tapis fits. Two passes at
-    // most in practice, but the loop is cheap and the alternative is a tapis
-    // that runs off the bottom of the cloth.
+    // La taille des cartes est réduite jusqu'à ce que l'ensemble du tapis
+    // tienne dans l'espace disponible. Deux itérations suffisent en pratique,
+    // mais la boucle est peu coûteuse et l'absence de réduction ferait déborder
+    // le tapis.
     const qreal z = m_zoom / 100.0;
     for (qreal height = kMeldTall * z; height >= kMeldShort * z; height -= 4.0 * z) {
         const QSizeF card = cardSizeForHeight(height);
@@ -843,15 +877,16 @@ void TableView::layoutMelds() {
         const qreal rowHeight = card.height() + pad * 2;
         QVector<Spot> laid;
         qreal x = m_tapis.left() + 6.0;
-        // Sous l'enseigne, comme la pioche se pose sous la sienne.
+        // Sous le libellé, comme la pioche est placée sous le sien.
         qreal y = m_tapis.top() + kStackLabel;
         bool fits = true;
         int lastOwner = -2;
         for (const Meld &meld : order) {
             const qreal width =
                 pad * 2 + card.width() + card.width() * kMeldStep * (meld.cards.size() - 1);
-            // A new player starts on a new row when there is not much left of
-            // this one, so that a group is not split for the sake of a card.
+            // Le groupe d'un nouvel auteur commence sur une nouvelle ligne
+            // lorsque la ligne courante est presque remplie, afin qu'un groupe
+            // ne soit pas scindé pour une seule carte.
             const bool fresh = meld.owner != lastOwner;
             if (x + width > m_tapis.right() - 6.0 ||
                 (fresh && lastOwner != -2 && x + width > m_tapis.right() - 60.0)) {
@@ -877,8 +912,8 @@ void TableView::layoutMelds() {
 
 QRectF TableView::meldCardBox(const QRectF &spot, int index) const {
     const QSizeF card = cardSizeForHeight(m_meldHeight);
-    // Six: le petit pas de garde, là où il y en avait onze pour laisser
-    // passer le trait du poseur.
+    // Six pixels de marge de sécurité, contre onze auparavant, lorsqu'un trait
+    // identifiait l'auteur de la pose.
     return QRectF(spot.left() + 6.0 + card.width() * kMeldStep * index,
                   spot.center().y() - card.height() / 2.0, card.width(), card.height());
 }
@@ -926,17 +961,19 @@ void TableView::layoutHand() {
     const Seat &mine = m_game->seat(me);
     const int count = mine.hand.size();
 
-    // D'où chaque carte part, si elle bouge.
+    // Position de départ de chaque carte, lorsqu'elle se déplace.
     //
-    // Plutôt qu'un cas par coup -- une place qui s'ouvre pour la pioche, une
-    // qui se referme sur la défausse, plusieurs d'un coup sur une pose -- la
-    // main se compare simplement à ce qu'elle était: toute carte qui change
-    // de place y glisse. Un coup qui la remanie est alors animé sans que rien
-    // ici ait à savoir lequel c'était.
+    // Plutôt que de traiter chaque coup séparément — insertion d'une carte
+    // piochée, retrait d'une carte défaussée, retrait de plusieurs cartes lors
+    // d'une pose — la main est simplement comparée à son état précédent :
+    // toute carte ayant changé de position est animée. Un coup modifiant la
+    // main est ainsi animé sans que cette fonction ait à en connaître la
+    // nature.
     //
-    // Sauf quand c'est la fenêtre qui a changé de taille: là, les cartes sont
-    // à leur place, c'est la place qui a bougé, et la faire glisser à chaque
-    // pixel de la poignée ne ferait que traîner derrière la souris.
+    // Ce traitement est désactivé lors d'un redimensionnement de la fenêtre :
+    // les cartes n'ont alors pas changé de position dans la main, c'est la
+    // disposition qui a changé, et les animer à chaque pixel de
+    // redimensionnement produirait un retard à l'affichage.
     const bool sameRow = m_handRow == m_handRowWas;
     QHash<int, QRectF> moving;
     for (int i = 0; i < count; ++i) {
@@ -954,17 +991,18 @@ void TableView::layoutHand() {
     if (!moving.isEmpty()) {
         m_slideFrom = moving;
         m_slideAlong = 0.0;
-        // Et l'horloge, sans quoi rien n'avance: ranger sa main après avoir
-        // pioché ne fait voler aucune carte, donc personne d'autre ne la
-        // remet en marche -- et la main restait dessinée là où elle était
-        // pendant que le pointage, lui, visait déjà les nouvelles places.
+        // La minuterie doit également être relancée : le tri de la main après
+        // une pioche ne déclenche aucune animation de carte, et rien d'autre ne
+        // la relancerait. La main restait alors dessinée à son ancienne
+        // position alors que la détection des clics portait déjà sur les
+        // nouvelles.
         wake();
     }
 
     const qreal z = m_zoom / 100.0;
 
-    // La pose en cours, sur le rail: smaller, and to the left of the line of
-    // commentary, because it is yours and it is not finished.
+    // La pose en cours, sur le rail : à une taille réduite et à gauche de la
+    // ligne d'état, s'agissant d'une pose du joueur et non encore achevée.
     if (mine.waiting.isEmpty()) return;
     const QSizeF small = cardSizeForHeight(std::min(kPoseTall * z, m_rail.height() - 10.0));
     qreal x = m_rail.left() + 8.0;
@@ -983,7 +1021,7 @@ void TableView::layoutHand() {
 }
 
 // ---------------------------------------------------------------------------
-// Le dessin.
+// Rendu.
 
 void TableView::paintEvent(QPaintEvent *) {
     const Palette &scheme = currentPalette();
@@ -1032,8 +1070,9 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
     painter->drawText(QRectF(textLeft, inner.top(), textWidth * 0.62, nameMetrics.height()),
                       Qt::AlignLeft | Qt::AlignVCenter, seat.name);
 
-    // Le score, à droite, en gros: it is the only number that decides
-    // anything, and the manche just gone is written under it.
+    // Le score, à droite et en grand corps : c'est la seule valeur
+    // déterminante, et le résultat de la manche écoulée est inscrit en
+    // dessous.
     QFont score = plainFont(painter);
     score.setBold(true);
     score.setPixelSize(plaqueTextSize(inner.height(), kPlaqueScoreSize, 12));
@@ -1043,7 +1082,7 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
                       Qt::AlignRight | Qt::AlignVCenter,
                       tr("%1 pts").arg(seat.score));
 
-    // Le niveau, et les étoiles.
+    // Le niveau et les étoiles.
     qreal y = inner.top() + nameMetrics.height() + 2.0;
     if (!seat.rivalId.isEmpty()) {
         const Learning learning = learningFor(seat.rivalId);
@@ -1059,9 +1098,9 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
         drawLevelStars(painter, starBox, levelStars(level), 3, scheme.gold,
                        blendColours(feltPlaqueFill(scheme), plaqueInk(scheme), 0.16));
         painter->setPen(plaqueAside(scheme));
-        // Le mot se centre sur les étoiles et non sur sa propre ligne: les
-        // étoiles sont un dessin, haut de ce qu'on lui donne, et le texte
-        // était posé plus bas qu'elles.
+        // Le libellé est centré sur les étoiles et non sur sa propre ligne de
+        // base : les étoiles constituent un tracé dont la hauteur est imposée,
+        // et le texte apparaissait plus bas qu'elles.
         QRectF levelBox(textLeft + starSpan + 6.0, 0.0, textWidth - starSpan - 6.0,
                         smallMetrics.height());
         levelBox.moveCenter(QPointF(levelBox.center().x(), starBox.center().y()));
@@ -1075,14 +1114,15 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
         y += 9.0;
     }
 
-    // Les cartes en main, de dos, et le compte dessus.
+    // Les cartes en main, face cachée, surmontées de leur nombre.
     const qreal pileHeight = std::max(20.0, inner.bottom() - y - 1.0);
     drawHandPile(painter, QRectF(textLeft, inner.bottom() - pileHeight,
                                  std::max(50.0, textWidth * 0.64), pileHeight),
                  seat.hand.size(), scheme, mine);
 
-    // Ouvert ou pas: the one fact about an opponent that changes how you play
-    // against them, because an opened player can use anything you throw.
+    // État d'ouverture : c'est la seule information sur un adversaire qui
+    // modifie la façon de jouer contre lui, un joueur ouvert pouvant exploiter
+    // toute carte défaussée.
     QFont flagFont = plainFont(painter);
     flagFont.setPixelSize(plaqueTextSize(inner.height(), kPlaqueBadgeSize, 8));
     flagFont.setBold(true);
@@ -1091,9 +1131,9 @@ void TableView::paintSeatPlaque(QPainter *painter, const QRectF &box, int at) {
     painter->setFont(flagFont);
     const QFontMetricsF flagMetrics(flagFont);
     const QString flag = seat.opened ? tr("ouvert") : tr("fermé");
-    // La pastille se mesure sur les capitales et non sur la hauteur de ligne:
-    // celle d'une fonte japonaise loge un idéogramme et ses signes, et
-    // l'ovale enflait de tout ce vide.
+    // La pastille est dimensionnée sur la hauteur de capitale et non sur la
+    // hauteur de ligne : celle d'une police japonaise doit loger un idéogramme
+    // et ses signes, ce qui agrandissait l'ovale d'autant.
     QRectF badge(0, 0, flagMetrics.horizontalAdvance(flag) + 12.0,
                  flagMetrics.capHeight() + 9.0);
     badge.moveBottomRight(QPointF(inner.right(), inner.bottom()));
@@ -1113,17 +1153,18 @@ void TableView::paintStacks(QPainter *painter) {
     const bool yours = m_game->seat(m_game->turn()).human();
     const bool drawing = yours && m_game->phase() == Phase::Draw;
 
-    // Le nom d'une pile, dans la fonte du haut du logo: c'est une enseigne
-    // posée sur le drap, comme les titres de section du menu. Elle n'a pas de
-    // bas-de-casse, ses minuscules étant ses capitales -- `AllUppercase` ne
-    // sert donc qu'au repli.
+    // Libellé d'un tas, composé dans la police de la ligne supérieure du
+    // logo : il s'agit d'un intitulé posé sur le tapis, comme les titres de
+    // section du menu. Cette police ne comporte pas de bas de casse, ses
+    // minuscules étant dessinées en capitales ; `AllUppercase` ne sert donc
+    // qu'à la police de repli.
     QFont label = familyFont(plainFont(painter), capsFamily(), kStackLabelSize);
     label.setCapitalization(QFont::AllUppercase);
     label.setLetterSpacing(QFont::PercentageSpacing, 120);
     painter->setFont(label);
     const qreal labelBand = kStackLabel - kStackLabelAir;
 
-    // La pioche: trois dos décalés, pour que ce soit un tas.
+    // La pioche : trois dos décalés, afin de figurer un empilement.
     painter->setPen(scheme.feltText);
     painter->drawText(QRectF(m_stacks.left(), m_stockBox.top() - kStackLabel, m_stacks.width(),
                              labelBand),
@@ -1149,16 +1190,16 @@ void TableView::paintStacks(QPainter *painter) {
     painter->drawText(QRectF(m_stacks.left(), m_stockBox.bottom() + 2.0, m_stacks.width(), 15.0),
                       Qt::AlignCenter, tr("%1 cartes").arg(left));
 
-    // La défausse: la carte du dessus, et un bord de celle d'en dessous.
+    // La défausse : la carte supérieure, et un bord de celle qui la précède.
     painter->setFont(label);
     painter->setPen(scheme.feltText);
     painter->drawText(QRectF(m_stacks.left(), m_pileBox.top() - kStackLabel, m_stacks.width(),
                              labelBand),
                       Qt::AlignCenter, tr("Défausse"));
     const QVector<Card> &pile = m_game->pile();
-    // Même chose ici: la carte qu'on vient de jeter est posée sur le tas
-    // avant d'avoir fini d'y voler. Tant qu'elle vole, le tas se montre tel
-    // qu'il était -- sans elle.
+    // Même principe ici : la carte qui vient d'être défaussée est placée sur
+    // le tas avant la fin de son animation. Pendant celle-ci, le tas est
+    // affiché dans son état précédent, sans elle.
     int shown = pile.size() - 1;
     if (shown >= 0 && inFlight(pile.at(shown).id)) --shown;
     if (shown < 0) {
@@ -1176,8 +1217,8 @@ void TableView::paintStacks(QPainter *painter) {
         drawCardFace(painter, m_pileBox, pile.at(shown), scheme, look);
     }
 
-    // Ce qu'on peut prendre, montré du doigt. La flèche tient dans la marge
-    // que la carte laisse à sa gauche dans la colonne.
+    // Les emplacements où piocher sont signalés par une flèche, logée dans la
+    // marge que la carte laisse à sa gauche dans la colonne.
     if (drawing) {
         QColor ink = scheme.gold;
         ink.setAlpha(235);
@@ -1190,16 +1231,16 @@ void TableView::paintStacks(QPainter *painter) {
         }
     }
 
-    // Et votre propre plaque, sous les deux tas. Même facture que celles d'en
-    // face: médaillon à gauche, le nom puis le score sur la première ligne,
-    // la pastille ouvert/fermé en bas à droite. C'est le même objet -- qui
-    // est à cette table, ce qu'il a marqué, et s'il peut se servir de ce
-    // qu'on jette -- et deux dessins pour un même objet font croire à deux
-    // choses.
+    // La plaque du joueur, sous les deux tas. Elle adopte la même présentation
+    // que celles des adversaires : médaillon à gauche, nom puis score sur la
+    // première ligne, indicateur d'ouverture en bas à droite. Elle porte la
+    // même information — qui occupe cette place, son score, et s'il peut
+    // exploiter les cartes défaussées — et deux présentations différentes pour
+    // une même information les feraient percevoir comme distinctes.
     //
-    // Ce qu'elle n'a pas: les étoiles, la jauge et le tas de cartes en main.
-    // Ils disent ce qu'un adversaire a appris et ce qui lui reste, et de vous
-    // ces deux choses sont sous vos yeux.
+    // Elle ne comporte ni étoiles, ni jauge, ni représentation de la main : ces
+    // éléments indiquent l'expérience d'un adversaire et le nombre de cartes
+    // qu'il détient, informations dont le joueur dispose déjà le concernant.
     int me = -1;
     for (int at = 0; at < m_game->seatCount(); ++at) {
         if (m_game->seat(at).human()) me = at;
@@ -1218,13 +1259,15 @@ void TableView::paintStacks(QPainter *painter) {
     const QRectF inner = plaque.adjusted(9, 6, -9, -6);
     const qreal mineScale = inner.height() / kMinePlaqueInnerFull;
 
-    // Le médaillon, à gauche comme chez les autres, mais sans marque: les six
-    // marques sont ce qui sépare les six, et vous n'êtes pas l'un d'eux.
-    // L'initiale est celle du profil sous lequel vous jouez -- c'est elle qui
-    // dit lequel des trois tient la main, là où le mot reste `Vous`.
-    // Posé en haut et non au milieu, comme sur les plaques d'en face: son
-    // bord haut et celui du nom sont la même ligne, et c'est cette ligne-là
-    // qui fait que les deux plaques se ressemblent de loin.
+    // Le médaillon, placé à gauche comme sur les autres plaques, mais sans
+    // symbole : les six symboles servent à distinguer les adversaires entre
+    // eux, et le joueur n'en fait pas partie. L'initiale est celle du profil
+    // courant, ce qui indique lequel des trois profils est en cours, le libellé
+    // restant « Vous ».
+    //
+    // Il est aligné en haut et non centré verticalement, comme sur les plaques
+    // d'adversaire : son bord supérieur et celui du nom sont sur la même ligne,
+    // alignement qui rend les deux types de plaque visuellement semblables.
     const qreal disc = std::min(inner.height(), 36.0 * std::min(1.0, mineScale));
     const QRectF medallion(inner.left(), inner.top(), disc, disc);
     drawRivalEmblem(painter, medallion, -1, profileName(currentProfile()), colour,
@@ -1250,8 +1293,8 @@ void TableView::paintStacks(QPainter *painter) {
     painter->drawText(QRectF(textLeft, inner.top(), textWidth, nameMetrics.height()),
                       Qt::AlignRight | Qt::AlignVCenter, tr("%1 pts").arg(mine.score));
 
-    // La pastille, mesurée sur les capitales et non sur la hauteur de ligne,
-    // pour la même raison que celle d'en face: voir `paintSeatPlaque()`.
+    // La pastille est dimensionnée sur la hauteur de capitale et non sur la
+    // hauteur de ligne, pour la raison exposée dans `paintSeatPlaque()`.
     QFont flagFont = plainFont(painter);
     flagFont.setPixelSize(plaqueTextSize(inner.height(), kPlaqueBadgeSize, 8, kMinePlaqueInnerFull));
     flagFont.setBold(true);
@@ -1278,15 +1321,15 @@ void TableView::paintMelds(QPainter *painter) {
     label.setLetterSpacing(QFont::PercentageSpacing, 120);
     painter->setFont(label);
     painter->setPen(scheme.feltText);
-    // Dans le tapis et en haut, et non au-dessus de lui: la bande qui la
-    // portait n'avait que dix pixels de libres pour vingt-sept d'enseigne, et
-    // l'enseigne passait sous la plaque de gauche. `PIOCHE` est posée de
-    // cette façon-là depuis toujours -- dans sa colonne, en haut, la place
-    // réservée dessous -- et comme le tapis et la colonne commencent à la
-    // même hauteur, les deux enseignes tombent sur la même ligne.
-    // Quatorze et non six comme le cadre des combinaisons: ce qui se lit sous
-    // l'enseigne, ce sont les faces des cartes, et elles commencent cinq
-    // pixels plus loin que le cadre qui les tient.
+    // Le libellé est placé en haut du tapis et non au-dessus de celui-ci : la
+    // bande qui le portait ne disposait que de dix pixels libres pour un
+    // libellé de vingt-sept, et il passait sous la plaque de gauche. Le libellé
+    // « PIOCHE » est disposé de cette façon depuis l'origine — en haut de sa
+    // colonne, l'espace étant réservé en dessous — et le tapis et la colonne
+    // commençant à la même hauteur, les deux libellés s'alignent.
+    // Quatorze pixels et non six comme pour le cadre des combinaisons : ce qui
+    // doit être aligné sous le libellé, ce sont les faces des cartes, qui
+    // commencent cinq pixels au-delà du cadre les contenant.
     painter->drawText(QRectF(m_tapis.left() + kTapisLabelPad, m_tapis.top(), m_tapis.width(),
                              kStackLabel - kStackLabelAir),
                       Qt::AlignLeft | Qt::AlignVCenter, tr("Le tapis"));
@@ -1319,19 +1362,19 @@ void TableView::paintMelds(QPainter *painter) {
         painter->setPen(Qt::NoPen);
         painter->fillPath(shape, bed);
         painter->setBrush(Qt::NoBrush);
-        // Le liseré est celui de la table, et non celui de qui a posé: une
-        // combinaison sur le tapis n'appartient plus à personne. Les cartes
-        // qui y sont ne comptent pour personne à la fin de la manche, et
-        // n'importe qui peut la compléter -- la teinter aux couleurs de son
-        // premier poseur promettait un propriétaire qui n'existe pas.
+        // Le liseré reprend la couleur de la table et non celle de l'auteur de
+        // la pose : une combinaison déposée sur le tapis n'appartient plus à
+        // personne. Ses cartes ne sont comptées à aucun joueur en fin de
+        // manche, et tout joueur peut la compléter ; la colorer selon son
+        // premier auteur suggérait un propriétaire inexistant.
         painter->setPen(QPen(lit ? scheme.gold : blendColours(scheme.trim, scheme.feltEdge, 0.3),
                              lit ? 2.0 : 1.0));
         painter->drawPath(shape);
 
         for (int k = 0; k < meld->cards.size(); ++k) {
             const Card &held = meld->cards.at(k);
-            // Sa place l'attend, vide, tant qu'elle est en chemin: c'est ce
-            // qui fait qu'on voit la combinaison se remplir.
+            // Sa position reste vide pendant son déplacement, ce qui rend
+            // perceptible le remplissage progressif de la combinaison.
             if (inFlight(held.id)) continue;
             CardLook look;
             look.glow = m_glow.value(held.id, 0.0);
@@ -1362,7 +1405,7 @@ void TableView::paintRail(QPainter *painter) {
                 drawCardFace(painter, poseCardBox(spot.box, k), held, scheme, look);
             }
         }
-        // Combien il manque, parce que c'est la seule question.
+        // Le nombre de points manquants, seule information utile à ce stade.
         const int value = m_game->poseValue(me);
         QFont tally = plainFont(painter);
         tally.setBold(true);
@@ -1406,8 +1449,9 @@ void TableView::paintHand(QPainter *painter) {
     for (const Spot &spot : m_handBoxes) {
         const Card *card = findCard(mine.hand, spot.id);
         if (!card) continue;
-        // Celle qui vole est déjà rangée dans la main: on lui laisse sa place
-        // vide le temps du vol, plutôt que de la montrer ici et en chemin.
+        // La carte en cours de déplacement figure déjà dans la main : sa
+        // position y est laissée vide pendant l'animation, plutôt que de
+        // l'afficher simultanément à deux endroits.
         if (inFlight(spot.id)) continue;
         CardLook look;
         look.chosen = m_chosen.contains(spot.id);
@@ -1431,13 +1475,15 @@ void TableView::paintHand(QPainter *painter) {
 void TableView::paintFlights(QPainter *painter) {
     const Palette &scheme = currentPalette();
     for (const Flight &flight : m_flights) {
-        // Elle attend que sa combinaison parte: elle est encore dans la main
-        // ou sur la plaque de qui la pose, et n'a rien à montrer en chemin.
+        // La carte attend le départ de sa combinaison : elle se trouve encore
+        // dans la main ou sur la plaque de son auteur, et n'a pas à être
+        // affichée en cours de trajet.
         if (flight.along < 0.0) continue;
         const qreal along = plateau(flight.along);
         const QPointF at = flight.from + (flight.to - flight.from) * along;
-        // Les deux tas et la main ne sont pas à la même échelle, alors une
-        // carte qui va de l'un à l'autre grandit en chemin.
+        // Les deux tas et la main n'étant pas à la même échelle, une carte
+        // passant de l'un à l'autre est redimensionnée pendant son
+        // déplacement.
         QSizeF size = flight.size;
         if (flight.grow.isValid()) {
             size = QSizeF(flight.size.width() + (flight.grow.width() - flight.size.width()) * along,
@@ -1446,16 +1492,17 @@ void TableView::paintFlights(QPainter *painter) {
         }
         const QRectF box(at, size);
         painter->save();
-        // Une carte lancée tourne un peu, et se redresse en arrivant.
+        // Une carte en déplacement subit une légère rotation, annulée à
+        // l'arrivée.
         painter->translate(box.center());
         painter->rotate((1.0 - along) * 14.0);
 
         if (flight.flips) {
-            // Le demi-tour. La largeur apparente est le cosinus de l'angle,
-            // ce qui est exactement ce que fait une carte qu'on retourne
-            // entre deux doigts: pleine de dos, nulle de profil, pleine de
-            // face. Jamais tout à fait nulle, pour qu'il reste la tranche à
-            // voir au moment où elle passe.
+            // Retournement. La largeur apparente suit le cosinus de l'angle,
+            // ce qui reproduit le comportement d'une carte que l'on retourne :
+            // largeur maximale de dos, nulle de profil, maximale de face. Elle
+            // n'est jamais tout à fait nulle, afin que la tranche reste visible
+            // au passage.
             const qreal turned = std::cos(along * M_PI);
             painter->scale(std::max(0.03, std::abs(turned)), 1.0);
             painter->translate(-box.center());
@@ -1479,15 +1526,16 @@ void TableView::paintFlights(QPainter *painter) {
 }
 
 // ---------------------------------------------------------------------------
-// La souris.
+// Gestion de la souris.
 
 int TableView::cardAt(const QPointF &where) const {
-    // À l'envers: the one drawn last is the one on top, and the one on top is
-    // the one you meant.
+    // Parcours en sens inverse : la carte dessinée en dernier est celle du
+    // dessus, et c'est celle que le clic désigne.
     for (int i = m_handBoxes.size() - 1; i >= 0; --i) {
         const int id = m_handBoxes.at(i).id;
         QRectF box = handBoxNow(id, m_handBoxes.at(i).box);
-        // Une carte soulevée se clique là où elle est, pas là où elle était.
+        // Une carte sélectionnée, donc surélevée, est cliquée à sa position
+        // courante et non à sa position de repos.
         if (m_chosen.contains(id)) box.translate(0, -kLift);
         if (box.contains(where)) return id;
     }
@@ -1509,12 +1557,13 @@ int TableView::seatAt(const QPointF &where) const {
 }
 
 int TableView::poseCardAt(const QPointF &where) const {
-    // À l'envers, comme pour la main: dans une combinaison qui se chevauche,
-    // celle du dessus est celle qu'on voulait.
+    // Parcours en sens inverse, comme pour la main : dans une combinaison dont
+    // les cartes se chevauchent, celle du dessus est celle que le clic
+    // désigne.
     for (int i = m_poseCardBoxes.size() - 1; i >= 0; --i) {
         const Spot &spot = m_poseCardBoxes.at(i);
-        // Une carte qui vole encore vers le rail n'est pas encore là: on ne
-        // clique que ce qui est dessiné.
+        // Une carte encore en déplacement vers le rail n'y figure pas : seuls
+        // les éléments effectivement dessinés sont cliquables.
         if (inFlight(spot.id)) continue;
         if (spot.box.contains(where)) return spot.id;
     }
@@ -1568,8 +1617,9 @@ void TableView::mousePressEvent(QMouseEvent *event) {
 void TableView::mouseDoubleClickEvent(QMouseEvent *event) {
     const int card = cardAt(event->position());
     if (card < 0) return;
-    // A double click on a card chose it and then unchose it on the way
-    // through; it is meant as "that one, go on".
+    // Un double-clic sur une carte l'a sélectionnée puis désélectionnée au
+    // passage ; il doit être interprété comme une validation directe de cette
+    // carte.
     if (!m_chosen.contains(card)) {
         m_chosen.append(card);
         Q_EMIT chosenChanged();
@@ -1590,10 +1640,10 @@ void TableView::mouseMoveEvent(QMouseEvent *event) {
         return;
     }
     if (seat != m_hoveredSeat) {
-        // On a changé de plaque, ou on est sorti de celle qu'on survolait:
-        // l'aperçu est lâché -- il se referme si le pointeur l'a quitté, il
-        // reste si c'est sur lui qu'on est passé -- et la minuterie repart de
-        // la plaque où l'on est.
+        // Changement de plaque survolée, ou sortie de la plaque courante :
+        // l'aperçu est libéré — il se referme si le pointeur l'a quitté, il
+        // subsiste si le pointeur est passé sur lui — et la minuterie est
+        // relancée pour la plaque courante.
         m_hoveredSeat = seat;
         m_glanceBeat->stop();
         releaseRivalGlance(this);
@@ -1622,8 +1672,9 @@ void TableView::leaveEvent(QEvent *) {
 }
 
 void TableView::hideEvent(QHideEvent *event) {
-    // On est retourné au menu, ou la fenêtre s'est fermée: un aperçu qui
-    // survit à la table qu'il surplombe est un panneau qui flotte tout seul.
+    // Retour au menu ou fermeture de la fenêtre : l'aperçu doit être fermé,
+    // faute de quoi il subsisterait à l'écran sans la table à laquelle il se
+    // rapporte.
     m_hoveredSeat = -1;
     m_glanceBeat->stop();
     hideRivalGlance(this);

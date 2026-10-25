@@ -7,29 +7,30 @@
 #include <QString>
 #include <QVector>
 
-// La partie : les règles, et rien d'autre.
+// La partie : les règles du jeu, à l'exclusion de tout le reste.
 //
-// Nothing in this file knows that there is a screen or that some of the
-// players are not people. It holds the pack, whose turn it is, what is on the
-// tapis and what everyone is owed at the end -- and it refuses a move that
-// the rami does not allow, with a sentence saying why, because a rule that is
-// enforced silently is a rule nobody learns.
+// Rien dans ce fichier ne suppose l'existence d'un affichage ni le fait que
+// certains joueurs soient simulés. Cette classe détient le jeu de cartes,
+// l'ordre des tours, le contenu du tapis et le décompte final. Elle refuse
+// tout coup non conforme aux règles en indiquant le motif du refus : une
+// règle appliquée sans explication reste incomprise du joueur.
 //
-// The turn, in full:
+// Déroulement complet d'un tour :
 //
-//   1. piocher     one card, off the top of the pioche or off the défausse.
-//   2. poser       as many combinations as you like -- but the first time,
-//                  they have to come to fifty-one points before the turn is
-//                  over, or they go back in your hand.
-//   3. compléter   once you have opened: a card onto any combination on the
-//                  tapis, yours or anybody's.
-//   4. défausser   one card, face up. If that was your last, the manche is
-//                  over and everybody else counts what they are still holding.
+//   1. piocher     une carte, au sommet de la pioche ou sur la défausse.
+//   2. poser       autant de combinaisons que voulu ; lors de la première
+//                  pose, elles doivent totaliser cinquante et un points avant
+//                  la fin du tour, faute de quoi elles reviennent en main.
+//   3. compléter   une fois ouvert : ajouter une carte à n'importe quelle
+//                  combinaison du tapis, la sienne ou celle d'un autre.
+//   4. défausser   une carte, face visible. S'il s'agissait de la dernière,
+//                  la manche s'achève et les autres joueurs comptent les
+//                  cartes restées en main.
 
 enum class Phase { Idle, Draw, Build, HandOver, MatchOver };
 
 struct SeatSpec {
-    QString rivalId;     // empty for you
+    QString rivalId;     // vide pour le joueur humain
     QString name;
     int hue = 0;
 };
@@ -40,14 +41,15 @@ struct Seat {
     int hue = 0;
 
     QVector<Card> hand;
-    // A pose begun and not yet worth fifty-one. It sits in front of the
-    // player rather than on the tapis: it is not laid until it counts, and if
-    // the turn ends with it short it goes back in the hand.
+    // Pose commencée n'atteignant pas encore cinquante et un points. Elle est
+    // placée devant le joueur et non sur le tapis : elle n'y est déposée que
+    // lorsqu'elle atteint le total requis, et revient en main si le tour
+    // s'achève avant.
     QVector<Meld> waiting;
     bool opened = false;
 
-    int score = 0;        // the match total, which is a penalty: low is good
-    int lastHand = 0;     // what the manche just finished cost
+    int score = 0;        // total de la partie ; il s'agit d'une pénalité
+    int lastHand = 0;     // pénalité de la manche qui vient de s'achever
     bool wentOut = false;
 
     bool human() const { return rivalId.isEmpty(); }
@@ -76,36 +78,38 @@ public:
     const QVector<Card> &pile() const { return m_pile; }
     Card pileTop() const;
     int stockLeft() const { return m_stock.size(); }
-    // How many times the défausse has been turned over and dealt again. Two
-    // is as many as a manche gets: past that, nobody is going to go out and
-    // the manche is called where it stands.
+    // Nombre de fois où la défausse a été retournée pour reconstituer la
+    // pioche. Une manche en admet deux au maximum : au-delà, plus aucun joueur
+    // ne parviendra à sortir et la manche est interrompue en l'état.
     int reshuffles() const { return m_reshuffles; }
 
-    int outSeat() const { return m_outSeat; }        // who went out, or -1
-    int matchWinner() const { return m_matchWinner; } // or -1
+    int outSeat() const { return m_outSeat; }        // joueur sorti, ou -1
+    int matchWinner() const { return m_matchWinner; } // vainqueur, ou -1
 
-    // What the pose in front of `at` comes to, and what it still needs.
+    // Total de la pose en attente devant le joueur `at`.
     int poseValue(int at) const;
 
-    // A joker bought back out of a combination has to be put to work before
-    // the turn ends. True while one is still in hand.
+    // Un joker racheté dans une combinaison doit être réemployé avant la fin
+    // du tour. Retourne vrai tant qu'un joker racheté reste en main.
     bool owesJoker(int at) const;
 
-    // Lequel, au juste.
+    // Identité des jokers rachetés et non encore réemployés.
     //
-    // Il en faut le compte exact, et pas seulement l'existence: une main qui
-    // tient deux jokers en place un, et si ce n'est pas celui qui est dû le
-    // tour ne peut toujours pas finir -- ni poser, ni jeter. Savoir lequel
-    // est la seule façon d'en sortir, et c'est aussi ce qu'il faut pour
-    // conseiller le joueur.
+    // Leur identité exacte est nécessaire, et pas seulement leur existence :
+    // une main détenant deux jokers peut en poser un, mais si ce n'est pas
+    // celui qui est dû, le tour ne peut toujours pas s'achever, ni par une
+    // pose ni par une défausse. Connaître le joker concerné est le seul moyen
+    // de lever la contrainte, et c'est également nécessaire pour formuler un
+    // conseil au joueur.
     QVector<int> jokerDebt(int at) const;
 
-    // What was drawn this turn, so the table can make it glow, and where from.
+    // Carte piochée durant ce tour et provenance de la pioche, afin que
+    // l'affichage puisse la mettre en évidence.
     Card lastDrawn() const { return m_lastDrawn; }
     bool drewFromPile() const { return m_drewFromPile; }
 
-    // The moves. Each says whether it was allowed, and fills `why` with a
-    // sentence when it was not.
+    // Les coups. Chacun indique s'il a été autorisé et, dans le cas
+    // contraire, renseigne `why` avec le motif du refus.
     bool drawStock(QString *why = nullptr);
     bool drawPile(QString *why = nullptr);
     bool lay(const QVector<int> &cardIds, QString *why = nullptr);
@@ -113,54 +117,57 @@ public:
     bool buyJoker(int cardId, int meldId, QString *why = nullptr);
     bool discard(int cardId, QString *why = nullptr);
 
-    // Défaire une pose qui n'est pas encore partie : en entier, par
-    // combinaison, ou carte à carte.
+    // Défait une pose non encore déposée sur le tapis : en totalité, par
+    // combinaison, ou carte par carte.
     //
-    // Une pose en attente n'est pas sur le tapis -- elle est devant son
-    // joueur en attendant les cinquante-et-un -- et tant que le tour n'est
-    // pas fini elle se défait. Une seule carte ne revient que si la
-    // combinaison tient encore sans elle ; sinon c'est la combinaison
-    // entière, et c'est à l'appelant de la demander.
+    // Une pose en attente se trouve devant son joueur et non sur le tapis,
+    // dans l'attente des cinquante et un points ; elle peut être défaite tant
+    // que le tour n'est pas achevé. Une carte isolée ne revient en main que si
+    // sa combinaison reste valide sans elle ; dans le cas contraire, c'est la
+    // combinaison entière qui doit être reprise, à la demande de l'appelant.
     bool takeBackPose(QString *why = nullptr);
     bool takeBackMeld(int meldId, QString *why = nullptr);
     bool takeBackCard(int cardId, QString *why = nullptr);
 
-    // Combien de tours cette manche a déjà pris.
+    // Nombre de tours déjà joués dans la manche.
     //
-    // La seule horloge d'une manche qui avance quoi qu'il arrive. La pioche
-    // n'en est pas une: deux joueurs qui se servent tous les deux de la
-    // défausse ne l'entament jamais, et une manche peut tourner ainsi sans
-    // que rien ne s'épuise. Un cerveau qui attend son heure a besoin de
-    // savoir qu'elle est passée.
+    // C'est le seul compteur de progression qui avance en toutes
+    // circonstances. La pioche n'en est pas un : deux joueurs se servant l'un
+    // et l'autre sur la défausse ne l'entament jamais, et une manche peut se
+    // prolonger ainsi sans qu'aucune réserve ne s'épuise. Les joueurs simulés
+    // dont la stratégie dépend de l'avancement de la manche ont besoin de
+    // cette information.
     int turnsPlayed() const { return m_turnsPlayed; }
 
-    // Une pose a-t-elle été reprise en main ce tour-ci ?
+    // Indique si une pose a été reprise en main durant ce tour.
     //
-    // Un joueur qui vient de ramasser sa pose ne la réétale pas dans le même
-    // tour: il la garde et il jette. Le fait est ici parce qu'il appartient au
-    // tour, et parce que sans lui un cerveau qui n'a pas appris à compter
-    // avant d'ouvrir repose indéfiniment ce qu'il vient de reprendre.
+    // Un joueur qui vient de reprendre sa pose ne la redépose pas dans le même
+    // tour : il la conserve et défausse. Cette information est rattachée au
+    // tour ; sans elle, un joueur simulé ne sachant pas évaluer son total
+    // avant d'ouvrir reposerait indéfiniment ce qu'il vient de reprendre.
     bool poseTakenBack() const { return m_tookBack; }
 
-    // La combinaison de la pose en cours où se trouve cette carte, ou -1.
+    // Combinaison de la pose en cours contenant cette carte, ou -1.
     int poseMeldOf(int cardId) const;
 
-    // Cette carte peut-elle revenir seule ? Faux quand la combinaison ne
-    // tiendrait plus sans elle, et faux quand ce n'est pas le moment.
+    // Indique si cette carte peut être reprise isolément. Retourne faux si sa
+    // combinaison ne resterait pas valide sans elle, ou si l'état du tour ne
+    // le permet pas.
     bool canTakeBackCard(int cardId) const;
 
-    // Whether the turn could be ended now, without ending it.
+    // Indique si le tour pourrait être achevé maintenant, sans l'achever.
     bool canDiscard(QString *why = nullptr) const;
 
-    // Ranger une main. The order a hand is held in belongs to whoever is
-    // holding it, so it lives here with the hand -- by colour for finding
-    // suites, by rank for finding séries.
+    // Trie la main d'un joueur. L'ordre d'une main appartient à son
+    // détenteur, et cette opération figure donc ici, auprès de la main : par
+    // couleur pour repérer les suites, par rang pour repérer les séries.
     void sortSeatHand(int at, bool byRank);
 
 Q_SIGNALS:
     void changed();
-    // One line of what just happened, for the strip along the bottom of the
-    // table: the only running account of a game played by five other people.
+    // Description en une ligne du coup qui vient d'être joué, destinée au
+    // bandeau inférieur de la table : c'est le seul compte rendu continu des
+    // coups joués par les autres joueurs.
     void acted(int seat, const QString &tale);
     void turnBegan(int seat);
     void handFinished();
@@ -193,6 +200,7 @@ private:
     bool m_drewFromPile = false;
     bool m_tookBack = false;
     int m_turnsPlayed = 0;
-    // The jokers bought back this turn and not yet laid, by card identity.
+    // Jokers rachetés durant ce tour et non encore posés, désignés par leur
+    // identifiant de carte.
     QVector<int> m_jokerDebt;
 };

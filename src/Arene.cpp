@@ -1,38 +1,38 @@
-// L'arène : le jeu joué par personne, pour voir s'il tient.
+// L'arène : exécution du jeu sans interface, à des fins de mesure.
 //
-// Six adversaires qui ne jouent pas pareil, c'est six façons de gâcher une
-// partie, et aucune ne se voit en jouant trois manches à la main. Cette cible
-// fait donc ce que personne n'a le temps de faire : quelques milliers de
-// manches à chaque table, et quatre chiffres qui disent si le jeu va bien.
+// Les six adversaires n'ayant pas le même comportement, les défauts de
+// l'un d'eux ne se manifestent pas sur quelques manches jouées manuellement.
+// Cette cible dispute donc quelques milliers de manches à chaque table et
+// produit quatre indicateurs :
 //
-//   les sorties      la part des manches que quelqu'un termine en se
-//                    débarrassant de sa dernière carte. C'est le chiffre qui
-//                    compte : une manche qui s'arrête parce que la pioche est
-//                    morte est une manche sans fin heureuse, et une table où
-//                    cela arrive la moitié du temps n'est pas une table où
-//                    l'on a envie de s'asseoir.
-//   la pioche sèche  le reste, par opposition.
-//   les coincées     celles qu'il a fallu abandonner, et qui devraient
-//                    toujours être à zéro. Un seul suffit à refuser un
-//                    changement.
-//   les tours        la longueur d'une manche. Un cerveau plus prudent la
-//                    rallonge, et une manche deux fois plus longue n'est pas
-//                    deux fois plus intéressante.
+//   les sorties      proportion des manches achevées par un joueur s'étant
+//                    défait de sa dernière carte. C'est l'indicateur
+//                    principal : une manche interrompue par épuisement de la
+//                    pioche est une manche sans vainqueur, et une table où ce
+//                    cas survient la moitié du temps présente peu d'intérêt.
+//   la pioche sèche  proportion complémentaire.
+//   les coincées     manches ayant dû être abandonnées. Cet indicateur doit
+//                    toujours être nul ; une seule occurrence suffit à
+//                    rejeter une modification.
+//   les tours        durée moyenne d'une manche. Une logique de jeu plus
+//                    prudente l'allonge, et une manche deux fois plus longue
+//                    n'est pas deux fois plus intéressante.
 //
-// Et les duels, qui répondent à l'autre question : l'expérience sert-elle à
-// quelque chose ? Deux cerveaux, deux expériences, mille manches, et le taux
-// de victoire doit monter avec les points. S'il ne monte pas, le niveau
-// affiché sur la plaque est un mensonge.
+// Les duels répondent à une seconde question : l'expérience a-t-elle un effet
+// mesurable ? Deux logiques de jeu, deux niveaux d'expérience, mille manches ;
+// le taux de victoire doit croître avec l'expérience. Dans le cas contraire,
+// le niveau affiché sur la plaque ne correspond à rien.
 //
-// Elle se lance à la main, avant et après avoir touché à Brain.cpp :
+// L'arène se lance manuellement, avant et après toute modification de
+// Brain.cpp :
 //
-//     ./build/pdcartes-rami-arene 150          la mesure de référence (~5 min)
-//     ./build/pdcartes-rami-arene 50 0         plus vite, pour un essai
-//     ./build/pdcartes-rami-arene 0 400        les duels seuls
+//     ./build/pdcartes-rami-arene 150          mesure de référence (~5 min)
+//     ./build/pdcartes-rami-arene 50 0         mesure rapide, pour un essai
+//     ./build/pdcartes-rami-arene 0 400        duels seuls
 //
-// Rien ici n'écrit dans les réglages : les compétences sont posées dans le
-// code, pas lues sur le profil, pour que mesurer une partie ne fasse pas
-// progresser les six.
+// Aucune écriture n'est effectuée dans les réglages : les compétences sont
+// définies dans le code et non lues sur un profil, afin que les mesures ne
+// fassent pas progresser les adversaires.
 
 #include "Brain.h"
 #include "Rami.h"
@@ -47,13 +47,14 @@
 
 namespace {
 
-// Le même filet que la table (TablePage.cpp:36) : trente coups dans un tour,
-// et le cerveau est manifestement en train de tourner en rond.
+// Même garde-fou que la table (TablePage.cpp:36) : au-delà de trente coups
+// dans un tour, la logique de jeu est considérée comme bloquée.
 constexpr int kMostMovesPerTurn = 30;
 
-// Et le même pour une manche entière. Cent-huit cartes et deux retournements
-// ne font pas deux cents tours ; au-delà, la manche est comptée coincée, ce
-// qui est précisément ce qu'on vient mesurer.
+// Garde-fou équivalent pour une manche entière. Cent huit cartes et deux
+// reconstitutions de la pioche ne représentent pas deux cents tours ; au-delà,
+// la manche est comptabilisée comme bloquée, ce qui constitue précisément
+// l'objet de la mesure.
 constexpr int kMostTurnsPerHand = 200;
 
 struct Tally {
@@ -76,10 +77,10 @@ struct Tally {
     }
 };
 
-// Un coup, joué comme la table le joue -- moins l'écran. C'est volontairement
-// le même enchaînement que TablePage::playRival : ce qu'on mesure doit être
-// ce qui se passe quand on joue, et pas une version simplifiée qui se
-// comporterait mieux.
+// Joue un coup selon le même enchaînement que `TablePage::playRival`, à
+// l'exclusion de l'affichage. Cette identité est délibérée : la mesure doit
+// porter sur le comportement réel du jeu et non sur une version simplifiée
+// qui se comporterait différemment.
 const char *moveName(Move::Kind kind) {
     switch (kind) {
     case Move::None: return "rien";
@@ -139,8 +140,9 @@ bool playMove(Rami &game, const Skill &skill, Watch &watch, QStringList *trail) 
     }
     if (done) return true;
 
-    // Un coup refusé : la pose revient en main, sinon on pioche, sinon on
-    // jette ce qui vient. Le même rattrapage que la table.
+    // Coup refusé : la pose est reprise en main ; à défaut, le joueur pioche ;
+    // à défaut, il défausse la première carte disponible. Même mécanisme de
+    // rattrapage que la table.
     if (game.takeBackPose()) return true;
     if (game.phase() == Phase::Draw) return game.drawStock();
     for (const Card &card : game.seat(at).hand) {
@@ -149,9 +151,11 @@ bool playMove(Rami &game, const Skill &skill, Watch &watch, QStringList *trail) 
     return false;
 }
 
-// Une manche, du premier tour au décompte. Faux quand il a fallu l'abandonner.
-// Ce qu'on imprime quand une manche a dû être abandonnée. Un fil de coups et
-// l'état de la table: sans cela, une manche coincée sur mille est une rumeur.
+// Joue une manche, du premier tour au décompte. Retourne faux si la manche a
+// dû être abandonnée.
+// Trace imprimée lorsqu'une manche a dû être abandonnée : l'historique des
+// coups et l'état de la table. Sans cette trace, une manche bloquée sur mille
+// serait inexploitable.
 void sayStuck(const Rami &game, const QStringList &trail, const char *why) {
     QTextStream out(stdout);
     const int at = game.turn();
@@ -197,11 +201,12 @@ bool playHand(Rami &game, const QVector<Skill> &skills, Tally &tally) {
             return false;
         }
         if (!playMove(game, skills.at(at), watch, &trail)) {
-            // Un coup qui échoue n'est pas forcément une manche coincée: la
-            // pioche morte fait finir la manche et renvoie faux quand même
-            // (Rami.cpp:138) -- c'est la manche appelée faute de cartes, pas
-            // un cerveau qui ne sait plus quoi faire. Ce qui distingue les
-            // deux, c'est si la manche est encore en cours.
+            // Un coup refusé ne signale pas nécessairement une manche
+            // bloquée : l'épuisement de la pioche met fin à la manche tout en
+            // retournant faux (Rami.cpp:138). Il s'agit alors d'une manche
+            // interrompue faute de cartes et non d'une logique de jeu en
+            // échec. Le critère distinctif est l'état d'avancement de la
+            // manche.
             if (game.phase() == Phase::Draw || game.phase() == Phase::Build) {
                 ++tally.hands;
                 ++tally.stuck;
@@ -218,8 +223,9 @@ bool playHand(Rami &game, const QVector<Skill> &skills, Tally &tally) {
     if (game.outSeat() >= 0) ++tally.wentOut;
     else ++tally.dried;
 
-    // Qui a gagné la manche : le moins de points, et le sorti devant à
-    // égalité -- le classement dont l'expérience se nourrit (TablePage.cpp).
+    // Vainqueur de la manche : le total le plus faible, le joueur sorti étant
+    // départagé en sa faveur en cas d'égalité. C'est le classement dont dépend
+    // l'attribution de l'expérience (TablePage.cpp).
     int best = -1;
     for (int at = 0; at < game.seatCount(); ++at) {
         tally.points += game.seat(at).lastHand;
@@ -233,9 +239,10 @@ bool playHand(Rami &game, const QVector<Skill> &skills, Tally &tally) {
 // ---------------------------------------------------------------------------
 // Les tables.
 
-// Vous, puis les adversaires dans l'ordre où ils arrivent : les niveaux de
-// départ sont étalés exprès (Rivals.cpp), donc une table de quatre a du
-// débutant et de l'intermédiaire, et une table de six a Oriane.
+// Le joueur humain, puis les adversaires dans leur ordre de définition. Les
+// niveaux initiaux étant volontairement étalés (Rivals.cpp), une table de
+// quatre comporte des débutants et des intermédiaires, et une table de six
+// comporte l'adversaire de plus haut niveau.
 QVector<SeatSpec> seatsFor(int count) {
     QVector<SeatSpec> specs;
     SeatSpec you;
@@ -255,16 +262,17 @@ QVector<SeatSpec> seatsFor(int count) {
 QVector<Skill> skillsFor(const QVector<SeatSpec> &specs) {
     QVector<Skill> skills;
     for (const SeatSpec &spec : specs) {
-        // Votre siège est tenu par le cerveau du bouton Conseil : c'est le
-        // meilleur joueur que le jeu sache faire, et donc l'étalon le plus
-        // dur que les six auront en face.
+        // La place du joueur humain est tenue par la logique du bouton
+        // Conseil, c'est-à-dire le meilleur joueur que le programme sache
+        // simuler, ce qui constitue la référence la plus exigeante pour les
+        // six adversaires.
         if (spec.rivalId.isEmpty()) {
             skills.append(bestSkill());
             continue;
         }
-        // Ce qu'il est, et l'expérience avec laquelle il s'assied: composés
-        // ici plutôt que lus sur un profil, pour que mesurer ne fasse
-        // progresser personne.
+        // Tempérament et expérience initiale, définis ici plutôt que lus sur
+        // un profil, afin que les mesures ne fassent progresser aucun
+        // adversaire.
         const Rival &who = rivalById(spec.rivalId);
         skills.append(composeSkill(who.innate, poolsFromXp(who.startXp, who.innate)));
     }
@@ -297,11 +305,12 @@ Tally runTable(int seats, int matches) {
 }
 
 // ---------------------------------------------------------------------------
-// Les duels : la même table pour deux expériences, et rien d'autre qui change.
+// Les duels : une même table opposant deux niveaux d'expérience, toutes
+// choses égales par ailleurs.
 
-// Les manches sont jouées par paires, les sièges échangés entre les deux :
-// celui qui donne ne mène pas, et un demi-tour d'avance se voit sur mille
-// manches.
+// Les manches sont jouées par paires, les places étant permutées entre les
+// deux manches d'une paire : le donneur n'entamant pas, l'avantage d'un
+// demi-tour serait sensible sur mille manches.
 void duel(int xpLeft, int xpRight, int hands, int *leftWins, int *rightWins) {
     *leftWins = 0;
     *rightWins = 0;
@@ -317,8 +326,8 @@ void duel(int xpLeft, int xpRight, int hands, int *leftWins, int *rightWins) {
         specs.append(swapped ? b : a);
         specs.append(swapped ? a : b);
 
-        // Deux cerveaux sans caractère: seule l'expérience diffère, qui est
-        // très exactement la question posée.
+        // Deux logiques de jeu au tempérament neutre : seule l'expérience
+        // diffère, ce qui constitue l'objet de la mesure.
         const Innates even;
         QVector<Skill> skills;
         skills.append(composeSkill(even, poolsFromXp(swapped ? xpRight : xpLeft, even)));
@@ -353,9 +362,9 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setApplicationName(QStringLiteral("pdcartes-rami-arene"));
 
     const QStringList args = QCoreApplication::arguments();
-    // Zéro parties : on saute les tables et on ne fait que les duels, parce
-    // que les deux moitiés sont longues et qu'on ne remesure pas toujours les
-    // deux.
+    // Un nombre de parties nul fait ignorer les tables et n'exécute que les
+    // duels : les deux séries étant longues, elles ne sont pas toujours
+    // relancées ensemble.
     const int matches = args.size() > 1 ? std::max(0, args.at(1).toInt()) : 300;
     const int duels = args.size() > 2 ? std::max(1, args.at(2).toInt()) : 1000;
 
@@ -378,8 +387,9 @@ int main(int argc, char *argv[]) {
             << average(tally.points, qint64(tally.hands) * kind.seats) << "        "
             << average(tally.reshuffles, tally.hands, 2) << "\n";
 
-        // Qui gagne, à cette table. Votre siège est tenu par le Conseil, donc
-        // "Vous" est ce qu'un très bon joueur obtiendrait.
+        // Répartition des victoires à cette table. La place du joueur humain
+        // étant tenue par la logique du bouton Conseil, la ligne « Vous »
+        // indique le résultat qu'obtiendrait un très bon joueur.
         const QVector<SeatSpec> specs = seatsFor(kind.seats);
         if (tally.stuck > 0) {
             out << "           coincées : " << tally.stuckMoves << " en tournant en rond dans un tour, "
@@ -412,7 +422,7 @@ int main(int argc, char *argv[]) {
         out.flush();
     }
 
-    // Et les deux bouts, pour l'échelle entière.
+    // Les deux extrémités de l'échelle, pour couvrir toute sa plage.
     int worst = 0;
     int bestWins = 0;
     duel(0, 1200, duels, &worst, &bestWins);

@@ -18,22 +18,24 @@ constexpr qreal kCorner = 14.0;
 constexpr int kArtHeight = 86;
 constexpr int kPadding = 14;
 
-// L'air entre le portrait de la table et son nom. Large, parce qu'il n'y a
-// plus que ces deux choses sur la tuile et que les serrer l'une contre
-// l'autre en haut laisserait la moitié basse vide.
+// Espacement entre la représentation de la table et son nom. Il est ample
+// parce que la tuile ne comporte plus que ces deux éléments : les resserrer
+// dans la partie supérieure laisserait la moitié inférieure vide.
 constexpr qreal kArtToName = 16.0;
 
-// Le rapport du drap, largeur sur hauteur.
+// Rapport largeur sur hauteur du tapis représenté.
 //
-// Tenu plutôt que tiré de la place disponible: la hauteur du portrait est
-// plafonnée et sa largeur suivait celle de la tuile, si bien que le même
-// ovale était rond sur une tuile étroite et en flaque sur une large. Une
-// table se reconnaît à sa forme; elle ne change pas avec le cadre.
+// Cette valeur est fixe plutôt que déduite de la place disponible. La hauteur
+// de la représentation étant plafonnée et sa largeur suivant celle de la
+// tuile, le même ovale apparaissait presque circulaire sur une tuile étroite
+// et très aplati sur une tuile large. Une table se reconnaissant à sa forme,
+// celle-ci ne doit pas dépendre du cadre.
 constexpr qreal kClothRatio = 1.35;
 
-// La petite table: un ovale de drap, des places autour, et un tas au milieu.
-// Ce n'est pas la table qu'on va jouer -- c'est son portrait, et ce qu'il
-// dit, c'est combien on sera.
+// Représentation réduite de la table : un ovale de tapis, les places
+// réparties autour, et un tas de cartes au centre. Il ne s'agit pas d'un
+// aperçu de la partie à venir, mais d'une illustration dont la fonction est
+// d'indiquer le nombre de joueurs.
 void paintLittleTable(QPainter *painter, const QRectF &box, int seats, const Palette &scheme) {
     const qreal clothHeight = box.height() - 8.0;
     QRectF cloth(0.0, 0.0, std::min(box.width(), clothHeight * kClothRatio), clothHeight);
@@ -54,8 +56,8 @@ void paintLittleTable(QPainter *painter, const QRectF &box, int seats, const Pal
     painter->setPen(QPen(braid, 1.6));
     painter->drawEllipse(cloth.adjusted(3, 3, -3, -3));
 
-    // Un petit tas au milieu, pour que l'ovale soit une table de jeu et pas
-    // une flaque.
+    // Un tas de cartes au centre, afin que l'ovale se lise comme une table de
+    // jeu.
     const QSizeF middle = cardSizeForHeight(cloth.height() * 0.30);
     QRectF stack(0, 0, middle.width(), middle.height());
     stack.moveCenter(cloth.center());
@@ -63,8 +65,8 @@ void paintLittleTable(QPainter *painter, const QRectF &box, int seats, const Pal
         drawCardBack(painter, stack.translated(-1.2 * i, -1.2 * i), scheme);
     }
 
-    // Les places, réparties sur le pourtour, la vôtre en bas et dans la
-    // couleur de la table.
+    // Les places réparties sur le pourtour ; celle du joueur figure en bas,
+    // dans la couleur de la table.
     const QSizeF seat = cardSizeForHeight(cloth.height() * 0.26);
     const int count = std::max(2, seats);
     for (int i = 0; i < count; ++i) {
@@ -75,12 +77,12 @@ void paintLittleTable(QPainter *painter, const QRectF &box, int seats, const Pal
         place.moveCenter(at);
         painter->save();
         painter->translate(at);
-        // Face à la table: chaque place s'aligne sur le rayon qui va du
-        // milieu jusqu'à elle. Deux raisons de le prendre là plutôt que de
-        // reprendre `angle` -- il était compté à l'envers, et le drap est un
-        // ovale et non un rond, si bien que l'angle qui a servi à poser la
-        // place n'est pas la direction où elle se trouve. On tient ses cartes
-        // face à soi, et personne n'est assis en travers.
+        // Chaque place est orientée selon le rayon joignant le centre à sa
+        // position. Cette direction est recalculée plutôt que reprise de
+        // `angle`, pour deux raisons : `angle` est compté en sens inverse, et
+        // le tapis est un ovale et non un cercle, de sorte que l'angle ayant
+        // servi à positionner la place ne correspond pas à la direction où
+        // elle se trouve. Chaque joueur fait face au centre de la table.
         const QPointF away = at - cloth.center();
         painter->rotate(std::atan2(away.y(), away.x()) * 180.0 / M_PI - 90.0);
         painter->translate(-at);
@@ -156,9 +158,10 @@ void TileButton::paintEvent(QPaintEvent *) {
     QColor edge;
     qreal line = 1.2;
     if (m_onFelt) {
-        // Sur le drap: presque noir et translucide, bordé d'un filet d'or qui
-        // s'allume au survol. Pas d'ombre portée -- une plaque sombre sur un
-        // drap sombre n'en a pas besoin, et l'ombre ne ferait qu'un halo.
+        // Sur le tapis : fond presque noir et translucide, bordé d'un filet
+        // doré qui s'intensifie au survol. Aucune ombre portée : elle serait
+        // sans effet entre une plaque sombre et un tapis sombre, et ne
+        // produirait qu'un halo.
         fill = blendColours(scheme.feltEdge, QColor(0, 0, 0), lit ? 0.42 : 0.52);
         fill.setAlpha(lit ? 215 : 205);
         edge = scheme.gold;
@@ -192,7 +195,7 @@ void TileButton::paintEvent(QPaintEvent *) {
     if (name.pointSizeF() > 0) name.setPointSizeF(name.pointSizeF() * 1.08);
     const QFontMetricsF nameMetrics(name);
 
-    // Le portrait et le nom, pris ensemble et posés au milieu de la hauteur.
+    // La représentation et le nom sont centrés ensemble sur la hauteur.
     const qreal artHeight = std::min(qreal(kArtHeight), inner.height() * 0.52);
     const qreal together = artHeight + kArtToName + nameMetrics.height();
     const qreal top = inner.top() + std::max(0.0, (inner.height() - together) / 2.0);

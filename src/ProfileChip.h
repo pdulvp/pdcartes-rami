@@ -3,24 +3,25 @@
 #include <QAbstractButton>
 #include <QString>
 
-// La plaque du profil, dans la bande du haut.
+// Plaque de profil affichée dans le bandeau supérieur.
 //
-// Elle dit sous quel nom on joue et elle s'ouvre: le profil se change d'ici,
-// se renomme d'ici, s'oublie d'ici. C'était une section du menu d'ouverture
-// et une ligne de texte là-haut; c'est maintenant une seule chose, visible
-// pendant la partie comme avant elle.
+// Elle indique le profil courant et ouvre un menu permettant d'en changer,
+// de le renommer ou de l'effacer. Ces fonctions étaient auparavant réparties
+// entre une section du menu d'ouverture et une ligne de texte du bandeau ;
+// elles sont désormais réunies en un seul élément, visible pendant la partie
+// comme avant celle-ci.
 //
-// Dessinée plutôt que stylée: une pastille ronde avec l'initiale, le nom, et
-// le petit chevron qui dit qu'il y a quelque chose dessous. Un QPushButton
-// sous feuille de style aurait eu l'air d'un bouton de formulaire au milieu
-// d'une bande qui n'en porte aucun.
+// La plaque est dessinée et non stylée par feuille de style : une pastille
+// ronde portant l'initiale, le nom, et un chevron signalant la présence d'un
+// menu. Un `QPushButton` stylé aurait eu l'apparence d'un bouton de
+// formulaire au milieu d'un bandeau qui n'en comporte aucun.
 class ProfileChip : public QAbstractButton {
     Q_OBJECT
 
 public:
     explicit ProfileChip(QWidget *parent = nullptr);
 
-    // Relit le profil courant: son nom a changé, ou ce n'est plus le même.
+    // Relit le profil courant, après un changement de nom ou de profil.
     void reread();
 
     // La bande qui la porte est sombre: la plaque prend l'encre claire du

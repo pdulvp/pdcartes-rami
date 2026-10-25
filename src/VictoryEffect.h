@@ -9,29 +9,28 @@
 
 class QTimer;
 
-// Ce qui se passe quand la partie est gagnée: les cartes s'envolent du tapis
-// et rebondissent dans la fenêtre pendant qu'un feu d'artifice monte derrière
-// elles.
+// Animation de fin de partie victorieuse : les cartes se détachent du tapis
+// et rebondissent dans la fenêtre, sur un fond de feu d'artifice.
 //
-// Dans l'esprit des jeux de cartes de Windows -- la carte qui tombe en
-// cascade à la fin d'une réussite est à peu près tout ce que ce jeu-là avait
-// à offrir, et c'était assez. Les étincelles sont tirées des couleurs de la
-// table, pour que la fête appartienne encore à la partie qui vient de finir.
+// L'effet s'inspire des animations de fin de partie des jeux de cartes de
+// Windows. Les étincelles reprennent les couleurs de la table, afin que
+// l'animation reste rattachée visuellement à la partie qui vient de
+// s'achever.
 class VictoryEffect : public QWidget {
     Q_OBJECT
 
 public:
     explicit VictoryEffect(QWidget *parent = nullptr);
 
-    // `cards` est ce qui était sur le tapis, avec l'endroit où chaque carte se
-    // trouvait à l'écran: elles ont l'air de se soulever du tapis plutôt que
-    // d'arriver de nulle part.
+    // `cards` décrit les cartes présentes sur le tapis et la position de
+    // chacune à l'écran, de sorte qu'elles semblent s'en détacher plutôt que
+    // d'apparaître.
     void start(const QVector<Card> &cards, const QVector<QPointF> &at, qreal height,
                const QString &headline, const QString &aside);
     void stop();
 
 Q_SIGNALS:
-    // Dit quand la fête a fait son temps, ou quand un clic l'a abrégée.
+    // Émis à la fin de l'animation, ou lorsqu'un clic l'interrompt.
     void finished();
 
 protected:

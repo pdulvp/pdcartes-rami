@@ -24,15 +24,16 @@ namespace {
 
 constexpr int kActionsHeight = 50;
 
-// Combien de temps un adversaire a l'air de réfléchir. Pas pour faire
-// semblant d'être lent : un coup qui arrive dans la même milliseconde que le
-// précédent est un coup que personne n'a vu passer, et la moitié de ce jeu
-// est de regarder ce que font les autres.
+// Durée de temporisation avant le coup d'un adversaire. Elle ne vise pas à
+// simuler une réflexion : un coup joué immédiatement après le précédent ne
+// serait pas perceptible, alors que l'observation du jeu des adversaires
+// constitue une part importante de la partie.
 constexpr int kThinkMs = 620;
 constexpr int kMoveMs = 330;
 
-// Au-delà de ça, le cerveau tourne en rond. Il n'y a pas de raison connue
-// pour que ça arrive, et c'est précisément pourquoi il y a un filet.
+// Au-delà de ce nombre de coups, la logique de décision est considérée comme
+// bloquée. Aucune cause connue ne doit provoquer ce cas ; ce garde-fou existe
+// précisément pour cette raison.
 constexpr int kMostMovesPerTurn = 30;
 
 QPushButton *actionButton(QWidget *parent, const QString &text, const QString &tip,
@@ -57,7 +58,7 @@ TablePage::TablePage(QWidget *parent) : QWidget(parent) {
     rows->addWidget(m_view, 1);
     rows->addWidget(buildActions());
 
-    // Par-dessus la table, et seulement quand il y a lieu.
+    // Affiché par-dessus la table, et uniquement lorsque c'est nécessaire.
     m_board = new ScoreBoard(this);
     m_victory = new VictoryEffect(this);
 
@@ -168,8 +169,8 @@ QWidget *TablePage::buildActions() {
 
 QVector<SeatSpec> TablePage::chooseSeats(const TableKind &table) const {
     QVector<SeatSpec> seats;
-    // Vous, toujours en premier, pour que la première main de la partie soit
-    // la vôtre plutôt qu'une attente.
+    // Le joueur humain occupe toujours la première place, afin que la partie
+    // débute par son tour plutôt que par une attente.
     SeatSpec you;
     you.name = tr("Vous");
     you.hue = feltHue();
@@ -177,9 +178,8 @@ QVector<SeatSpec> TablePage::chooseSeats(const TableKind &table) const {
 
     const int wanted = std::max(0, table.seats - 1);
 
-    // Ceux qu'on a demandés d'abord, puis les moins joués: comme ça les six
-    // progressent à peu près ensemble au lieu de laisser les trois derniers
-    // débutants pour toujours.
+    // Les adversaires invités sont placés en premier, puis les moins
+    // sollicités, afin que les six progressent à un rythme comparable.
     QVector<QString> order;
     for (const QString &id : m_settings.invited) {
         if (order.size() >= wanted) break;
@@ -202,8 +202,9 @@ QVector<SeatSpec> TablePage::chooseSeats(const TableKind &table) const {
         const Rival &rival = rivalById(id);
         SeatSpec spec;
         spec.rivalId = rival.id;
-        // Le nom donné sur ce profil, et non celui d'usine: c'est celui-là
-        // qui est sur sa plaque et dans tout ce qui se dit de lui.
+        // Le nom attribué sur ce profil est employé plutôt que le nom
+        // d'origine : c'est celui qui figure sur sa plaque et dans tous les
+        // messages le concernant.
         spec.name = rivalName(rival.id);
         spec.hue = rival.hue;
         seats.append(spec);
@@ -246,9 +247,9 @@ void TablePage::applySettings(const GameSettings &settings) {
     const QString table = m_settings.tableId;
     const QString target = m_settings.targetId;
     m_settings = settings;
-    // La table et la longueur de la partie ne changent pas une partie en
-    // cours: jeter une manche à moitié jouée parce qu'un réglage a bougé
-    // serait un mauvais échange. Elles valent pour la prochaine.
+    // La table et la durée de partie ne s'appliquent pas à une partie en
+    // cours : un changement de réglage ne doit pas interrompre une manche
+    // entamée. Ces valeurs prennent effet à la partie suivante.
     m_settings.tableId = table;
     m_settings.targetId = target;
     m_hint->setVisible(m_settings.offerHints);
@@ -258,9 +259,9 @@ void TablePage::applySettings(const GameSettings &settings) {
 
 void TablePage::refresh() {
     const Palette &scheme = currentPalette();
-    // La bande du bas porte les couleurs de celle du haut: ce sont les deux
-    // bords de la même fenêtre, et une bande pâle sous un drap vert sombre
-    // ressemblait à un panneau posé par une autre application.
+    // Le bandeau inférieur reprend les couleurs du bandeau supérieur : ce sont
+    // les deux bords de la même fenêtre, et un bandeau clair sous un tapis
+    // sombre donnait l'impression d'un panneau étranger à l'application.
     const QColor barFace = feltBarFace(scheme);
     const QColor barInk = scheme.feltText;
     QColor barAside = barInk;
@@ -349,9 +350,10 @@ void TablePage::forgetDeeds() {
     m_pileFrom = -1;
 }
 
-// Une carte ramassée sur la défausse apprend deux choses à deux joueurs: à
-// celui qui la prend, à regarder la défausse; à celui qui l'avait jetée, à ne
-// pas donner ce qui sert. C'est la seule leçon du jeu qui se donne à deux.
+// Une carte ramassée sur la défausse fait progresser deux joueurs : celui qui
+// la prend, dans l'exploitation de la défausse ; celui qui l'avait défaussée,
+// dans le choix de sa défausse. C'est le seul événement du jeu qui attribue de
+// l'expérience à deux joueurs simultanément.
 void TablePage::noteTakenFromPile(int at) {
     if (at >= 0 && at < m_deeds.size()) m_deeds[at].did(Learned::Memoire);
     if (m_pileFrom >= 0 && m_pileFrom != at && m_pileFrom < m_deeds.size()) {
@@ -367,8 +369,8 @@ void TablePage::playRival() {
     if (m_game->seat(at).human()) return;
 
     if (++m_movesThisTurn > kMostMovesPerTurn) {
-        // Le filet. Jamais vu se déclencher, mais une partie bloquée est bien
-        // pire qu'un tour mal joué.
+        // Garde-fou. Ce cas n'a jamais été observé, mais une partie bloquée
+        // serait bien plus préjudiciable qu'un tour mal joué.
         m_game->takeBackPose();
         for (const Card &card : m_game->seat(at).hand) {
             if (m_game->discard(card.id)) return;
@@ -401,7 +403,8 @@ void TablePage::playRival() {
         done = m_game->lay(move.cards, &why);
         if (done) {
             m_view->noteLaid(landedCards(at, move.cards, waiting, wasOpen), at);
-            // Ouvrir est l'affaire de la lecture: c'est là qu'on compte.
+            // L'ouverture relève de la compétence Lecture, qui porte sur le
+            // décompte de la main.
             if (!wasOpen && m_game->seat(at).opened && at < m_deeds.size()) {
                 m_deeds[at].did(Learned::Lecture);
             }
@@ -443,9 +446,9 @@ void TablePage::playRival() {
     }
 
     if (!done) {
-        // Un coup refusé, ce qui veut dire que le cerveau a demandé quelque
-        // chose que les règles ne permettent pas: on reprend la pose, sinon on
-        // jette ce qui vient.
+        // Coup refusé : la logique de décision a demandé une action non
+        // conforme aux règles. La pose est alors reprise en main ; à défaut,
+        // la première carte disponible est défaussée.
         if (m_game->takeBackPose()) {
             m_beat->start(thinkingMs(false));
             return;
@@ -460,7 +463,8 @@ void TablePage::playRival() {
         }
     }
 
-    // Toujours à lui ? Alors on enchaîne, un battement plus tard.
+    // Si c'est encore à lui de jouer, le coup suivant est enchaîné après une
+    // temporisation.
     if ((m_game->phase() == Phase::Draw || m_game->phase() == Phase::Build) &&
         m_game->turn() == at && !m_game->seat(at).human()) {
         m_beat->start(thinkingMs(false));
@@ -476,8 +480,9 @@ void TablePage::onHandFinished() {
     if (m_handCounted) return;
     m_handCounted = true;
 
-    // Le classement de la manche, pour l'expérience: le moins de points
-    // d'abord, et celui qui est sorti devant à égalité.
+    // Classement de la manche, servant à l'attribution de l'expérience : le
+    // total le plus faible d'abord, le joueur sorti étant départagé en sa
+    // faveur en cas d'égalité.
     QVector<int> order;
     for (int at = 0; at < m_game->seatCount(); ++at) order.append(at);
     const Rami *game = m_game;
@@ -488,8 +493,8 @@ void TablePage::onHandFinished() {
         return game->seat(a).wentOut && !game->seat(b).wentOut;
     });
 
-    // Ce qu'ils avaient appris avant cette manche, pour pouvoir dire ce
-    // qu'ils viennent d'apprendre.
+    // Expérience détenue avant cette manche, afin de pouvoir signaler ce qui
+    // vient d'être acquis.
     QVector<Pools> before(m_game->seatCount());
     for (int at = 0; at < m_game->seatCount(); ++at) {
         const Seat &seat = m_game->seat(at);
@@ -504,23 +509,23 @@ void TablePage::onHandFinished() {
             continue;
         }
         Deeds deeds = at < m_deeds.size() ? m_deeds.at(at) : Deeds{};
-        // Sortir est l'affaire de la lecture: c'est voir sa main en entier
-        // qui permet de la vider.
+        // La sortie relève de la compétence Lecture : c'est l'analyse complète
+        // de la main qui permet de s'en défaire.
         if (seat.wentOut) deeds.did(Learned::Lecture);
         noteRivalHand(seat.rivalId, place, m_game->seatCount(), seat.wentOut, deeds);
     }
 
-    // Ce qu'ils viennent d'apprendre compte pour la manche suivante, pas pour
-    // la prochaine fois qu'on lance le jeu.
+    // L'expérience acquise prend effet dès la manche suivante, et non au
+    // prochain démarrage de l'application.
     QStringList learnt;
     for (int at = 0; at < m_game->seatCount() && at < m_skills.size(); ++at) {
         const Seat &seat = m_game->seat(at);
         if (seat.human()) continue;
         m_skills[at] = skillFor(seat.rivalId);
 
-        // Et un rang franchi se dit: un adversaire qui devient meilleur sans
-        // que rien ne le signale est un adversaire dont on croit que le jeu
-        // triche.
+        // Le franchissement d'un rang est annoncé : une progression non
+        // signalée serait interprétée comme un comportement arbitraire du
+        // programme.
         const Pools after = learningFor(seat.rivalId).pools;
         for (int i = 0; i < kLearnedCount; ++i) {
             const Learned which = Learned(i);
@@ -557,8 +562,9 @@ void TablePage::onMatchFinished() {
     m_board->setGeometry(rect());
     m_victory->setGeometry(rect());
 
-    // La feuille est remplie dans tous les cas. Quand il y a un feu
-    // d'artifice elle attend derrière, et elle se montre quand il s'éteint.
+    // La feuille de marque est renseignée dans tous les cas. En présence de
+    // l'animation de victoire, elle reste masquée et s'affiche à la fin de
+    // celle-ci.
     m_board->showMatch(m_game);
     if (youWon && m_settings.celebrate) {
         m_board->hide();
@@ -604,8 +610,9 @@ void TablePage::onPilePressed() {
 void TablePage::sort(bool byRank) {
     const int me = mySeat();
     if (me < 0) return;
-    // Le moteur garde la main dans son ordre; trier est une affaire d'écran,
-    // mais la main est au moteur, alors c'est lui qui la retourne triée.
+    // Les règles conservent la main dans leur propre ordre. Le tri relève de
+    // l'affichage, mais la main appartenant aux règles, c'est à elles qu'il
+    // est demandé.
     m_game->sortSeatHand(me, byRank);
     m_view->refresh();
 }
@@ -618,16 +625,17 @@ QVector<int> TablePage::waitingCards(int seat) const {
     return ids;
 }
 
-// Poser une combinaison avant d'avoir ouvert ne la met pas sur le tapis: elle
-// attend devant son joueur, et c'est celle qui atteint cinquante-et-un qui
-// les y fait toutes descendre d'un coup. N'animer que la dernière laissait
-// les autres paraître sur le tapis sans être venues de nulle part -- et comme
-// on ouvre rarement avec une seule combinaison, c'était le cas ordinaire.
+// Avant l'ouverture, une combinaison posée n'est pas placée sur le tapis :
+// elle reste en attente devant son joueur, et c'est celle qui porte le total à
+// cinquante et un qui les y fait toutes descendre simultanément. N'animer que
+// la dernière faisait apparaître les autres sans déplacement visible ; une
+// ouverture comportant une seule combinaison étant rare, ce défaut se
+// manifestait dans la plupart des cas.
 QVector<int> TablePage::landedCards(int seat, const QVector<int> &laid,
                                     const QVector<int> &waitingBefore, bool wasOpen) const {
     if (wasOpen || seat < 0 || !m_game->seat(seat).opened) return laid;
-    // Celles qui attendaient d'abord: elles ont été posées avant, et elles
-    // arrivent dans cet ordre-là.
+    // Les combinaisons en attente sont animées en premier, dans leur ordre de
+    // pose.
     QVector<int> all = waitingBefore;
     all.append(laid);
     return all;
@@ -657,7 +665,8 @@ void TablePage::doLayOff() {
     }
     QString lastWhy;
     int placed = 0;
-    // Chaque carte choisie sur la première combinaison qui la prend.
+    // Chaque carte sélectionnée est placée sur la première combinaison qui
+    // l'accepte.
     for (int cardId : chosen) {
         bool done = false;
         for (const Meld &meld : m_game->table()) {
@@ -679,8 +688,8 @@ void TablePage::doLayOff() {
 }
 
 void TablePage::doTakeBack() {
-    // Quelles cartes vont revenir: relevées avant, puisque après la reprise
-    // la pose n'existe plus et que c'est d'elle qu'elles repartent.
+    // Cartes concernées par la reprise, relevées au préalable : après
+    // l'opération, la pose n'existe plus alors que l'animation en part.
     const int me = mySeat();
     QVector<int> coming;
     if (me >= 0) {
@@ -699,13 +708,12 @@ void TablePage::doTakeBack() {
     sayWhatToDo();
 }
 
-// Un clic sur une carte de la pose : elle revient en main.
+// Clic sur une carte de la pose : la carte revient en main.
 //
-// Celle-là seule quand la combinaison tient encore sans elle -- reprendre
-// une pose entière pour en retirer une carte de trop était le geste qu'il
-// fallait faire avant. Quand elle ne tient plus, la combinaison revient
-// entière, parce que c'est la seule autre chose que les règles en laissent
-// faire.
+// Seule cette carte est reprise lorsque sa combinaison reste valide sans elle,
+// ce qui évite d'avoir à reprendre la pose entière pour en retirer une carte.
+// Lorsque la combinaison n'est plus valide, elle revient en main dans son
+// intégralité, les règles n'autorisant aucune autre opération.
 void TablePage::onPoseCardPressed(int cardId) {
     const int me = mySeat();
     if (me < 0 || m_game->turn() != me) return;
@@ -722,8 +730,9 @@ void TablePage::onPoseCardPressed(int cardId) {
         return;
     }
 
-    // Quelles cartes vont revenir: relevées avant, puisque après la reprise
-    // la combinaison n'existe plus et que c'est d'elle qu'elles repartent.
+    // Cartes concernées par la reprise, relevées au préalable : après
+    // l'opération, la combinaison n'existe plus alors que l'animation en
+    // part.
     const int meldId = m_game->poseMeldOf(cardId);
     const Meld *meld = meldId < 0 ? nullptr : m_game->meldById(meldId);
     if (!meld) return;
@@ -790,7 +799,8 @@ void TablePage::onMeldPressed(int meldId) {
         }
     }
     if (placed == 0) {
-        // Rien n'a tenu : peut-être que la carte est le double du joker.
+        // Aucune opération n'a abouti : la carte est peut-être le second
+        // exemplaire de celle que représente le joker.
         if (m_game->buyJoker(chosen.first(), meldId, &why)) {
             m_view->clearChosen();
             sayWhatToDo();
@@ -830,7 +840,7 @@ void TablePage::onCardDoubleClicked(int cardId) {
 }
 
 // ---------------------------------------------------------------------------
-// Ce que les boutons disent.
+// État des boutons.
 
 void TablePage::updateActions() {
     const int me = mySeat();
@@ -840,16 +850,18 @@ void TablePage::updateActions() {
     const Seat &seat = m_game->seat(std::max(0, me));
     const QVector<int> chosen = m_view->chosen();
 
-    // Un bouton n'est allumé que quand le coup qu'il ferait est permis.
+    // Un bouton n'est actif que si le coup correspondant est autorisé.
     //
-    // L'autre façon -- tout allumer et refuser après coup avec une phrase en
-    // rouge -- apprend les règles à coups de reproches : on choisit trois
-    // cartes, on presse, on se fait dire non. Mieux vaut que le bouton reste
-    // éteint tant que la sélection ne fait rien, et s'allume à la seconde où
-    // elle fait quelque chose : c'est la sélection qui répond, pas le refus.
+    // L'approche inverse — activer tous les boutons et refuser le coup après
+    // coup par un message d'erreur — oblige le joueur à découvrir les règles
+    // par essais successifs. Il est préférable que le bouton reste inactif
+    // tant que la sélection ne permet aucun coup, et s'active dès qu'elle en
+    // permet un : c'est alors la sélection qui renseigne le joueur, et non le
+    // refus.
 
-    // Poser : seulement si les cartes choisies font vraiment une suite ou une
-    // série, et s'il en reste une à jeter pour finir le tour.
+    // Poser : actif uniquement si les cartes sélectionnées forment une suite
+    // ou une série valide, et s'il reste une carte à défausser pour achever le
+    // tour.
     bool canLay = false;
     if (building && chosen.size() >= 3 && seat.hand.size() - chosen.size() >= 1) {
         QVector<Card> picked;
@@ -860,8 +872,8 @@ void TablePage::updateActions() {
         canLay = picked.size() == chosen.size() && makeMeld(picked, &meld);
     }
 
-    // Compléter : seulement si au moins une des cartes choisies tient sur une
-    // combinaison déjà posée.
+    // Compléter : actif uniquement si au moins une des cartes sélectionnées
+    // peut être placée sur une combinaison déjà posée.
     bool canLayOff = false;
     if (building && seat.opened && !chosen.isEmpty() && seat.hand.size() >= 2) {
         for (int id : chosen) {
@@ -883,15 +895,15 @@ void TablePage::updateActions() {
     m_layOff->setEnabled(canLayOff);
     m_takeBack->setEnabled(building && !seat.waiting.isEmpty());
     m_takeBack->setVisible(!seat.waiting.isEmpty());
-    // Et défausser reste éteint tant que le tour ne peut pas finir -- une pose
-    // qui ne compte pas encore, un joker racheté qui n'a pas servi. Ce que la
-    // bande dit sous la main explique déjà laquelle des deux.
+    // Défausser reste inactif tant que le tour ne peut s'achever : pose
+    // n'atteignant pas le total requis, ou joker racheté non réemployé. Le
+    // bandeau situé sous la main précise lequel des deux cas s'applique.
     m_discard->setEnabled(building && chosen.size() == 1 && m_game->canDiscard());
     m_hint->setEnabled(mine);
     m_hint->setVisible(m_settings.offerHints);
 
-    // Le bouton qui finit le tour est celui qu'on met en avant, sauf quand il
-    // y a une pose à compléter: là, c'est elle qui presse.
+    // Le bouton achevant le tour est mis en évidence, sauf lorsqu'une pose
+    // reste à compléter, auquel cas c'est celle-ci qui est prioritaire.
     const bool poseShort = !seat.waiting.isEmpty() && m_game->poseValue(me) < kOpeningPoints;
     m_discard->setProperty("strong", m_discard->isEnabled() && !poseShort);
     m_lay->setProperty("strong", canLay && poseShort);
@@ -933,8 +945,9 @@ void TablePage::sayWhatToDo() {
     }
     if (m_game->phase() != Phase::Build) return;
 
-    // Ce qui vient d'être pioché, nommé. La carte porte sa marque dorée dans
-    // la main, mais la nommer est ce qui répond tout de suite à « laquelle ».
+    // La carte qui vient d'être piochée est nommée explicitement. Elle est
+    // également signalée par une marque dorée dans la main, mais son nom
+    // l'identifie immédiatement.
     const Card drawn = m_game->lastDrawn();
     const QString took = drawn.valid()
                              ? tr("Pioché : %1. ").arg(cardName(drawn))

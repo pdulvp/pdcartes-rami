@@ -45,7 +45,7 @@ void ScoreBoard::showHand(const Rami *game) {
         m_lines.append({seat.name, seat.hue, seat.lastHand, seat.score, at == out, seat.human(),
                         false});
     }
-    // Celui qui mène, c'est-à-dire celui qui a le moins.
+    // Le joueur en tête, c'est-à-dire celui dont le total est le plus faible.
     int best = 0;
     for (int i = 1; i < m_lines.size(); ++i) {
         if (m_lines.at(i).total < m_lines.at(best).total) best = i;
@@ -198,7 +198,7 @@ void ScoreBoard::paintEvent(QPaintEvent *) {
                      Qt::AlignCenter, m_aside);
     y += asideMetrics.height() + 14.0;
 
-    // L'en-tête des colonnes.
+    // En-tête des colonnes.
     QFont heading = plainFont(&painter);
     heading.setBold(true);
     heading.setPixelSize(10);
@@ -231,7 +231,7 @@ void ScoreBoard::paintEvent(QPaintEvent *) {
             painter.drawRoundedRect(band.adjusted(-6, 1, 6, -1), 6, 6);
         }
 
-        // Le jeton de couleur, puis le nom.
+        // La pastille de couleur, puis le nom.
         painter.setPen(Qt::NoPen);
         painter.setBrush(rivalColour(line.hue));
         painter.drawEllipse(QRectF(band.left(), band.center().y() - 4.5, 9.0, 9.0));

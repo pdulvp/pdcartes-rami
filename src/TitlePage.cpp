@@ -18,32 +18,36 @@
 namespace {
 
 constexpr int kFrameMs = 16;
-// La respiration, en images : un peu moins de deux secondes pour aller et
-// revenir. Assez lent pour qu'on la voie respirer et non clignoter.
+// Période du fondu de la ligne d'invite, exprimée en images : un peu moins de
+// deux secondes par cycle complet. Cette durée produit une variation
+// progressive et non un clignotement.
 constexpr int kBreathFrames = 108;
 
-// La place que le logo s'accorde dans la fenêtre, et où il se tient.
+// Proportion de la fenêtre occupée par le logo, et sa position.
 constexpr qreal kMarkHeightShare = 0.26;
 constexpr qreal kMarkMiddle = 0.42;
 constexpr qreal kHintMiddle = 0.84;
 
-// De combien une carte sort du cadre avant de revenir de l'autre côté, en
-// part de la fenêtre. Assez pour qu'une carte de biais ait fini de sortir.
+// Distance dont une carte dépasse le cadre avant de réapparaître du côté
+// opposé, exprimée en proportion de la fenêtre. Elle est suffisante pour
+// qu'une carte inclinée soit entièrement sortie.
 constexpr qreal kOffstage = 0.26;
 
-// La ligne qui respire, dans la fonte de texte du jeu.
+// Police de la ligne d'invite : celle du texte courant.
 //
-// Une fonte de texte et non une fonte d'affichage: elle se lit de travers, du
-// coin de l'oeil, pendant qu'on regarde l'enseigne -- et les deux fontes du
-// logo, qui sont faites pour être regardées, s'y brouilleraient. Demandée
-// par son nom plutôt que prise de la fenêtre: c'est la même, mais l'écran
-// titre ne dépend pas de ce que la fenêtre porte.
+// Une police de labeur est employée et non une police d'affichage : cette
+// ligne est lue de façon périphérique pendant que le regard porte sur le
+// logo, et les deux polices d'affichage, conçues pour être regardées,
+// seraient peu lisibles dans cet emploi. Elle est demandée par son nom plutôt
+// que reprise de la fenêtre : il s'agit de la même police, mais l'écran titre
+// ne dépend ainsi pas des réglages de la fenêtre.
 QFont hintFont(const QFont &fallback, const QRectF &area) {
     QFont font = familyFont(fallback, proseFamily(),
                             std::min(area.height() * 0.028, area.width() * 0.020));
     font.setPixelSize(std::max(11, font.pixelSize()));
-    // Le gras est la graisse qu'on a embarquée: demandée, Qt prend la vraie
-    // et n'en fabrique pas une en épaississant le trait.
+    // Le gras correspond à une graisse réellement embarquée : demandé
+    // explicitement, Qt emploie la fonte correspondante au lieu d'épaissir le
+    // tracé du romain.
     font.setBold(true);
     font.setCapitalization(QFont::AllUppercase);
     font.setLetterSpacing(QFont::PercentageSpacing, 100);
@@ -57,15 +61,16 @@ QRectF hintBand(const QFont &fallback, const QRectF &area) {
                   area.width(), height);
 }
 
-// Une carte au trait.
+// Carte tracée au trait.
 //
-// Le contour, le rang dans deux coins et l'enseigne au milieu, tout en or et
-// rien de rempli. C'est ce qui reste d'une carte quand on lui retire la
-// couleur, et c'est assez pour qu'on la reconnaisse de loin -- là où une
-// figure peinte, derrière un titre, n'est qu'une tache.
+// Seuls sont dessinés le contour, le rang dans deux coins et le symbole de
+// couleur au centre, en doré et sans aplat. Cette représentation suffit à
+// identifier une carte à distance, alors qu'une figure peinte serait trop
+// visible derrière un titre.
 //
-// Dessinée ici et non par `drawCardFace`: celle-là rend la carte du jeu
-// installé, qui est une image, et une image ne se réduit pas à un trait.
+// Elle est dessinée ici et non par `drawCardFace` : cette dernière rend la
+// carte du jeu installé, qui est une image et ne peut être réduite à un
+// tracé.
 void drawWireCard(QPainter *painter, const QRectF &box, const Card &card, bool back,
                   const QColor &ink) {
     const qreal corner = cardCornerFor(box);
@@ -76,7 +81,8 @@ void drawWireCard(QPainter *painter, const QRectF &box, const Card &card, bool b
     painter->drawRoundedRect(box, corner, corner);
 
     if (back) {
-        // Le dos : un treillis, tracé dans la carte et coupé par elle.
+        // Le dos : un treillis tracé à l'intérieur de la carte et découpé par
+        // son contour.
         QPainterPath shape;
         shape.addRoundedRect(box.adjusted(line * 2, line * 2, -line * 2, -line * 2), corner * 0.8,
                              corner * 0.8);
@@ -96,8 +102,8 @@ void drawWireCard(QPainter *painter, const QRectF &box, const Card &card, bool b
         return;
     }
 
-    // Le coin : le rang, et l'enseigne sous lui. Deux fois, tête-bêche, comme
-    // une vraie carte est imprimée.
+    // Le coin : le rang, surmontant le symbole de couleur. Répété deux fois,
+    // tête-bêche, comme sur une carte imprimée.
     const qreal indexHeight = box.height() * 0.17;
     QFont index = painter->font();
     index.setPixelSize(std::max(5, int(std::lround(indexHeight))));
@@ -108,8 +114,8 @@ void drawWireCard(QPainter *painter, const QRectF &box, const Card &card, bool b
     const qreal margin = box.width() * 0.09;
 
     if (card.joker()) {
-        // Le joker n'a pas d'enseigne : son nom en travers, et une étoile au
-        // milieu.
+        // Le joker n'a pas de couleur : son nom est inscrit en diagonale et
+        // une étoile figure au centre.
         painter->save();
         painter->translate(box.center());
         painter->rotate(-90.0);
@@ -145,7 +151,8 @@ void drawWireCard(QPainter *painter, const QRectF &box, const Card &card, bool b
                 card.suit, ink);
     painter->restore();
 
-    // L'enseigne au milieu, plus grande, pour que la carte se lise de loin.
+    // Le symbole de couleur est placé au centre, à une taille supérieure,
+    // afin que la carte reste identifiable à distance.
     const qreal pip = box.height() * 0.30;
     QRectF middle(0, 0, pip, pip);
     middle.moveCenter(box.center());
@@ -154,8 +161,8 @@ void drawWireCard(QPainter *painter, const QRectF &box, const Card &card, bool b
 
 Card faceCard(int rank, Suit suit) {
     Card card;
-    // Un identifiant quelconque, mais valide : rien ici ne compte les cartes,
-    // mais une carte sans identité ne se dessine pas.
+    // Un identifiant arbitraire mais valide : aucun décompte n'est effectué
+    // ici, mais une carte sans identifiant ne peut être dessinée.
     card.id = rank * 4 + int(suit);
     card.rank = rank;
     card.suit = suit;
@@ -167,7 +174,8 @@ Card faceCard(int rank, Suit suit) {
 TitlePage::TitlePage(QWidget *parent) : QWidget(parent) {
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::PointingHandCursor);
-    // Le tapis couvre tout : rien à effacer avant de le peindre.
+    // Le tapis couvre toute la surface : aucun effacement préalable n'est
+    // nécessaire.
     setAttribute(Qt::WA_OpaquePaintEvent);
 
     dealDrifters();
@@ -181,12 +189,14 @@ TitlePage::TitlePage(QWidget *parent) : QWidget(parent) {
     });
 }
 
-// Les cartes qui passent, posées à la main et non tirées au hasard.
+// Positions initiales des cartes, définies explicitement et non tirées au
+// hasard.
 //
-// Un écran titre se regarde longtemps et toujours au même endroit : on sait où
-// le logo tombe, et des cartes tirées au sort finissent par en empiler trois
-// dessus et laisser un coin vide. Celles-ci partent étalées sur le pourtour,
-// dérivent chacune à son pas, et repassent.
+// Un écran titre est affiché longtemps et sa composition est fixe : la
+// position du logo est connue, et un tirage aléatoire finirait par superposer
+// plusieurs cartes à cet endroit tout en laissant une zone vide. Les cartes
+// sont donc réparties sur le pourtour et se déplacent chacune à sa propre
+// vitesse.
 void TitlePage::dealDrifters() {
     struct Seed {
         bool back;
@@ -199,8 +209,8 @@ void TitlePage::dealDrifters() {
         qreal spin;      // degrés par seconde
         qreal ink;       // ce qu'elle a d'or
     };
-    // Une carte traverse l'écran en une bonne minute: on la voit bouger sans
-    // la regarder bouger.
+    // Une carte traverse l'écran en une minute environ : le déplacement est
+    // perceptible sans attirer l'attention.
     static const Seed kSeeds[] = {
         {false, kJoker, Suit::Coeur,    0.11, 0.20,  0.016, -0.007, 0.15, -14.0,  0.8, 0.85},
         {false, kRoi,   Suit::Coeur,    0.88, 0.16, -0.013,  0.010, 0.14,  11.0, -0.6, 0.75},
@@ -233,8 +243,9 @@ void TitlePage::driftOn() {
     for (Drifter &card : m_drifters) {
         card.at += card.speed;
         card.angle += card.spin;
-        // Sortie d'un côté, rentrée de l'autre, en gardant l'autre axe: la
-        // carte repasse plus tard et ailleurs, et non en boucle sur ses pas.
+        // La carte sortie d'un côté réapparaît du côté opposé, sa coordonnée
+        // sur l'autre axe étant conservée : elle repasse donc à un autre
+        // endroit et non selon un cycle identique.
         if (card.at.x() < -kOffstage) card.at.setX(1.0 + kOffstage);
         if (card.at.x() > 1.0 + kOffstage) card.at.setX(-kOffstage);
         if (card.at.y() < -kOffstage) card.at.setY(1.0 + kOffstage);
@@ -258,8 +269,8 @@ void TitlePage::setMarkHidden(bool hidden) {
     update();
 }
 
-// Les deux couches en cache. Transparente pour le logo, qui se pose sur les
-// cartes et non sous elles.
+// Les deux couches mises en cache. Celle du logo est transparente, le logo
+// étant dessiné par-dessus les cartes et non en dessous.
 void TitlePage::rebuildFelt() {
     if (width() <= 0 || height() <= 0) {
         m_felt = QPixmap();
@@ -300,7 +311,7 @@ void TitlePage::paintEvent(QPaintEvent *event) {
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter.drawPixmap(0, 0, m_felt);
 
-    // Les cartes, sur le tapis et sous le logo.
+    // Les cartes, dessinées sur le tapis et sous le logo.
     for (const Drifter &card : m_drifters) {
         const QSizeF box = cardSizeForHeight(height() * card.height);
         QColor ink = scheme.gold;
@@ -316,8 +327,8 @@ void TitlePage::paintEvent(QPaintEvent *event) {
 
     if (!m_markHidden) painter.drawPixmap(0, 0, m_mark);
 
-    // La ligne qui respire. Une sinusoïde et non un clignotement : ce qui
-    // s'allume et s'éteint d'un coup est une alarme.
+    // Ligne d'invite en fondu. La variation suit une sinusoïde et non un
+    // créneau : une alternance brusque serait perçue comme une alerte.
     const qreal breath =
         0.5 - 0.5 * std::cos(2.0 * M_PI * (m_frame % kBreathFrames) / kBreathFrames);
     QColor ink = scheme.feltText;
@@ -328,8 +339,9 @@ void TitlePage::paintEvent(QPaintEvent *event) {
     const QString hint = tr("🂡  Cliquer pour commencer  🂡");
     painter.setRenderHint(QPainter::TextAntialiasing, true);
     painter.setFont(hintFont(font(), area));
-    // Son ombre aussi : une carte passe là-dessous comme elle passe sous le
-    // logo, et une ligne pâle sur un trait pâle ne se lit plus.
+    // Son ombre portée également : une carte peut passer sous cette ligne
+    // comme sous le logo, et un texte clair sur un tracé clair deviendrait
+    // illisible.
     QColor shade = scheme.feltEdge;
     shade.setAlphaF(0.55 * ink.alphaF());
     painter.setPen(shade);
@@ -350,10 +362,10 @@ void TitlePage::mousePressEvent(QMouseEvent *event) {
 }
 
 void TitlePage::keyPressEvent(QKeyEvent *event) {
-    // Une touche quelconque commence la partie -- un écran titre ne se
-    // cherche pas. Mais les modificateurs seuls ne sont pas une touche, et
-    // ce qui en porte un appartient à la fenêtre : Ctrl+Q doit encore
-    // quitter.
+    // Toute touche déclenche le démarrage. Les modificateurs seuls sont
+    // toutefois exclus, de même que les combinaisons en comportant un,
+    // celles-ci étant traitées par la fenêtre : Ctrl+Q doit continuer de
+    // quitter l'application.
     switch (event->key()) {
     case Qt::Key_Shift:
     case Qt::Key_Control:

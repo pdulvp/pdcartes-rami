@@ -3,18 +3,19 @@
 #include <QString>
 #include <QVector>
 
-// What a card is, and what it is worth.
+// Définition d'une carte et de sa valeur.
 //
-// The rami is played with two full packs shuffled together and four jokers on
-// top of them -- a hundred and eight cards -- which is why a card carries an
-// identity of its own as well as a face: there are two kings of hearts in the
-// pack, they are not the same card, and a hand that holds both has to be able
-// to say so.
+// Le rami se joue avec deux jeux de cinquante-deux cartes mélangés et quatre
+// jokers, soit cent huit cartes. Chaque carte porte donc une identité propre
+// en plus de sa face : le jeu contient deux rois de cœur, qui sont deux
+// cartes distinctes, et une main détenant les deux doit pouvoir les
+// distinguer.
 
 enum class Suit { Pique = 0, Coeur = 1, Carreau = 2, Trefle = 3 };
 
-// The ranks, as the French pack names them: l'as, puis deux à dix, le valet,
-// la dame, le roi. Nought is the joker, which has no suit either.
+// Les rangs, selon la nomenclature du jeu français : l'as, les cartes de deux
+// à dix, le valet, la dame et le roi. La valeur zéro désigne le joker, qui
+// n'a pas non plus de couleur.
 inline constexpr int kAs = 1;
 inline constexpr int kValet = 11;
 inline constexpr int kDame = 12;
@@ -22,15 +23,16 @@ inline constexpr int kRoi = 13;
 inline constexpr int kJoker = 0;
 
 struct Card {
-    int id = -1;        // which card of the hundred and eight this is
+    int id = -1;        // numéro de la carte parmi les cent huit
     int rank = kJoker;  // 1 = as ... 13 = roi, 0 = joker
     Suit suit = Suit::Pique;
 
     bool joker() const { return rank == kJoker; }
     bool valid() const { return id >= 0; }
 
-    // The same card to look at -- the two kings of hearts are, and that is
-    // what matters when one is being swapped for a joker.
+    // Indique si les deux cartes ont la même face. C'est le cas des deux rois
+    // de cœur, et c'est le seul critère qui importe lors du rachat d'un
+    // joker.
     bool sameFace(const Card &other) const {
         return rank == other.rank && (joker() || suit == other.suit);
     }
@@ -38,41 +40,43 @@ struct Card {
 
 inline bool operator==(const Card &a, const Card &b) { return a.id == b.id; }
 
-// The pack: two of each of the fifty-two, then four jokers. In order, so
-// shuffling it is the only randomness there is.
+// Le jeu complet : deux exemplaires de chacune des cinquante-deux cartes,
+// puis quatre jokers. Il est produit dans l'ordre, le mélange constituant la
+// seule source d'aléa.
 QVector<Card> freshPack();
 void shuffleCards(QVector<Card> &cards);
 
-// How many cards the pack holds, and how many are dealt to each player.
+// Nombre de cartes du jeu, et nombre de cartes distribuées à chaque joueur.
 inline constexpr int kPackSize = 108;
 inline constexpr int kHandSize = 14;
 
 bool isRed(Suit suit);
-QString suitPip(Suit suit);            // the symbol itself
-QString suitName(Suit suit);           // "pique", for a sentence
-QString rankLabel(int rank);           // "A", "2".."10", "V", "D", "R"
-QString cardLabel(const Card &card);   // "R♥", for a tight space
-QString cardName(const Card &card);    // "le roi de cœur", for a sentence
+QString suitPip(Suit suit);            // le symbole seul
+QString suitName(Suit suit);           // « pique », pour une phrase
+QString rankLabel(int rank);           // « A », « 2 » à « 10 », « V », « D », « R »
+QString cardLabel(const Card &card);   // « R♥ », pour un espace réduit
+QString cardName(const Card &card);    // « le roi de cœur », pour une phrase
 
-// What a card left in the hand costs when the hand ends. The joker is the
-// expensive one -- twenty-five points -- which is the whole reason nobody
-// hoards it.
+// Pénalité d'une carte restée en main à la fin de la manche. Le joker est le
+// plus coûteux, avec vingt-cinq points, ce qui dissuade de le conserver.
 int penaltyValue(const Card &card);
 
-// What a rank is worth inside a combination, read in the space a suite is
-// counted in: one to fourteen, where fourteen is the as placed above the roi.
-// The as is worth eleven at either end and one only in as-deux-trois.
+// Valeur d'un rang au sein d'une suite, exprimée dans l'échelle de un à
+// quatorze propre aux suites, où quatorze désigne l'as placé au-dessus du
+// roi. L'as vaut onze aux deux extrémités, et un uniquement dans la suite
+// as-deux-trois.
 int runRankValue(int runRank);
 
-// What a rank is worth inside a série, where the as is always eleven.
+// Valeur d'un rang au sein d'une série, où l'as vaut toujours onze.
 int setRankValue(int rank);
 
-// Tidying the hand. By suit for finding suites, by rank for finding séries:
-// the two orders answer different questions, which is why there are two.
+// Tri de la main. Le tri par couleur sert à repérer les suites, le tri par
+// rang à repérer les séries : les deux ordres répondent à des questions
+// différentes, d'où leur coexistence.
 void sortBySuit(QVector<Card> &cards);
 void sortByRank(QVector<Card> &cards);
 
-// Takes the card with this identity out of `cards` and hands it back; an
-// invalid card when it was not there.
+// Retire de `cards` la carte portant cet identifiant et la retourne.
+// Retourne une carte invalide si elle ne s'y trouvait pas.
 Card takeCard(QVector<Card> &cards, int id);
 const Card *findCard(const QVector<Card> &cards, int id);

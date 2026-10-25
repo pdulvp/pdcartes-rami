@@ -4,13 +4,13 @@
 
 class QTextBrowser;
 
-// Les règles, et comment on joue à la souris.
+// Règles du jeu et commandes à la souris.
 //
-// Un jeu de cartes n'est pas un démineur : on ne devine pas le rami en
-// cliquant. Il y a une ouverture à cinquante-et-un points, un joker qui
-// s'achète, une suite où l'as vaut un d'un côté et onze de l'autre -- et rien
-// de tout cela ne se lit sur le tapis. Alors c'est écrit, en entier, dans la
-// fenêtre plutôt que dans un fichier que personne ne trouvera.
+// Les règles du rami ne se déduisent pas de l'interface : l'ouverture à
+// cinquante et un points, le rachat d'un joker, ou la valeur de l'as — un ou
+// onze selon sa position dans une suite — ne sont déductibles d'aucun élément
+// affiché. Elles sont donc exposées intégralement dans cette fenêtre plutôt
+// que dans un fichier distinct.
 class HelpDialog : public QDialog {
     Q_OBJECT
 

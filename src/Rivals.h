@@ -5,25 +5,26 @@
 #include <QString>
 #include <QVector>
 
-// Les six adversaires, et ce qu'ils ont appris.
+// Les six adversaires et leur expérience acquise.
 //
-// They are not six settings of one difficulty dial that the player turns.
-// Each of them is a player with a history: two of them sit down knowing
-// almost nothing, three of them know the game, and Oriane has been at it for
-// years. And they keep playing after you have put the game away -- or rather,
-// what they learnt from the games you did play is still there when you come
-// back, so that a table you could beat in March is a table that beats you in
-// June.
+// Ils ne constituent pas six réglages d'un même curseur de difficulté. Chacun
+// dispose de sa propre progression : deux débutent en ne connaissant presque
+// rien du jeu, trois le maîtrisent, et Oriane le pratique de longue date.
+// L'expérience acquise au cours des parties jouées est conservée entre les
+// sessions, de sorte que le niveau des adversaires continue de s'élever au fil
+// du temps.
 //
-// Ce qui les distingue est de deux sortes, et c'est RivalSkills.h qui le dit:
-// quatre compétences innées, qui sont ce qu'ils sont et qui ne bougent pas,
-// et quatre compétences acquises, chacune avec son expérience, qui montent en
-// jouant. Ce fichier-ci ne fait que les ranger par profil et les relire --
-// les six sont les mêmes pour tout le monde, ce qu'ils ont vécu appartient au
-// profil sous lequel ils l'ont vécu.
+// Deux catégories les distinguent, décrites dans RivalSkills.h : quatre
+// compétences innées, qui constituent leur tempérament et demeurent fixes, et
+// quatre compétences acquises, chacune dotée de sa propre expérience, qui
+// progressent au fil des parties. Ce fichier se borne à enregistrer ces
+// valeurs par profil et à les relire : les six adversaires sont communs à tous
+// les profils, mais leur expérience appartient au profil sous lequel elle a
+// été acquise.
 //
-// Chacun peut être remis à ce qu'il était, un à un, depuis sa fiche: son
-// expérience seule, ou -- et cela lui coûte son expérience -- ce qu'il est.
+// Chacun peut être réinitialisé individuellement depuis sa fiche : son
+// expérience seule, ou son tempérament, cette seconde opération entraînant la
+// perte de son expérience.
 
 struct Rival {
     QString id;
@@ -38,7 +39,7 @@ struct Rival {
 const QVector<Rival> &rivals();
 const Rival &rivalById(const QString &id);
 
-// What one of them has to show for the games played under this profile.
+// Résultats d'un adversaire pour les parties jouées sous ce profil.
 struct Learning {
     Pools pools;         // les quatre expériences, une par compétence acquise
     int xp = 0;          // leur somme, qui est le niveau affiché
@@ -51,55 +52,59 @@ struct Learning {
 Learning learningFor(const QString &rivalId);
 Learning learningFor(const QString &rivalId, int slot);
 
-// Ce qu'il est, sur ce profil-là, et la phrase qui va avec.
+// Tempérament de l'adversaire sur ce profil, et phrase correspondante.
 Innates rivalInnate(const QString &rivalId);
 Innates rivalInnate(const QString &rivalId, int slot);
 
-// Le changer lui fait tout réapprendre.
+// Modifie le tempérament d'un adversaire, ce qui annule son expérience.
 //
-// Les innées règlent la vitesse à laquelle les acquises montent: l'expérience
-// gagnée par un joueur n'est donc pas l'expérience qu'un autre aurait. Changer
-// ce qu'il est remet ses quatre expériences et son palmarès à zéro, et c'est
-// cette fonction qui s'en charge -- pour que les deux ne puissent pas se
-// désolidariser, où qu'on l'appelle. Ne fait rien quand rien ne change.
+// Les innées déterminent la vitesse de progression des acquises : l'expérience
+// obtenue avec un tempérament donné n'est donc pas transposable à un autre.
+// Modifier le tempérament remet à zéro les quatre expériences et le palmarès,
+// opération effectuée par cette fonction afin que les deux ne puissent être
+// dissociées, quel que soit l'appelant. Sans changement effectif, la fonction
+// n'a aucun effet.
 void setRivalInnate(const QString &rivalId, const Innates &innate);
 
-// Et le ramener à ce qu'il était en arrivant, ce qui coûte pareil.
+// Restaure le tempérament initial de l'adversaire, avec les mêmes
+// conséquences sur son expérience.
 void resetRivalInnate(const QString &rivalId);
 
-// La phrase de sa carte: la sienne tant qu'il est celui qui est arrivé, et
-// celle que ses innées décrivent dès qu'on l'a changé -- une plaque ne doit
-// pas annoncer un joueur qui n'est plus là.
+// Phrase affichée sur sa carte : la phrase d'origine tant que son tempérament
+// n'a pas été modifié, et celle déduite de ses innées dans le cas contraire,
+// afin que la carte ne décrive pas un joueur différent de celui qui est en
+// jeu.
 QString rivalBlurb(const QString &rivalId);
 
-// Ce que son cerveau joue, ici et maintenant.
+// Paramètres de jeu de cet adversaire dans son état courant.
 Skill skillFor(const QString &rivalId);
 Skill skillFor(const QString &rivalId, int slot);
 
-// Le nom sous lequel on joue contre lui, sur ce profil-là.
+// Nom sous lequel l'adversaire apparaît sur ce profil.
 //
-// Les six restent les six: même couleur, même emblème, même cerveau, même
-// expérience. Seul le nom change, et il change par profil, comme tout ce qui
-// appartient à un profil -- la table du dimanche peut avoir ses habitués
-// sans que celle de la semaine les connaisse. Sans nom donné, c'est celui
-// avec lequel il est arrivé.
+// Les six adversaires restent les mêmes : même couleur, même emblème, même
+// logique de jeu, même expérience. Seul le nom varie, et il varie par profil,
+// comme toute donnée attachée à un profil. En l'absence de nom attribué, le
+// nom d'origine est employé.
 QString rivalName(const QString &rivalId);
 QString rivalName(const QString &rivalId, int slot);
 void setRivalName(const QString &rivalId, const QString &name);
 void clearRivalName(const QString &rivalId);
 
-// Au plus long qu'un nom donné puisse être: il faut qu'il tienne sur la
-// plaque, à côté de la pastille du niveau.
+// Longueur maximale d'un nom attribué, déterminée par la place disponible sur
+// la plaque, à côté de l'indicateur de niveau.
 inline constexpr int kRivalNameLength = 18;
 
-// Counted at the end of each manche. `place` is nought for whoever came out
-// best; `wentOut` is true for the one who got rid of their last card, which
-// is worth more than coming second by a little.
+// Comptabilisé à la fin de chaque manche. `place` vaut zéro pour le joueur
+// ayant obtenu le meilleur résultat ; `wentOut` vaut vrai pour celui qui s'est
+// débarrassé de sa dernière carte, ce qui rapporte davantage qu'une deuxième
+// place serrée.
 void noteRivalHand(const QString &rivalId, int place, int seats, bool wentOut,
                    const Deeds &deeds);
 void noteRivalMatch(const QString &rivalId, bool won);
 
-// Back to the level this one sits down with, this profile only. The fiche
-// offers it per rival rather than all at once: a player who has made Oriane
-// unbeatable may still want Lulu to stay a beginner. Ce qu'il est lui reste.
+// Ramène cet adversaire à son niveau initial, pour ce profil uniquement. La
+// fiche propose cette opération adversaire par adversaire et non globalement,
+// afin de pouvoir réinitialiser l'un sans affecter les autres. Le tempérament
+// est conservé.
 void resetRivalExperience(const QString &rivalId);

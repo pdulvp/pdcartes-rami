@@ -18,8 +18,8 @@ namespace {
 
 constexpr int kFrameMs = 16;
 
-// Combien de temps la chose dure. Assez pour lire la feuille de marque,
-// assez peu pour que personne n'attende qu'elle finisse.
+// Durée de l'animation : suffisante pour laisser apparaître la feuille de
+// marque, assez brève pour ne pas retarder la suite.
 constexpr int kFrames = 360;
 
 constexpr qreal kGravity = 0.40;
@@ -34,8 +34,9 @@ constexpr qreal kSparkGravity = 0.07;
 constexpr int kCardFrom = 20;
 constexpr int kCardOver = 40;
 
-// Pas plus que ça de cartes en l'air. Cent huit cartes qui rebondissent en
-// même temps, ce n'est pas une fête, c'est du grésil.
+// Nombre maximal de cartes animées simultanément. Au-delà, l'animation
+// devient confuse : cent huit cartes en mouvement ne sont plus
+// distinguables.
 constexpr int kMostFlyers = 64;
 
 qreal randomBetween(qreal low, qreal high) {
@@ -72,8 +73,8 @@ void VictoryEffect::start(const QVector<Card> &cards, const QVector<QPointF> &at
         Flyer flyer;
         flyer.card = cards.at(i);
         flyer.at = at.at(i);
-        // Lancées vers le haut et vers l'extérieur, pour que le tapis ait
-        // l'air de se défaire plutôt que de se renverser.
+        // Les cartes sont projetées vers le haut et vers l'extérieur, afin que
+        // le tapis paraisse se disperser plutôt que basculer.
         const qreal fromMiddle = flyer.at.x() - width() / 2.0;
         flyer.speed = QPointF(fromMiddle * 0.013 + randomBetween(-1.8, 1.8),
                               randomBetween(-12.0, -5.5));

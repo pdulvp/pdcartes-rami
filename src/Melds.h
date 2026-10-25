@@ -4,22 +4,23 @@
 
 #include <QVector>
 
-// What makes a combination, and how a hand is best read as a set of them.
+// Définition des combinaisons, et décomposition d'une main en combinaisons.
 //
-// The rami knows two combinations and no others:
+// Le rami n'en connaît que deux :
 //
-//   une suite  -- three cards or more of the same colour, following on from
-//                 one another: 7-8-9 de cœur. L'as goes under the deux or
-//                 above the roi, never both at once and never round the
-//                 corner.
-//   une série  -- three or four cards of the same rank in different colours:
-//                 three dames, or four. Two dames de cœur out of the two
-//                 packs are the same colour twice, and that is not a série.
+//   une suite  — trois cartes ou plus de la même couleur qui se suivent :
+//                7-8-9 de cœur. L'as se place sous le deux ou au-dessus du
+//                roi, jamais les deux à la fois et sans continuité entre le
+//                roi et le deux.
+//   une série  — trois ou quatre cartes du même rang, de couleurs
+//                différentes. Les deux jeux fournissant deux dames de cœur,
+//                celles-ci comptent pour une même couleur et ne forment pas
+//                une série.
 //
-// A joker stands in for any one card, and one joker at most to a combination.
-// Which card it stands for is written down rather than left open, because the
-// moment somebody wants to buy it back the answer has to be the same one the
-// combination was laid with.
+// Un joker remplace une carte quelconque, à raison d'un seul par combinaison.
+// La carte qu'il représente est enregistrée et non laissée indéterminée :
+// lors d'un rachat, la réponse doit être celle qui prévalait au moment où la
+// combinaison a été posée.
 
 enum class MeldKind { None, Suite, Serie };
 
@@ -28,70 +29,76 @@ struct Meld {
     int owner = -1;
     MeldKind kind = MeldKind::None;
 
-    // A suite is held in order, lowest first, with the joker sitting in the
-    // place it stands for. A série is held by colour with the joker last.
+    // Une suite est conservée dans l'ordre croissant, le joker occupant la
+    // position de la carte qu'il remplace. Une série est conservée par
+    // couleur, le joker en dernier.
     QVector<Card> cards;
 
-    // A suite only: where the first card sits on the one-to-fourteen ladder
-    // the suites are counted on, fourteen being l'as placed above the roi.
+    // Suites uniquement : position de la première carte sur l'échelle de un à
+    // quatorze propre aux suites, quatorze désignant l'as placé au-dessus du
+    // roi.
     int low = 0;
 
     bool valid() const { return kind != MeldKind::None && cards.size() >= 3; }
     bool hasJoker() const;
-    int jokerAt() const;             // where the joker sits, or -1
+    int jokerAt() const;             // position du joker, ou -1
     int runRankAt(int index) const { return low + index; }
-    int rank() const;                // a série only: the rank they share
-    Suit suit() const;               // a suite only: the colour they share
+    int rank() const;                // séries uniquement : le rang commun
+    Suit suit() const;               // suites uniquement : la couleur commune
     int points() const;
-    QString spell() const;           // "7-8-9 de cœur", for a sentence
+    QString spell() const;           // « 7-8-9 de cœur », pour une phrase
 };
 
-// Do these cards make one combination? `out` gets it in order when they do.
+// Indique si ces cartes forment une combinaison. Le cas échéant, `out` reçoit
+// la combinaison ordonnée.
 bool makeMeld(const QVector<Card> &cards, Meld *out);
 
-// Can `card` be added to `meld`? `out` gets the combination with it in place.
+// Indique si `card` peut être ajoutée à `meld`. Le cas échéant, `out` reçoit
+// la combinaison complétée.
 bool canExtend(const Meld &meld, const Card &card, Meld *out);
 
-// La combinaison moins une de ses cartes, quand elle tient encore sans elle.
-// L'inverse de canExtend ; faux dès qu'il en resterait moins de trois, ou que
-// ce qui reste ne se lit plus.
+// Retire une carte d'une combinaison, lorsque celle-ci reste valide sans
+// elle. Opération inverse de `canExtend` ; retourne faux s'il resterait moins
+// de trois cartes, ou si le reste ne forme plus une combinaison.
 //
-// `out` garde ce que le joker remplaçait chaque fois que c'est possible, là
-// où makeMeld relirait les cartes qui restent et lui donnerait parfois une
-// autre place : ôter le 3 de 3-★-5-6, où le joker est le quatre, en ferait
-// 5-6-★ avec le joker en sept -- une pose qui ne perdrait rien des trois
-// points qu'on vient de lui retirer.
+// `out` conserve autant que possible la carte représentée par le joker, là où
+// `makeMeld` réinterpréterait les cartes restantes et lui attribuerait parfois
+// une autre valeur : retirer le 3 de 3-★-5-6, où le joker vaut le quatre,
+// produirait 5-6-★ avec le joker en sept, c'est-à-dire une pose n'ayant rien
+// perdu des trois points qu'on vient de lui retirer.
 bool shorten(const Meld &meld, int cardId, Meld *out);
 
-// Which cards would buy the joker back out of `meld`. A suite leaves exactly
-// one answer; a série leaves one per colour it is missing.
+// Cartes permettant de racheter le joker de `meld`. Une suite n'en admet
+// qu'une ; une série en admet une par couleur absente.
 QVector<Card> jokerWants(const Meld &meld);
 
-// What the combinations in a hand are worth, and what is left over.
+// Valeur des combinaisons d'une main, et cartes non combinées.
 struct Plan {
     QVector<Meld> melds;
     QVector<Card> rest;
-    int points = 0;      // what the combinations come to
-    int deadwood = 0;    // what the rest would cost if the hand ended now
+    int points = 0;      // total des combinaisons
+    int deadwood = 0;    // pénalité des cartes restantes si la manche s'arrêtait
 };
 
-// How a hand is read.
+// Modes de lecture d'une main.
 //
-//   Balanced  -- the reading that leaves the least in hand: what a player
-//                wants when they are deciding what to throw.
-//   MostPoints -- the reading worth the most: what a player wants when they
-//                are counting whether they can reach fifty-one.
-//   Greedy    -- the biggest combination first and then whatever still fits,
-//                which is how a beginner reads a hand and why a beginner
-//                misses an opening that was there.
+//   Balanced   — la décomposition laissant le moins de points en main ;
+//                celle qu'un joueur recherche au moment de choisir sa
+//                défausse.
+//   MostPoints — la décomposition de plus forte valeur ; celle qu'un joueur
+//                recherche pour déterminer s'il peut atteindre cinquante et
+//                un.
+//   Greedy     — la plus grande combinaison d'abord, puis ce qui s'y ajoute ;
+//                c'est ainsi qu'un débutant lit sa main, et la raison pour
+//                laquelle il laisse passer des ouvertures possibles.
 enum class Reading { Balanced, MostPoints, Greedy };
 
 Plan readHand(const QVector<Card> &hand, Reading how);
 
-// Every combination the hand holds, which is the raw material the readings
-// are chosen from -- and, for a rival weighing what to throw away, the list
-// of what each card is doing there.
+// Toutes les combinaisons que contient la main. Ces combinaisons constituent
+// l'ensemble parmi lequel les décompositions sont choisies et, pour un
+// adversaire évaluant sa défausse, l'inventaire du rôle de chaque carte.
 QVector<Meld> allMelds(const QVector<Card> &hand);
 
-// What has to be laid to open: fifty-one points in one turn.
+// Total requis pour ouvrir : cinquante et un points en un seul tour.
 inline constexpr int kOpeningPoints = 51;

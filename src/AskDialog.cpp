@@ -38,8 +38,10 @@ bool askYesNo(QWidget *parent, const QString &banner, const QString &question,
     buttons->addButton(QObject::tr("Annuler"), QDialogButtonBox::RejectRole);
     QPushButton *go = buttons->addButton(doIt, QDialogButtonBox::AcceptRole);
     markDefaultButton(go);
-    // Le bouton qui annule a le focus en arrivant, et c'est voulu: on tape
-    // Entrée sur une boîte qu'on n'a pas lue, et ces questions-là effacent.
+    // Le bouton d'annulation reçoit le focus à l'ouverture. Ce choix est
+    // délibéré : la touche Entrée est fréquemment actionnée sans lecture
+    // préalable, et ces confirmations portent sur des opérations
+    // destructrices.
     go->setDefault(false);
     go->setAutoDefault(false);
     chrome.footer->addStretch();
@@ -48,14 +50,14 @@ bool askYesNo(QWidget *parent, const QString &banner, const QString &question,
     QObject::connect(buttons, &QDialogButtonBox::accepted, &box, &QDialog::accept);
     QObject::connect(buttons, &QDialogButtonBox::rejected, &box, &QDialog::reject);
 
-    // Large comme les autres, et haute de ce que la phrase du dessous demande:
-    // elle tient sur une ligne ou sur trois selon ce qu'on demande.
+    // Largeur identique à celle des autres boîtes, hauteur déterminée par la
+    // phrase inférieure, qui occupe une à trois lignes selon le cas.
     //
-    // Le plancher, lui, est celui du bandeau et non celui du texte: il court
-    // sur la tranche, tourné d'un quart de tour, et ce qui dépasse de la
-    // hauteur de la boîte est coupé aux deux bouts. Deux cent vingt pixels
-    // logent les actes qu'on nomme ici -- `OUBLIER UN PROFIL` est le plus
-    // long, et il était rogné à cent quatre-vingts.
+    // La hauteur minimale est en revanche imposée par le bandeau et non par le
+    // texte : celui-ci est affiché verticalement sur la tranche, et ce qui
+    // excède la hauteur de la boîte est tronqué aux deux extrémités. Deux cent
+    // vingt pixels suffisent aux libellés employés ici, « OUBLIER UN PROFIL »
+    // étant le plus long ; il était tronqué à cent quatre-vingts.
     box.resize(560, std::max(220, box.sizeHint().height()));
     return box.exec() == QDialog::Accepted;
 }

@@ -11,9 +11,9 @@
 
 namespace {
 
-// Les colonnes, comptées depuis la gauche. Fixes plutôt que calculées: huit
-// lignes alignées se lisent comme un tableau, et huit lignes qui s'alignent
-// chacune sur son propre texte se lisent comme huit lignes.
+// Position des colonnes, mesurée depuis la gauche. Ces valeurs sont fixes et
+// non calculées : huit lignes alignées se lisent comme un tableau, alors que
+// huit lignes alignées chacune sur son propre texte se lisent isolément.
 constexpr qreal kTitleWide = 112.0;
 constexpr qreal kPipStep = 18.0;
 constexpr qreal kPipSize = 11.0;
@@ -22,14 +22,14 @@ constexpr qreal kWordWide = 160.0;
 constexpr qreal kGaugeWide = 140.0;
 constexpr qreal kRowHigh = 34.0;
 
-// Serrée: ce que les mêmes colonnes mesurent dans l'aperçu. Les deux moitiés
-// y tiennent côte à côte, et huit lignes à l'écart de la fiche feraient un
-// panneau plus haut que la plaque qu'on survole.
+// Mode compact : largeur des mêmes colonnes dans l'aperçu. Les deux colonnes
+// de compétences y figurent côte à côte, et huit lignes à l'interligne de la
+// fiche produiraient un panneau plus haut que la plaque survolée.
 constexpr qreal kTightTitle = 76.0;
 constexpr qreal kTightRoman = 24.0;
 constexpr qreal kTightWord = 172.0;
 constexpr qreal kTightHigh = 21.0;
-// La taille des mots, serrée: deux points de moins que sur la fiche.
+// Corps du texte en mode compact : deux points de moins que sur la fiche.
 constexpr int kTightType = 11;
 
 } // namespace
@@ -41,9 +41,10 @@ SkillRow::SkillRow(QWidget *parent) : QWidget(parent) {
 
 qreal SkillRow::titleWide() const { return m_compact ? kTightTitle : kTitleWide; }
 
-// La colonne du rang est tenue vide sur la fiche, où les deux moitiés sont
-// l'une sous l'autre et doivent s'aligner. Serrée, les deux moitiés sont côte
-// à côte: celle des innées, qui n'a pas de rang, n'a pas à en garder la place.
+// La colonne du rang est réservée même vide sur la fiche, où les deux colonnes
+// de compétences sont superposées et doivent s'aligner. En mode compact,
+// elles sont côte à côte : celle des innées, dépourvue de rang, n'a pas à en
+// réserver la place.
 qreal SkillRow::romanWide() const {
     if (!m_compact) return kRomanWide;
     return m_roman.isEmpty() ? 0.0 : kTightRoman;
@@ -54,9 +55,10 @@ qreal SkillRow::wordWide() const { return m_compact ? kTightWord : kWordWide; }
 qreal SkillRow::rowHigh() const { return m_compact ? kTightHigh : kRowHigh; }
 
 QSize SkillRow::sizeHint() const {
-    // Serrée, la ligne fait juste ses trois colonnes, et sa dernière juste le
-    // mot qu'elle porte: c'est ce qui donne sa largeur à l'aperçu, et quatre
-    // mots courts n'ont pas à réserver la place de quatre longs.
+    // En mode compact, la ligne se limite à ses trois colonnes, la dernière
+    // étant ajustée à son libellé : c'est ce qui détermine la largeur de
+    // l'aperçu, quatre libellés courts n'ayant pas à réserver la place de
+    // quatre libellés longs.
     if (m_compact) {
         QFont word = font();
         word.setBold(true);
@@ -87,7 +89,8 @@ void SkillRow::setLevel(int level, int outOf) {
 
 void SkillRow::setWord(const QString &word) {
     m_word = word;
-    // Serrée, c'est le mot qui donne sa largeur à la ligne.
+    // En mode compact, la largeur de la ligne est déterminée par son
+    // libellé.
     if (m_compact) updateGeometry();
     update();
 }
@@ -136,8 +139,8 @@ QRectF SkillRow::pipBox(int index) const {
 
 int SkillRow::pipAt(const QPointF &where) const {
     for (int i = 0; i < m_outOf; ++i) {
-        // Un peu plus large que la pastille: on clique sur une pastille de
-        // neuf pixels, pas sur une cible de neuf pixels.
+        // Zone de clic légèrement plus large que la pastille : celle-ci mesure
+        // neuf pixels, ce qui serait insuffisant comme cible.
         if (pipBox(i).adjusted(-3.0, -6.0, 3.0, 6.0).contains(where)) return i;
     }
     return -1;
@@ -177,8 +180,8 @@ void SkillRow::paintEvent(QPaintEvent *) {
     painter.setRenderHint(QPainter::TextAntialiasing, true);
     if (m_dim) painter.setOpacity(0.38);
 
-    // Changeable: un fond très pâle de sa couleur, pour qu'on voie d'un coup
-    // d'œil quelles lignes répondent au clic.
+    // Ligne modifiable : un fond très clair dans sa couleur signale les lignes
+    // qui répondent au clic.
     if (m_editable) {
         QRectF box = QRectF(rect()).adjusted(0.0, 1.0, -1.0, -1.0);
         painter.setPen(Qt::NoPen);
@@ -194,8 +197,8 @@ void SkillRow::paintEvent(QPaintEvent *) {
     painter.drawText(QRectF(0.0, 0.0, titleWide() - 8.0, height()),
                      Qt::AlignLeft | Qt::AlignVCenter, m_title);
 
-    // Les pastilles. Pleines jusqu'au niveau où il en est, creuses ensuite --
-    // et celle qu'on survole se dessine en attendant d'être choisie.
+    // Les pastilles : pleines jusqu'au niveau atteint, évidées au-delà. Celle
+    // qui est survolée est représentée comme sélectionnée par anticipation.
     for (int i = 0; i < m_outOf; ++i) {
         const QRectF box = pipBox(i);
         const bool filled = i <= m_level;
@@ -211,10 +214,10 @@ void SkillRow::paintEvent(QPaintEvent *) {
 
     qreal left = titleWide() + m_outOf * kPipStep + 8.0;
 
-    // Le rang, quand il y en a un. Sur la fiche sa colonne est tenue même
-    // vide -- les innées n'en ont pas et les acquises si, et deux moitiés
-    // dont les mots ne commencent pas au même endroit se lisent comme deux
-    // tableaux; voir romanWide().
+    // Le rang, lorsqu'il existe. Sur la fiche, sa colonne est réservée même
+    // vide : les innées n'ont pas de rang et les acquises en ont un, et deux
+    // colonnes dont les libellés ne commencent pas au même endroit se liraient
+    // comme deux tableaux distincts. Voir `romanWide()`.
     if (!m_roman.isEmpty()) {
         QFont rank = plainFont(&painter);
         rank.setBold(true);
@@ -232,22 +235,24 @@ void SkillRow::paintEvent(QPaintEvent *) {
     painter.setFont(word);
     painter.setPen(mine);
     const QFontMetricsF wordMetrics(word);
-    // Serrée, le mot prend tout ce qui reste: la colonne est celle de la
-    // moitié, et c'est le plus long de ses quatre mots qui l'a fixée.
+    // En mode compact, le libellé occupe tout l'espace restant : la largeur de
+    // la colonne est celle de la colonne de compétences, déterminée par le plus
+    // long de ses quatre libellés.
     const qreal wordRoom = m_compact ? width() - left : wordWide() - 8.0;
     painter.drawText(QRectF(left, 0.0, wordRoom, height()),
                      Qt::AlignLeft | Qt::AlignVCenter,
                      wordMetrics.elidedText(m_word, Qt::ElideRight, wordRoom));
     left += wordWide();
 
-    // Serrée, la ligne s'arrête là: la phrase du niveau et la jauge de ce qui
-    // manque sont ce qu'on va lire dans la fiche, et l'aperçu n'est pas la
-    // fiche.
+    // En mode compact, la ligne s'arrête ici : la description du niveau et la
+    // jauge de progression relèvent de la fiche, que l'aperçu ne remplace
+    // pas.
     if (m_compact) return;
 
-    // La jauge, tout à droite, et ce qui manque écrit à côté. Sa colonne est
-    // tenue elle aussi, pour la même raison: la phrase finit au même endroit
-    // dans les huit lignes, qu'il y ait une jauge au bout ou non.
+    // La jauge, placée à l'extrême droite, accompagnée de l'expérience
+    // manquante. Sa colonne est également réservée, pour la même raison : la
+    // description se termine au même endroit sur les huit lignes, qu'une jauge
+    // la suive ou non.
     const qreal gaugeLeft = width() - kGaugeWide;
     const qreal room = gaugeLeft - left - 8.0;
     if (m_filled >= 0.0) {

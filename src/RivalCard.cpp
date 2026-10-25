@@ -27,8 +27,8 @@ RivalCard::RivalCard(const QString &rivalId, QWidget *parent)
     setAttribute(Qt::WA_Hover);
     setMinimumSize(286, 112);
 
-    // L'aperçu attend qu'on soit resté sur la carte: le pointeur qui traverse
-    // les six n'en allume aucune.
+    // L'aperçu n'apparaît qu'après un maintien du pointeur sur la carte : un
+    // déplacement à travers les six n'en déclenche aucun.
     m_glanceBeat = new QTimer(this);
     m_glanceBeat->setSingleShot(true);
     m_glanceBeat->setInterval(kGlanceDelayMs);
@@ -54,7 +54,7 @@ void RivalCard::setPickable(bool pickable) {
 
 void RivalCard::setOnFelt(bool onFelt) {
     m_onFelt = onFelt;
-    // Deux lignes de prose en moins: la carte est d'autant plus basse.
+    // Deux lignes de texte en moins : la carte est réduite d'autant.
     setMinimumSize(286, onFelt ? 74 : 112);
     updateGeometry();
     update();
@@ -71,9 +71,9 @@ void RivalCard::setGlanceWanted(bool wanted) {
 void RivalCard::reread() { update(); }
 
 void RivalCard::mousePressEvent(QMouseEvent *event) {
-    // On a cliqué: on sait déjà ce qu'on voulait savoir, et l'aperçu n'a plus
-    // qu'à s'effacer -- qu'on l'ait invité, ouvert son petit menu ou demandé
-    // sa fiche.
+    // Après un clic, l'aperçu n'a plus lieu d'être affiché, quelle que soit
+    // l'action demandée : invitation, menu contextuel ou ouverture de la
+    // fiche.
     m_glanceBeat->stop();
     hideRivalGlance(this);
     if (!m_pickable || event->button() != Qt::LeftButton) return;
@@ -82,9 +82,10 @@ void RivalCard::mousePressEvent(QMouseEvent *event) {
 
 void RivalCard::mouseDoubleClickEvent(QMouseEvent *event) {
     if (event->button() != Qt::LeftButton) return;
-    // Les deux clics ont déjà fait leur office -- invité, puis plus invité --
-    // ce qui laisse la carte comme on l'avait trouvée, et c'est bien ainsi:
-    // ouvrir une fiche n'est pas inviter quelqu'un.
+    // Les deux clics du double-clic ont déjà produit leur effet — invitation
+    // puis annulation — ce qui laisse la carte dans son état initial. Ce
+    // comportement est souhaitable : ouvrir une fiche n'équivaut pas à inviter
+    // l'adversaire.
     Q_EMIT sheetWanted();
     event->accept();
 }
@@ -92,8 +93,9 @@ void RivalCard::mouseDoubleClickEvent(QMouseEvent *event) {
 void RivalCard::contextMenuEvent(QContextMenuEvent *event) {
     m_glanceBeat->stop();
     hideRivalGlance(this);
-    // La position à l'écran plutôt que dans la carte: la page qui dresse le
-    // menu n'a pas à savoir où la carte se trouve.
+    // La position est exprimée en coordonnées d'écran et non relativement à la
+    // carte : la page qui construit le menu n'a pas à connaître la position de
+    // celle-ci.
     Q_EMIT menuWanted(event->globalPos());
     event->accept();
 }
@@ -107,15 +109,17 @@ void RivalCard::enterEvent(QEnterEvent *) {
 void RivalCard::leaveEvent(QEvent *) {
     m_hovered = false;
     m_glanceBeat->stop();
-    // Lâché plutôt que fermé: le pointeur est peut-être simplement passé sur
-    // l'aperçu, qui a dû se poser sur la carte faute de place ailleurs.
+    // L'aperçu est libéré et non fermé : le pointeur peut simplement être
+    // passé sur celui-ci, l'aperçu ayant pu être placé sur la carte faute de
+    // place ailleurs.
     releaseRivalGlance(this);
     update();
 }
 
 void RivalCard::hideEvent(QHideEvent *event) {
-    // La page a changé, ou la fenêtre s'est fermée: un aperçu qui survit à la
-    // carte qu'il décrit est un panneau qui flotte tout seul.
+    // Changement de page ou fermeture de la fenêtre : l'aperçu doit être
+    // fermé, faute de quoi il subsisterait sans la carte à laquelle il se
+    // rapporte.
     m_glanceBeat->stop();
     hideRivalGlance(this);
     QWidget::hideEvent(event);
@@ -124,8 +128,8 @@ void RivalCard::hideEvent(QHideEvent *event) {
 void RivalCard::paintEvent(QPaintEvent *) {
     const Palette &scheme = currentPalette();
     const Rival &who = rivalById(m_rivalId);
-    // Le nom qu'il porte sur ce profil. Le médaillon en prend l'initiale, si
-    // bien que le rebaptiser redessine sa pastille.
+    // Nom de l'adversaire sur ce profil. Le médaillon en reprend l'initiale,
+    // de sorte qu'un changement de nom modifie également son affichage.
     const QString called = rivalName(m_rivalId);
     const Learning learning = learningFor(who.id);
     const Level level = levelOf(learning.xp);
@@ -143,9 +147,9 @@ void RivalCard::paintEvent(QPaintEvent *) {
     QColor body;
     QColor edge;
     if (m_onFelt) {
-        // Sur le drap: presque noir, un peu éclairci au survol, et un filet
-        // d'or quand il est invité -- l'or est ce qui est retenu partout
-        // ailleurs dans ce menu.
+        // Sur le tapis : fond presque noir, légèrement éclairci au survol, et
+        // filet doré lorsque l'adversaire est invité, l'or servant de couleur
+        // de sélection dans tout ce menu.
         body = blendColours(scheme.feltEdge, QColor(0, 0, 0), lit ? 0.42 : 0.52);
         if (m_invited) body = blendColours(body, mine, 0.18);
         body.setAlpha(lit || m_invited ? 215 : 205);
@@ -163,7 +167,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
     painter.setPen(QPen(edge, m_invited ? 2.2 : 1.0));
     painter.drawPath(shape);
 
-    // L'encre de la carte, selon le fond sous elle.
+    // Couleur du texte de la carte, selon son fond.
     const QColor ink = m_onFelt ? scheme.feltText : scheme.surfaceText;
     QColor aside = m_onFelt ? scheme.feltText : scheme.hint;
     if (m_onFelt) aside.setAlphaF(0.60);
@@ -187,7 +191,7 @@ void RivalCard::paintEvent(QPaintEvent *) {
     painter.drawText(QRectF(left, inner.top(), wide, nameMetrics.height()),
                      Qt::AlignLeft | Qt::AlignVCenter, called);
 
-    // Le niveau, en pastille, dans sa couleur.
+    // Le niveau, affiché en pastille dans sa couleur propre.
     QFont pill = plainFont(&painter);
     pill.setPixelSize(10);
     pill.setBold(true);
@@ -199,9 +203,10 @@ void RivalCard::paintEvent(QPaintEvent *) {
     QRectF chip(0, 0, pillMetrics.horizontalAdvance(badge) + 16.0, pillMetrics.height() + 4.0);
     chip.moveTopRight(QPointF(inner.right(), inner.top() + 1.0));
     if (m_onFelt) {
-        // Creuse plutôt que pleine: six pastilles pleines dans six couleurs
-        // vives, sur un menu qui tient à l'or et au noir, c'est six taches.
-        // Le cerne garde sa couleur, ce qui suffit à le reconnaître.
+        // La pastille est évidée et non pleine : six pastilles pleines en
+        // couleurs vives seraient trop visibles sur un menu reposant sur l'or
+        // et le noir. Le contour conserve la couleur, ce qui suffit à
+        // identifier le niveau.
         painter.setPen(QPen(mine, 1.2));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(chip, chip.height() / 2.0, chip.height() / 2.0);
@@ -222,8 +227,9 @@ void RivalCard::paintEvent(QPaintEvent *) {
     small.setCapitalization(QFont::MixedCase);
     small.setLetterSpacing(QFont::PercentageSpacing, 100);
     const QFontMetricsF asideMetrics(small);
-    // Sa petite phrase: sur une fiche, où on vient la lire. Pas dans le menu,
-    // où six d'entre elles font un paragraphe qu'on ne lit pas.
+    // La phrase descriptive n'est affichée que sur la fiche, où elle est
+    // consultée ; dans le menu, six phrases de ce type formeraient un bloc de
+    // texte peu lisible.
     if (!m_onFelt) {
         painter.setFont(small);
         painter.setPen(aside);
@@ -234,8 +240,8 @@ void RivalCard::paintEvent(QPaintEvent *) {
         y += 4.0;
     }
 
-    // Les étoiles, la jauge, et le chiffre derrière elles -- parce que la
-    // jauge dit "bientôt" et le chiffre dit de combien.
+    // Les étoiles, la jauge et la valeur numérique associée : la jauge indique
+    // la progression de façon approximative, la valeur la précise.
     drawLevelStars(&painter, QRectF(left, y, 46.0, 12.0), levelStars(level), 3, scheme.gold,
                    blendColours(behind, ink, 0.16));
     const qreal gaugeLeft = left + 54.0;
@@ -249,8 +255,9 @@ void RivalCard::paintEvent(QPaintEvent *) {
                      tr("%1 xp").arg(learning.xp));
     y += 16.0;
 
-    // Ce qu'il a fait sous ce profil. Sur sa fiche seulement: dans le menu,
-    // c'est six fois la même ligne, et la jauge le dit déjà.
+    // Résultats sous ce profil, affichés sur la fiche uniquement : dans le
+    // menu, cette ligne serait répétée six fois et la jauge fournit déjà cette
+    // information.
     if (!m_onFelt) {
         QString record;
         if (learning.handsPlayed == 0) {

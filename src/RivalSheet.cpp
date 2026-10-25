@@ -23,13 +23,14 @@ RivalSheet::RivalSheet(const QString &rivalId, QWidget *parent)
     const DialogChrome chrome = applyDialogChrome(this, rivalName(who.id));
     setMinimumWidth(880);
 
-    // Sa carte, telle qu'au menu: le médaillon, le nom, le niveau, la jauge
-    // et son palmarès sous ce profil. La même carte plutôt qu'un en-tête de
-    // plus, pour que la fiche montre bien l'adversaire qu'on a cliqué.
+    // Sa carte, dans la même présentation que dans le menu : médaillon, nom,
+    // niveau, jauge et palmarès sous ce profil. La carte est réutilisée plutôt
+    // que remplacée par un en-tête spécifique, afin que la fiche identifie sans
+    // ambiguïté l'adversaire sélectionné.
     m_card = new RivalCard(who.id, this);
     m_card->setPickable(false);
-    // Et pas d'aperçu au survol: les huit lignes qu'il résume sont juste
-    // dessous, en entier.
+    // Aucun aperçu au survol : les huit lignes qu'il résume figurent
+    // intégralement en dessous.
     m_card->setGlanceWanted(false);
     chrome.fields->addWidget(m_card);
     chrome.fields->addSpacing(14);
@@ -137,8 +138,8 @@ void RivalSheet::buildLearned(QVBoxLayout *rows) {
 void RivalSheet::reread() {
     const Rival &who = rivalById(m_rivalId);
     const Learning learning = learningFor(who.id);
-    // En édition, les lignes montrent ce qu'on est en train de choisir; hors
-    // édition, ce qu'il est.
+    // En mode édition, les lignes affichent la sélection en cours ; hors
+    // édition, le tempérament enregistré.
     const Innates innate = m_editing ? m_draft : rivalInnate(who.id);
 
     for (int i = 0; i < m_innate.size(); ++i) {
@@ -160,8 +161,8 @@ void RivalSheet::reread() {
         row->setRank(rungRoman(rung));
         row->setWord(learnedSpec(which).rungs[rung]);
         row->setSays(learnedSpec(which).says[rung]);
-        // Ce qui manque pour le rang suivant, ou le total quand il n'y a plus
-        // de rang à prendre.
+        // Expérience manquante pour le rang suivant, ou expérience totale
+        // lorsque le dernier rang est atteint.
         const int gap = rungGap(xp);
         row->setGauge(rungProgress(xp),
                       gap > 0 ? tr("%1 avant %2").arg(gap).arg(rungRoman(rung + 1))
@@ -225,8 +226,8 @@ void RivalSheet::askResetExperience() {
 }
 
 void RivalSheet::applyInnate() {
-    // Reposer les mêmes niveaux n'est pas un changement: on referme, et rien
-    // ne s'efface.
+    // Réaffecter les mêmes niveaux ne constitue pas une modification : la
+    // boîte se referme sans rien effacer.
     if (m_draft == rivalInnate(m_rivalId)) {
         setEditing(false);
         return;
@@ -244,9 +245,9 @@ void RivalSheet::applyInnate() {
         return;
     }
 
-    // Les deux d'un seul coup, et c'est setRivalInnate qui s'en charge: les
-    // niveaux écrits et l'expérience remise, sans que l'un puisse arriver
-    // sans l'autre.
+    // Les deux opérations sont effectuées conjointement par `setRivalInnate` :
+    // enregistrement des niveaux et réinitialisation de l'expérience, l'une ne
+    // pouvant avoir lieu sans l'autre.
     setRivalInnate(m_rivalId, m_draft);
     setEditing(false);
     Q_EMIT changed();

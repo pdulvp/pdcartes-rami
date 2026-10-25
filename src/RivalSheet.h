@@ -13,30 +13,30 @@ class QVBoxLayout;
 class RivalCard;
 class SkillRow;
 
-// La fiche d'un adversaire: ce qu'il est, ce qu'il a appris, et les deux
-// boutons.
+// Fiche d'un adversaire : son tempérament, son expérience acquise, et les
+// deux boutons d'action.
 //
-// Elle s'ouvre d'un double clic sur sa carte, au menu d'ouverture. Huit
-// lignes, quatre et quatre, la même forme deux fois: à gauche ce qu'il est,
-// à droite ce qu'il a appris. Chaque compétence a sa couleur.
+// Elle s'ouvre par un double-clic sur sa carte, dans le menu d'ouverture. Elle
+// comporte huit lignes de même forme, réparties en deux colonnes : à gauche le
+// tempérament, à droite l'expérience acquise. Chaque compétence a sa couleur.
 //
-// Les deux boutons ne font pas la même chose, et la différence est tout le
-// sujet:
+// Les deux boutons ont des effets distincts :
 //
 //   Remettre son expérience à zéro   Les quatre expériences et le palmarès
-//                                    repartent. Il reste lui-même, avec son
-//                                    nom et son caractère.
-//   Changer ce qu'il est             Les quatre innées se posent à la main --
-//                                    et valider lui fait tout réapprendre,
-//                                    parce que l'expérience gagnée par un
-//                                    joueur n'est pas l'expérience qu'un
-//                                    autre aurait. La moitié acquise
-//                                    s'éteint pendant qu'on choisit, pour
-//                                    qu'on voie ce qu'on s'apprête à
-//                                    effacer.
+//                                    sont réinitialisés. Le nom et le
+//                                    tempérament sont conservés.
+//   Changer ce qu'il est             Les quatre innées sont modifiables
+//                                    manuellement ; la validation entraîne la
+//                                    perte de toute l'expérience, celle-ci
+//                                    n'étant pas transposable d'un
+//                                    tempérament à un autre. La colonne des
+//                                    acquises est grisée pendant la
+//                                    modification, afin de montrer ce qui sera
+//                                    effacé.
 //
-// Rien ne s'écrit avant « Changer et réapprendre »: ouvrir l'éditeur et le
-// refermer est gratuit, et reposer les mêmes niveaux n'efface rien.
+// Aucune écriture n'a lieu avant la validation par « Changer et
+// réapprendre » : ouvrir puis refermer l'éditeur est sans effet, et
+// réaffecter les mêmes niveaux n'efface rien.
 class RivalSheet : public QDialog {
     Q_OBJECT
 
@@ -44,8 +44,8 @@ public:
     explicit RivalSheet(const QString &rivalId, QWidget *parent = nullptr);
 
 Q_SIGNALS:
-    // Son expérience ou son caractère a bougé: la page d'où l'on vient a des
-    // cartes à redessiner.
+    // Émis lorsque l'expérience ou le tempérament a été modifié : la page
+    // appelante doit redessiner ses cartes.
     void changed();
 
 private:
@@ -62,9 +62,9 @@ private:
     QVector<SkillRow *> m_learned;
     QLabel *m_learnedNote = nullptr;
     QLabel *m_warning = nullptr;
-    // Les deux qui agissent sur une moitié de la fiche se tiennent au bout du
-    // titre de leur moitié, en icône: c'est là qu'on les cherche, et le bas de
-    // la boîte reste à « Fermer ».
+    // Les deux boutons agissant sur une colonne de la fiche sont placés en fin
+    // de titre de cette colonne, sous forme d'icônes : c'est là qu'ils sont
+    // attendus, et le bas de la boîte reste réservé au bouton « Fermer ».
     QToolButton *m_change = nullptr;
     QToolButton *m_reset = nullptr;
     QPushButton *m_asArrived = nullptr;

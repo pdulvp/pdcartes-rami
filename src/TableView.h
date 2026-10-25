@@ -11,68 +11,73 @@
 class QTimer;
 class Rami;
 
-// La table, à l'écran.
+// Affichage de la table.
 //
-// One widget for the whole cloth: the plaques of the people you are playing
-// against along the top, the combinations everybody has laid in the middle,
-// the pioche and the défausse down the right, and your own fifteen cards
-// along the bottom. It is one widget and not six because the cloth is one
-// surface -- a card has to be able to fly from somebody's plaque to the
-// défausse, and a layout of panels is exactly the thing that will not let it.
+// Un unique widget couvre l'ensemble du tapis : les plaques des adversaires
+// en haut, les combinaisons posées au centre, la pioche et la défausse sur la
+// droite, et la main du joueur en bas. Le regroupement en un seul widget est
+// imposé par les animations : une carte doit pouvoir se déplacer de la plaque
+// d'un joueur jusqu'à la défausse, ce qu'une disposition en panneaux
+// distincts interdirait.
 //
-// It paints the game and it reports clicks. It does not know the rules: which
-// of its cards may be pressed, and what happens when one is, belongs to the
-// page above it.
+// Ce widget assure le rendu et signale les clics. Il ne connaît pas les
+// règles : la détermination des cartes activables et le traitement des clics
+// relèvent de la page qui le contient.
 class TableView : public QWidget {
     Q_OBJECT
 
 public:
     explicit TableView(QWidget *parent = nullptr);
 
-    // The game being shown. Not owned; the view reads it and never changes it.
+    // Partie affichée. Elle n'appartient pas à cette classe, qui la lit sans
+    // jamais la modifier.
     void watch(const Rami *game);
 
-    // Les cartes choisies dans la main, which is a thing about the screen
-    // rather than about the game: it is what the Poser button will be handed.
+    // Cartes sélectionnées dans la main. Cette information relève de
+    // l'affichage et non des règles : c'est ce qui sera transmis au bouton
+    // Poser.
     const QVector<int> &chosen() const { return m_chosen; }
     void setChosen(const QVector<int> &cards);
     void clearChosen();
 
-    // A line of what is going on, written on the cloth above your hand.
+    // Ligne d'état affichée sur le tapis, au-dessus de la main du joueur.
     void say(const QString &line);
     void sayTrouble(const QString &line);
 
-    // Ce qui vient de se passer, so that it can be seen happening: a card
-    // flying to the défausse, and a ring that fades on whatever was played.
+    // Coup qui vient d'être joué, afin de pouvoir l'animer : déplacement
+    // d'une carte vers la défausse, et anneau qui s'estompe sur la carte
+    // jouée.
     void noteDiscard(int seat, const Card &card);
     void noteDrawn(int seat, bool fromPile, const Card &card);
-    // `by` est le joueur qui les pose, quand ce n'est pas celui à qui la
-    // combinaison appartient: compléter la combinaison d'un adversaire fait
-    // partir la carte de votre main, et non de sa plaque à lui. Laissé à -1,
-    // c'est le propriétaire de la combinaison qui la joue.
+    // `by` désigne le joueur qui pose les cartes lorsqu'il diffère du
+    // propriétaire de la combinaison : compléter la combinaison d'un
+    // adversaire fait partir la carte de la main du joueur et non de la
+    // plaque de l'adversaire. À -1, le propriétaire de la combinaison est
+    // considéré comme l'auteur du coup.
     void noteLaid(const QVector<int> &cardIds, int by = -1);
-    // La pose reprise en main: les cartes repartent du rail vers la main.
+    // Pose reprise en main : les cartes retournent du rail vers la main.
     void noteTakenBack(const QVector<int> &cardIds);
     void stopAnimations();
 
-    // Puts the colours that are current now on the cloth, for the dark button.
+    // Applique au tapis la palette courante, à la suite d'un changement de
+    // mode sombre.
     void refresh();
 
-    // La taille des cartes, en pour cent.
+    // Taille des cartes, en pourcentage.
     //
-    // Un jeu installé apporte des images d'une finesse donnée -- les CARDS.DLL
-    // de Windows font 71 sur 96 -- et une figure réduite au quart de cela sur
-    // le tapis n'est plus qu'un bruit de couleurs. Aucun filtre ne rend des
-    // pixels qui n'existent pas: ce qu'il faut, c'est pouvoir les dessiner plus
-    // grandes. Le zoom tire sur toutes les tailles de carte à la fois, la main,
-    // le tapis, la pioche et la pose, et chaque bande de la table grandit avec
-    // elles plutôt que de les laisser déborder.
+    // Un jeu installé fournit des images d'une définition donnée — les
+    // fichiers CARDS.DLL de Windows mesurent 71 sur 96 pixels — et une figure
+    // réduite au quart de cette taille devient illisible. Aucun filtrage ne
+    // restitue des pixels absents ; la seule solution est de pouvoir les
+    // afficher plus grandes. Le zoom agit simultanément sur toutes les tailles
+    // de carte — la main, le tapis, la pioche et la pose — et chaque zone de
+    // la table est redimensionnée en conséquence.
     void setZoom(int percent);
     int zoom() const { return m_zoom; }
 
-    // Où chaque carte posée se trouve à l'écran, et laquelle c'est: ce qu'il
-    // faut au feu d'artifice pour que les cartes aient l'air de se soulever du
-    // tapis plutôt que d'arriver de nulle part.
+    // Position à l'écran de chaque carte posée, et son identité. Ces données
+    // sont requises par l'animation de victoire, afin que les cartes semblent
+    // se détacher du tapis plutôt que d'apparaître.
     void cardsOnScreen(QVector<Card> *cards, QVector<QPointF> *at) const;
     qreal meldCardHeight() const { return m_meldHeight; }
 
@@ -82,12 +87,13 @@ Q_SIGNALS:
     void cardPressed(int cardId);
     void cardDoubleClicked(int cardId);
     void meldPressed(int meldId);
-    // Le clic droit sur une combinaison : racheter son joker.
+    // Clic droit sur une combinaison : rachat de son joker.
     void meldRightPressed(int meldId);
-    // Le clic sur une carte de la pose en cours, sur le rail : la reprendre.
+    // Clic sur une carte de la pose en cours, sur le rail : reprise de la
+    // carte.
     void poseCardPressed(int cardId);
     void chosenChanged();
-    // Changé à la molette, pour que la fenêtre le garde.
+    // Modifié à la molette ; la fenêtre principale enregistre la valeur.
     void zoomChanged(int percent);
 
 protected:
@@ -109,16 +115,16 @@ private:
     struct Flight {
         Card card;
         bool faceUp = true;
-        // Le demi-tour: la carte part de dos, passe de profil à mi-chemin et
-        // arrive face en haut. Réservé à votre pioche -- c'est le seul moment
-        // du jeu où une carte se retourne pour vous.
+        // Retournement : la carte part face cachée, passe de profil à
+        // mi-parcours et arrive face visible. Réservé à la pioche du joueur,
+        // seul moment où une carte se retourne à son intention.
         bool flips = false;
         QPointF from;
         QPointF to;
         QSizeF size;
-        // Where it is going, when that is not the size it started at: a card
-        // leaving the pioche for your hand is drawn small at one end of the
-        // flight and full size at the other.
+        // Taille d'arrivée, lorsqu'elle diffère de la taille de départ : une
+        // carte quittant la pioche pour la main est dessinée réduite au début
+        // du déplacement et à taille réelle à la fin.
         QSizeF grow;
         qreal along = 0.0;
         qreal speed = 0.055;
@@ -139,61 +145,64 @@ private:
 
     int cardAt(const QPointF &where) const;
     int meldAt(const QPointF &where) const;
-    // La plaque d'adversaire sous ce point, ou -1. La vôtre n'en est pas:
-    // elle est sous la défausse, et vous savez ce que vous savez faire.
+    // Plaque d'adversaire située sous ce point, ou -1. La plaque du joueur
+    // n'est pas concernée : elle se trouve sous la défausse et ne donne accès
+    // à aucun aperçu.
     int seatAt(const QPointF &where) const;
-    // La carte de la pose en cours sous le pointeur, ou -1. Les cartes d'une
-    // combinaison se chevauchent : c'est celle du dessus qui répond.
+    // Carte de la pose en cours située sous le pointeur, ou -1. Les cartes
+    // d'une combinaison se chevauchant, c'est celle du dessus qui est
+    // retenue.
     int poseCardAt(const QPointF &where) const;
 
     void tick();
     void wake();
     QPointF seatAnchor(int at) const;
 
-    // Les deux flèches qui montrent où prendre: leur place, s'il y a lieu de
-    // les montrer, et le petit rectangle qu'il suffit de redemander quand
-    // elles seules bougent.
+    // Les deux flèches indiquant où piocher : leur position, la condition de
+    // leur affichage, et le rectangle minimal à redessiner lorsqu'elles seules
+    // changent.
     QRectF arrowBox(const QRectF &card) const;
 
-    // Une carte est-elle en train de voler ? Le jeu range la carte à sa
-    // destination avant que l'animation parte, si bien que sans cette
-    // question-là elle se trouve dessinée deux fois: une fois arrivée, une
-    // fois en chemin.
+    // Indique si une carte est en cours de déplacement. Les règles placent la
+    // carte à sa destination avant le démarrage de l'animation ; sans ce test,
+    // elle serait dessinée deux fois, à sa destination et en cours de
+    // déplacement.
     bool inFlight(int cardId) const;
 
-    // La place qu'occupe la i-ème carte d'une main qui en compte `count`.
+    // Position de la i-ème carte d'une main en comptant `count`.
     //
-    // Fonction pure de ces deux nombres: c'est ce qui permet de savoir où les
-    // cartes étaient avant la pioche sans l'avoir noté -- la main d'avant est
-    // la main d'après moins une carte.
+    // Cette fonction ne dépend que de ces deux paramètres, ce qui permet de
+    // reconstituer la position des cartes avant la pioche sans l'avoir
+    // enregistrée : la main précédente est la main courante moins une carte.
     QRectF handSlot(int index, int count) const;
 
-    // Où une carte de la main est *à cet instant*: sa place, ou le point du
-    // trajet où elle en est si la main est en train de s'écarter. Le dessin
-    // et le pointage s'en servent tous les deux -- c'est ce qui garantit
-    // qu'on clique la carte qu'on voit.
+    // Position courante d'une carte de la main : sa position de repos, ou sa
+    // position intermédiaire si la main est en cours d'écartement. Le rendu et
+    // la détection des clics emploient tous deux cette fonction, ce qui
+    // garantit que le clic porte sur la carte affichée.
     QRectF handBoxNow(int id, const QRectF &box) const;
 
-    // La place de la k-ième carte d'une combinaison posée sur le tapis.
+    // Position de la k-ième carte d'une combinaison posée sur le tapis.
     QRectF meldCardBox(const QRectF &spot, int index) const;
 
-    // La place de la k-ième carte d'une pose en cours, sur le rail.
+    // Position de la k-ième carte d'une pose en cours, sur le rail.
     QRectF poseCardBox(const QRectF &spot, int index) const;
 
-    // Où chaque carte posée sur le rail a été dessinée: d'où elle revient
-    // quand on la reprend en main.
+    // Position de rendu de chaque carte du rail : origine de l'animation de
+    // reprise en main.
     QHash<int, QRectF> m_poseWas;
 
-    // L'écartement de la main pendant qu'une carte piochée vole vers sa
-    // place: d'où chaque carte part, et où en est le mouvement.
+    // Écartement de la main pendant qu'une carte piochée rejoint sa
+    // position : position de départ de chaque carte et avancement de
+    // l'animation.
     QHash<int, QRectF> m_slideFrom;
     qreal m_slideAlong = 1.0;
     QRectF m_handRowWas;
 
-    // Où chaque carte de la main a été posée la dernière fois qu'on a
-    // disposé la table. La disposition est refaite pendant que la carte
-    // quitte la main, si bien qu'au moment d'animer son départ sa place n'est
-    // déjà plus dans m_handBoxes: c'est ici qu'on la retrouve.
+    // Position de chaque carte de la main lors de la dernière disposition de
+    // la table. La disposition étant recalculée pendant que la carte quitte la
+    // main, sa position ne figure plus dans `m_handBoxes` au moment d'animer
+    // son départ : elle est retrouvée ici.
     QHash<int, QRectF> m_handWas;
     bool beckoning() const;
     QRect beckonArea() const;
@@ -212,8 +221,9 @@ private:
     QVector<Spot> m_meldBoxes;
     QVector<Spot> m_handBoxes;
     QVector<Spot> m_poseBoxes;
-    // Chaque carte du rail, une par une : m_poseBoxes donne la place d'une
-    // combinaison, et c'est une carte qu'on reprend.
+    // Position de chaque carte du rail prise isolément : `m_poseBoxes` ne
+    // fournit que la position d'une combinaison entière, alors que la reprise
+    // porte sur une carte.
     QVector<Spot> m_poseCardBoxes;
     qreal m_meldHeight = 54.0;
     int m_zoom = 100;
@@ -223,8 +233,9 @@ private:
     int m_hovered = -1;
     int m_hoveredMeld = -1;
     int m_hoveredPose = -1;
-    // La plaque qu'on survole, et la minuterie au bout de laquelle son aperçu
-    // paraît: huit compétences en face de soi, sans quitter la manche.
+    // Plaque survolée, et minuterie au terme de laquelle son aperçu
+    // s'affiche : les huit compétences de l'adversaire, consultables sans
+    // interrompre la manche.
     int m_hoveredSeat = -1;
     QTimer *m_glanceBeat = nullptr;
     bool m_hoverStock = false;

@@ -6,13 +6,14 @@
 
 class QTimer;
 
-// La carte d'un adversaire: son médaillon, son nom, son niveau, sa jauge, et
-// ce qu'il a fait sous ce profil-là.
+// Carte d'un adversaire : son médaillon, son nom, son niveau, sa jauge de
+// progression et ses résultats sous le profil courant.
 //
-// Elle vit au menu d'ouverture, là où l'on regarde les six avant de choisir
-// la table: un clic invite à la table, un clic droit demande le petit menu.
-// La carte ne fait que le demander -- c'est la page qui le dresse, parce que
-// c'est elle qui sait ce qu'on peut faire d'un adversaire.
+// Elle est affichée dans le menu d'ouverture, où les six adversaires sont
+// présentés avant le choix de la table : un clic invite l'adversaire, un clic
+// droit demande l'ouverture du menu contextuel. La carte se borne à émettre
+// cette demande, le menu étant construit par la page, seule à connaître les
+// opérations applicables à un adversaire.
 class RivalCard : public QWidget {
     Q_OBJECT
 
@@ -24,21 +25,23 @@ public:
     void setInvited(bool invited);
     bool invited() const { return m_invited; }
 
-    // Au menu, un clic invite. Ailleurs, la carte ne fait que dire.
+    // Dans le menu, un clic invite l'adversaire ; ailleurs, la carte est
+    // purement informative.
     void setPickable(bool pickable);
-    // Posée sur le drap plutôt que sur le fond pâle d'une fiche: la carte
-    // devient sombre et bordée d'or, et se resserre sur ce qui se regarde --
-    // le médaillon, le nom, son niveau et sa jauge. Ce qu'elle laisse tomber
-    // -- sa petite phrase et son palmarès -- est dit par l'aperçu au survol
-    // et par sa fiche, où il y a la place de le dire bien.
+    // Affichage sur le tapis plutôt que sur le fond clair d'une fiche : la
+    // carte est alors sombre et bordée d'or, et se limite aux éléments
+    // essentiels — médaillon, nom, niveau et jauge. Les éléments omis — la
+    // phrase descriptive et le palmarès — sont présentés par l'aperçu au
+    // survol et par la fiche, qui disposent de la place nécessaire.
     void setOnFelt(bool onFelt);
 
-    // Le survol fait paraître l'aperçu de ses huit compétences. La carte qui
-    // est dans sa fiche ne le veut pas: elle est déjà sous les huit lignes
-    // qu'il résume.
+    // Le survol fait apparaître l'aperçu de ses huit compétences. La carte
+    // figurant dans la fiche n'active pas ce comportement, étant déjà placée
+    // au-dessus des huit lignes que l'aperçu résume.
     void setGlanceWanted(bool wanted);
 
-    // Après que l'expérience a bougé, ou que le profil a changé.
+    // À appeler après une modification de l'expérience ou un changement de
+    // profil.
     void reread();
 
     QSize sizeHint() const override;
@@ -46,8 +49,8 @@ public:
 Q_SIGNALS:
     void invitedChanged();
     void menuWanted(const QPoint &where);
-    // Double clic: on veut sa fiche. La carte ne sait pas la dresser -- c'est
-    // la page qui l'ouvre, comme pour le menu.
+    // Double-clic : ouverture de la fiche. La carte ne la construit pas ;
+    // c'est la page qui l'ouvre, comme pour le menu contextuel.
     void sheetWanted();
 
 protected:
@@ -61,7 +64,8 @@ protected:
 
 private:
     QString m_rivalId;
-    // La minuterie du survol: l'aperçu attend qu'on soit resté sur la carte.
+    // Minuterie de survol : l'aperçu n'apparaît qu'après un maintien du
+    // pointeur sur la carte.
     QTimer *m_glanceBeat = nullptr;
     bool m_invited = false;
     bool m_onFelt = false;

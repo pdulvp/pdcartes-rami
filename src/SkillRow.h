@@ -3,26 +3,28 @@
 #include <QString>
 #include <QWidget>
 
-// La ligne d'une compétence, dans la fiche d'un adversaire.
+// Ligne décrivant une compétence, dans la fiche d'un adversaire.
 //
-// Huit lignes de la même forme, quatre et quatre: son nom, ses pastilles, le
-// mot du niveau où il en est, et ce que ce niveau change à la table. Les
-// acquises ont en plus leur rang en chiffres romains et la jauge de ce qui
-// manque pour le suivant.
+// La fiche comporte huit lignes de même forme, réparties en deux colonnes de
+// quatre : le nom de la compétence, ses pastilles de niveau, l'intitulé du
+// niveau atteint, et l'effet de ce niveau en cours de partie. Les acquises
+// comportent en outre leur rang en chiffres romains et la jauge de progression
+// vers le rang suivant.
 //
-// Chaque compétence a sa couleur, et ce n'est pas celle du tapis: le jeu
-// entier descend d'une seule teinte -- jade à deux, bordeaux à six -- et une
-// fiche de huit lignes toutes vertes serait une fiche qu'on ne lit pas. Les
-// quatre chaudes sont ce qu'il est, les quatre froides ce qu'il a appris; la
-// couleur seule dit quelle moitié on regarde.
+// Chaque compétence a une couleur propre, distincte de celle du tapis :
+// l'ensemble de l'application dérive d'une teinte unique, et une fiche de huit
+// lignes monochromes serait difficile à parcourir. Les quatre teintes chaudes
+// correspondent au tempérament, les quatre teintes froides à l'expérience
+// acquise ; la couleur seule indique donc la colonne concernée.
 //
-// Une ligne innée peut se changer: ses pastilles se cliquent, et c'est la
-// fiche qui sait ce que cela coûte.
+// Une ligne d'innée est modifiable : ses pastilles sont cliquables, la fiche
+// étant seule à connaître les conséquences de cette modification.
 //
-// Serrée, elle ne garde que ses trois premières colonnes -- le nom, les
-// pastilles, le rang et son mot -- et se tasse: c'est la ligne de l'aperçu
-// qui flotte au survol d'un adversaire, où il y a huit lignes à montrer sur
-// deux colonnes et pas la place d'une phrase. Voir RivalGlance.h.
+// En mode compact, la ligne ne conserve que ses trois premières colonnes — le
+// nom, les pastilles, le rang et son intitulé — et sa hauteur est réduite.
+// C'est la forme employée par l'aperçu affiché au survol d'un adversaire, qui
+// doit présenter huit lignes sur deux colonnes sans place pour une phrase.
+// Voir RivalGlance.h.
 class SkillRow : public QWidget {
     Q_OBJECT
 
@@ -31,19 +33,21 @@ public:
 
     void setTitle(const QString &title);
     void setHue(int hue);
-    // Le niveau où il en est, et combien il y en a.
+    // Niveau atteint, et nombre total de niveaux.
     void setLevel(int level, int outOf);
     void setWord(const QString &word);
     void setSays(const QString &says);
-    // Les acquises seulement: le rang en romain, et la jauge du rang suivant.
+    // Acquises uniquement : le rang en chiffres romains et la jauge de
+    // progression vers le rang suivant.
     void setRank(const QString &roman);
     void setGauge(qreal filled, const QString &right);
 
-    // Les pastilles se cliquent.
+    // Rend les pastilles cliquables.
     void setEditable(bool editable);
-    // Éteinte: ce qui va s'effacer, pendant qu'on change ce qu'il est.
+    // Grisée : désigne ce qui sera effacé pendant la modification du
+    // tempérament.
     void setDim(bool dim);
-    // Serrée: les trois premières colonnes seules, et la ligne basse.
+    // Mode compact : seules les trois premières colonnes, à hauteur réduite.
     void setCompact(bool compact);
 
     int level() const { return m_level; }
@@ -60,10 +64,10 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 private:
-    // Quelle pastille se trouve sous ce point, ou -1.
+    // Pastille située sous ce point, ou -1.
     int pipAt(const QPointF &where) const;
     QRectF pipBox(int index) const;
-    // Les colonnes, qui ne sont pas les mêmes serrée ou non.
+    // Les colonnes, dont la disposition diffère selon le mode compact.
     qreal titleWide() const;
     qreal romanWide() const;
     qreal wordWide() const;

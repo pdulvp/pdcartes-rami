@@ -18,28 +18,29 @@
 
 namespace {
 
-// How round a card's corners are, as a fraction of its width.
-// L'arrondi du coin d'une carte, en part de sa largeur.
+// Rayon d'arrondi des coins d'une carte, en proportion de sa largeur.
 //
-// Petit, et pour une raison qui ne se voit qu'avec un jeu installé: une carte
-// venue d'un fichier porte déjà son propre coin -- les CARDS.DLL de Windows
-// ont un filet noir qui rentre de deux pixels sur soixante et onze, soit
-// moins de trois centièmes. Découper par-dessus avec un arrondi plus large,
-// c'est scier au travers de ce filet et laisser un moignon à chaque coin.
+// La valeur est faible, pour une raison qui n'apparaît qu'avec un jeu
+// installé : une carte provenant d'un fichier possède déjà ses propres coins.
+// Les fichiers CARDS.DLL de Windows comportent ainsi un filet noir situé à
+// deux pixels du bord sur soixante et onze, soit moins de trois centièmes de
+// la largeur. Appliquer par-dessus un arrondi plus large couperait ce filet
+// et laisserait un fragment visible à chaque coin.
 //
-// Ce chiffre-là passe donc partout: il suit le filet des cartes de Windows,
-// il ne mord pas dans un jeu dont les coins sont déjà transparents, il
-// adoucit un jeu aux coins carrés -- et les cartes que le programme dessine
-// le portent aussi, pour qu'un jeu installé et le jeu dessiné aient la même
-// coupe.
+// Cette valeur convient donc à tous les cas : elle suit le filet des cartes
+// de Windows, n'entame pas un jeu dont les coins sont déjà transparents, et
+// adoucit un jeu aux coins vifs. Les cartes dessinées par le programme
+// l'emploient également, afin qu'un jeu installé et le jeu dessiné présentent
+// la même découpe.
 constexpr qreal kCornerPart = 0.035;
 
-// Les points du tapis.
+// Motif de trame du tapis.
 //
-// A weave is made of threads lying across one another, and the way to say
-// that in two colours is one family of lines a shade lighter than the cloth
-// and one a shade darker, half a pitch apart. Eight pixels square, so that
-// the pattern tiles without a seam and the lines land on whole pixels.
+// Une trame est formée de fils se croisant. Elle est rendue au moyen de deux
+// familles de lignes, l'une légèrement plus claire que le tissu et l'autre
+// légèrement plus sombre, décalées d'un demi-pas. La tuile mesure huit pixels
+// de côté, de sorte que le motif se répète sans raccord visible et que les
+// lignes tombent sur des pixels entiers.
 struct Weave {
     QPixmap tile;
     int hue = -1;
@@ -47,26 +48,27 @@ struct Weave {
     bool made = false;
 };
 
-// Handed out by a function rather than kept as a variable at file scope: a
-// QPixmap wants a QGuiApplication to exist before it is made, and a variable
-// at file scope is made before main() has got as far as making one. A static
-// inside a function is made the first time the function is called, which is
-// long afterwards.
+// La tuile est fournie par une fonction plutôt que conservée dans une
+// variable de portée fichier : la construction d'un `QPixmap` suppose qu'une
+// `QGuiApplication` existe déjà, alors qu'une variable de portée fichier est
+// construite avant que `main()` n'en ait créé une. Une variable statique
+// locale à une fonction est construite au premier appel, bien plus tard.
 Weave &weave() {
     static Weave kept;
     return kept;
 }
 
-// Les dos dessinés, gardés en images.
+// Cache des dos de cartes dessinés.
 //
-// Le treillis est une cinquantaine de diagonales rognées à un coin arrondi,
-// et un dos n'est jamais seul à l'écran: il y en a un sur la pioche, un sur
-// la défausse et un par tas de cartes en face. Redessiné à chaque repaint il
-// coûte plus cher qu'une figure -- deux fois plus, mesuré -- alors comme le
-// treillis du tapis il est fait une fois par taille puis recopié.
+// Le treillis se compose d'une cinquantaine de diagonales découpées selon un
+// coin arrondi, et un dos n'apparaît jamais seul à l'écran : il y en a un sur
+// la pioche, un sur la défausse et un par tas de cartes adverse. Redessiné à
+// chaque rafraîchissement, il coûterait deux fois plus cher qu'une figure
+// — valeur mesurée. Comme la trame du tapis, il est donc produit une fois par
+// taille puis recopié.
 //
-// Rangés par taille et par état, et jetés en bloc quand le jeu de couleurs
-// change, puisque c'est lui qui les colore.
+// Les images sont indexées par taille et par état, et l'ensemble du cache est
+// vidé lorsque la palette change, celle-ci déterminant leur coloration.
 struct Backs {
     QHash<quint64, QPixmap> tiles;
     int hue = -1;
@@ -78,8 +80,8 @@ Backs &backs() {
     return kept;
 }
 
-// Le corps d'un dos dessiné: tout sauf l'ombre dessous et le halo dessus,
-// qui dépendent du coup qu'on est en train de jouer et non de la carte.
+// Corps d'un dos dessiné : tout sauf l'ombre portée et le halo, qui dépendent
+// du coup en cours et non de la carte elle-même.
 const QPixmap &drawnBack(const QSizeF &wanted, const Palette &scheme, bool lit) {
     static const QPixmap nothing;
     const QSize size = wanted.toSize();
@@ -97,10 +99,10 @@ const QPixmap &drawnBack(const QSizeF &wanted, const Palette &scheme, bool lit) 
     const auto found = kept.tiles.constFind(key);
     if (found != kept.tiles.constEnd()) return *found;
 
-    // Un repaint se sert de cinq ou six tailles; la molette du zoom en
-    // apporte une nouvelle à chaque cran. Passé de quoi tenir largement une
-    // table, on repart de zéro plutôt que de garder toutes celles qu'on a
-    // traversées.
+    // Un rafraîchissement emploie cinq ou six tailles, et chaque cran de la
+    // molette de zoom en introduit une nouvelle. Au-delà d'un seuil largement
+    // suffisant pour une table, le cache est vidé plutôt que de conserver
+    // toutes les tailles traversées.
     if (kept.tiles.size() > 64) kept.tiles.clear();
 
     QPixmap tile(size);
@@ -118,8 +120,8 @@ const QPixmap &drawnBack(const QSizeF &wanted, const Palette &scheme, bool lit) 
     painter.setPen(Qt::NoPen);
     painter.fillPath(shape, back);
 
-    // Le dos: a white margin and a lattice inside it, which is what the back
-    // of a card has looked like since there were backs on cards.
+    // Le dos : une marge blanche encadrant un treillis, disposition
+    // traditionnelle du dos d'une carte à jouer.
     const QRectF panel = box.adjusted(box.width() * 0.085, box.width() * 0.085,
                                       -box.width() * 0.085, -box.width() * 0.085);
     painter.setPen(QPen(blendColours(back, QColor(Qt::white), 0.45), 1.0));
@@ -146,16 +148,17 @@ const QPixmap &drawnBack(const QSizeF &wanted, const Palette &scheme, bool lit) 
     return kept.tiles.insert(key, tile).value();
 }
 
-// Un symbole dessiné, pas écrit.
+// Les symboles de couleur sont tracés et non composés.
 //
-// The suits exist in every font, and in every font they are a different
-// shape and a different weight -- and on a machine whose fonts are thin they
-// are a box. Drawn, a pique is a pique.
+// Ces symboles existent dans toutes les polices, mais leur forme et leur
+// graisse y varient, et une police dépourvue du caractère affiche un
+// rectangle de substitution. Tracés par le programme, ils ont une apparence
+// constante.
 QPainterPath pipPath(Suit suit) {
     QPainterPath path;
     switch (suit) {
     case Suit::Coeur: {
-        // Two lobes and a point, in one curve each side.
+        // Deux lobes et une pointe, formés d'une courbe de chaque côté.
         path.moveTo(0.0, 0.92);
         path.cubicTo(-0.86, 0.22, -0.60, -0.58, -0.26, -0.58);
         path.cubicTo(-0.06, -0.58, 0.0, -0.36, 0.0, -0.22);
@@ -174,7 +177,7 @@ QPainterPath pipPath(Suit suit) {
         break;
     }
     case Suit::Pique: {
-        // A heart turned over, with a stem under it.
+        // Un cœur renversé, surmontant une tige.
         path.moveTo(0.0, -0.95);
         path.cubicTo(0.86, -0.18, 0.62, 0.52, 0.26, 0.52);
         path.cubicTo(0.10, 0.52, 0.04, 0.42, 0.04, 0.34);
@@ -187,7 +190,7 @@ QPainterPath pipPath(Suit suit) {
         break;
     }
     case Suit::Trefle: {
-        // Three rounds and a stem.
+        // Trois lobes circulaires et une tige.
         path.addEllipse(QRectF(-0.30, -0.95, 0.60, 0.60));
         path.addEllipse(QRectF(-0.84, -0.26, 0.62, 0.62));
         path.addEllipse(QRectF(0.22, -0.26, 0.62, 0.62));
@@ -215,9 +218,10 @@ void paintPip(QPainter *painter, const QPointF &middle, qreal span, Suit suit,
     painter->restore();
 }
 
-// Les figures. Not portraits -- a portrait at forty pixels is a smudge --
-// but a mark each, drawn in the suit's own colour: a crown for the roi, a
-// coronet for the dame, a fleur de lis for the valet.
+// Les figures. Elles ne sont pas représentées par des portraits, illisibles à
+// quarante pixels, mais par un emblème propre à chacune, tracé dans la
+// couleur de la carte : une couronne pour le roi, un diadème pour la dame,
+// une fleur de lis pour le valet.
 void paintCourtMark(QPainter *painter, const QRectF &box, int rank, const QColor &ink,
                     const QColor &paper) {
     const QPointF middle = box.center();
@@ -229,8 +233,8 @@ void paintCourtMark(QPainter *painter, const QRectF &box, int rank, const QColor
     painter->setBrush(ink);
 
     if (rank == kRoi) {
-        // La couronne du roi : cinq pointes et une croix dessus, qui est ce
-        // qui la distingue du diadème de la dame d'un coup d'œil.
+        // Couronne du roi : cinq pointes surmontées d'une croix, qui la
+        // distingue immédiatement du diadème de la dame.
         QPainterPath crown;
         crown.moveTo(-0.72, 0.34);
         crown.lineTo(-0.86, -0.46);
@@ -248,8 +252,8 @@ void paintCourtMark(QPainter *painter, const QRectF &box, int rank, const QColor
         painter->setBrush(ink);
         painter->drawRect(QRectF(-0.78, 0.40, 1.56, 0.26));
     } else if (rank == kDame) {
-        // Le diadème de la dame : trois pointes, plus basses et plus rondes
-        // que la couronne, et une perle au bout de chacune.
+        // Diadème de la dame : trois pointes, plus basses et plus arrondies
+        // que celles de la couronne, terminées chacune par une perle.
         QPainterPath tiara;
         tiara.moveTo(-0.66, 0.34);
         tiara.quadTo(-0.62, -0.18, -0.44, -0.30);
@@ -269,7 +273,7 @@ void paintCourtMark(QPainter *painter, const QRectF &box, int rank, const QColor
         painter->setBrush(ink);
         painter->drawRect(QRectF(-0.72, 0.38, 1.44, 0.24));
     } else {
-        // Le valet : une fleur de lis.
+        // Valet : une fleur de lis.
         QPainterPath lis;
         lis.moveTo(0.0, -0.80);
         lis.cubicTo(0.18, -0.46, 0.22, -0.26, 0.14, -0.10);
@@ -289,7 +293,7 @@ void paintCourtMark(QPainter *painter, const QRectF &box, int rank, const QColor
     painter->restore();
 }
 
-// Le joker : un bonnet à grelots, et une étoile.
+// Joker : un bonnet à grelots surmontant une étoile.
 void paintJoker(QPainter *painter, const QRectF &box, const Palette &scheme) {
     const qreal span = std::min(box.width(), box.height());
     painter->save();
@@ -307,7 +311,7 @@ void paintJoker(QPainter *painter, const QRectF &box, const Palette &scheme) {
     painter->setBrush(cloth);
     painter->drawPath(hat);
 
-    // Les trois pointes, et un grelot au bout de chacune.
+    // Les trois pointes du bonnet, terminées chacune par un grelot.
     const QPointF tips[3] = {QPointF(-0.92, -0.42), QPointF(0.0, -0.80), QPointF(0.92, -0.42)};
     const QPointF roots[3] = {QPointF(-0.52, -0.14), QPointF(0.0, -0.34), QPointF(0.52, -0.14)};
     for (int i = 0; i < 3; ++i) {
@@ -327,7 +331,7 @@ void paintJoker(QPainter *painter, const QRectF &box, const Palette &scheme) {
     painter->setBrush(bell);
     painter->drawRect(QRectF(-0.74, 0.14, 1.48, 0.20));
 
-    // L'étoile sous le bonnet, qui est ce qu'un joker est sur le tapis.
+    // L'étoile placée sous le bonnet, symbole du joker sur le tapis.
     QPainterPath star;
     for (int i = 0; i < 10; ++i) {
         const qreal angle = -M_PI / 2.0 + i * M_PI / 5.0;
@@ -345,8 +349,9 @@ void paintJoker(QPainter *painter, const QRectF &box, const Palette &scheme) {
     painter->restore();
 }
 
-// Où les symboles vont sur une carte, de deux à dix: the layout every pack
-// has used for two hundred years, as fractions of the card's inner box.
+// Disposition des symboles sur les cartes de deux à dix : la disposition
+// employée par les jeux de cartes depuis deux siècles, exprimée en fractions
+// du rectangle intérieur de la carte.
 const QVector<QPointF> &pipLayout(int rank) {
     static const QVector<QVector<QPointF>> kLayouts = {
         {},                                                               // 0
@@ -385,12 +390,12 @@ qreal cardCornerFor(const QRectF &box) {
 
 QFont plainFont(const QPainter *painter) {
     QFont font = painter ? painter->font() : QFont();
-    // La famille aussi, et pas seulement la graisse et l'interlettrage: une
-    // enseigne posée sur le peintre -- le nom d'une pile, le titre du tapis --
-    // laissait sinon sa fonte d'affichage à tout ce qui se dessinait après
-    // elle. Le jeu s'est retrouvé avec des zéros barrés sur ses cartes et un
-    // accent perdu sur sa plaque, parce qu'une fonte d'affichage n'a ni l'un
-    // ni l'autre.
+    // La famille est réinitialisée au même titre que la graisse et
+    // l'interlettrage : un titre composé sur le peintre — nom d'une pile,
+    // intitulé du tapis — laissait sinon sa police d'affichage à tout ce qui
+    // était dessiné ensuite. Il en résultait des zéros barrés sur les cartes
+    // et un accent manquant sur une plaque, ces polices d'affichage ne
+    // comportant ni l'un ni l'autre.
     font.setFamily(QGuiApplication::font().family());
     font.setBold(false);
     font.setItalic(false);
@@ -402,7 +407,7 @@ QFont plainFont(const QPainter *painter) {
 qreal cardAspect() {
     if (const CardSet *set = CardDecks::instance().current()) {
         const qreal theirs = set->aspect();
-        // Bornée : une proportion aberrante casserait la disposition.
+        // Bornée : une proportion aberrante romprait la disposition.
         if (theirs > 0.35 && theirs < 1.60) return theirs;
     }
     return kCardRatio;
@@ -410,21 +415,23 @@ qreal cardAspect() {
 
 QSizeF cardSizeForHeight(qreal height) {
     const qreal aspect = cardAspect();
-    // La hauteur demandée est un budget, et c'est la largeur qui le dépense.
+    // La hauteur demandée fixe l'encombrement disponible, que la largeur
+    // consomme.
     //
-    // Tout le tapis se dispose en hauteur -- la main, les combinaisons, la
-    // pioche -- et laisse la largeur suivre la proportion du jeu choisi. Tant
-    // que le jeu est celui que le programme dessine, cela revient au même ;
-    // mais un jeu installé apporte la sienne, et les CARDS.DLL de Windows
-    // sont nettement plus larges que hautes (71 sur 96, contre 0,642). À
-    // hauteur égale, leurs cartes prenaient un sixième de place en plus : la
-    // main de quatorze cartes passait de rangée aérée à rangée qui touche les
-    // deux bords de la fenêtre.
+    // Toute la disposition du tapis — la main, les combinaisons, la pioche —
+    // est calculée en hauteur, la largeur découlant de la proportion du jeu
+    // choisi. Tant qu'il s'agit du jeu dessiné par le programme, les deux
+    // reviennent au même. Un jeu installé impose en revanche sa propre
+    // proportion, et les fichiers CARDS.DLL de Windows sont nettement plus
+    // larges que hauts (71 sur 96, contre 0,642). À hauteur égale, leurs
+    // cartes occupaient un sixième de largeur en plus : la main de quatorze
+    // cartes passait d'une rangée aérée à une rangée touchant les deux bords
+    // de la fenêtre.
     //
-    // La carte tient donc dans la largeur qu'aurait la carte dessinée à cette
-    // hauteur-là, et c'est sa hauteur qui cède quand le jeu est plus large.
-    // Un jeu plus étroit que celui dessiné garde la hauteur demandée : il ne
-    // gênait personne.
+    // La carte est donc contenue dans la largeur qu'aurait la carte dessinée à
+    // cette hauteur, et c'est sa hauteur qui est réduite lorsque le jeu est
+    // plus large. Un jeu plus étroit que le jeu dessiné conserve la hauteur
+    // demandée, ce cas ne posant pas de difficulté.
     if (aspect <= kCardRatio) return QSizeF(height * aspect, height);
     const qreal wide = height * kCardRatio;
     return QSizeF(wide, wide / aspect);
@@ -443,9 +450,9 @@ const QPixmap &weaveTile(const Palette &scheme) {
     QColor thread = scheme.feltWeave;
     thread.setAlpha(58);
     painter.setPen(QPen(thread, 1.0));
-    // One family of threads across, one down, half a pitch apart: that is
-    // what a cloth looks like close up, and from a yard away it is a texture
-    // rather than a grid.
+    // Une famille de fils horizontaux et une famille de fils verticaux,
+    // décalées d'un demi-pas : c'est l'aspect d'un tissu vu de près, qui à
+    // distance normale se lit comme une texture et non comme une grille.
     painter.drawLine(0, 0, kPitch, 0);
     painter.drawLine(0, 4, 0, kPitch);
     QColor shadow = scheme.feltEdge;
@@ -483,9 +490,9 @@ void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool 
     painter->save();
     painter->setPen(Qt::NoPen);
 
-    // La lumière au-dessus de la table: brighter where the lamp is, which is
-    // over the middle. It is the one thing that makes a flat fill of green
-    // look like cloth with a room around it.
+    // Éclairage de la table : plus clair à l'aplomb de la source lumineuse,
+    // située au-dessus du centre. C'est ce dégradé qui distingue un aplat vert
+    // uniforme d'un tissu éclairé dans une pièce.
     QRadialGradient light(box.center() - QPointF(0, box.height() * 0.10),
                           std::max(box.width(), box.height()) * 0.78);
     light.setColorAt(0.0, scheme.felt);
@@ -502,8 +509,9 @@ void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool 
         return;
     }
 
-    // La bordure: a braid a little in from the edge, and a darker line
-    // outside it, so the cloth reads as cloth stretched over a rail.
+    // Bordure : un galon légèrement en retrait du bord, doublé d'une ligne
+    // plus sombre à l'extérieur, afin que le tissu se lise comme tendu sur un
+    // cadre.
     const qreal inset = std::max(5.0, std::min(box.width(), box.height()) * 0.012);
     QRectF braid = box.adjusted(inset, inset, -inset, -inset);
     painter->setBrush(Qt::NoBrush);
@@ -517,8 +525,9 @@ void drawFelt(QPainter *painter, const QRectF &box, const Palette &scheme, bool 
     painter->restore();
 }
 
-// Ce que le programme dessine lui-même sur une face. Mis à part pour que
-// l'ombre, le liseré et le halo servent aussi aux cartes d'un jeu installé.
+// Contenu dessiné par le programme sur une face de carte. Cette partie est
+// isolée afin que l'ombre, le liseré et le halo s'appliquent également aux
+// cartes d'un jeu installé.
 namespace {
 
 void paintDrawnFace(QPainter *painter, const QRectF &box, const Card &card,
@@ -544,9 +553,10 @@ void paintDrawnFace(QPainter *painter, const QRectF &box, const Card &card,
         return;
     }
 
-    // Le coin: le rang, et le symbole sous lui. Twice over, head to tail, the
-    // way a real card is printed -- which is what lets a fanned hand be read
-    // with only the left edge of each card showing.
+    // Le coin : le rang, surmontant le symbole de couleur. Il est répété
+    // deux fois, tête-bêche, comme sur une carte imprimée ; c'est ce qui
+    // permet de lire une main en éventail dont seul le bord gauche de chaque
+    // carte est visible.
     const qreal indexHeight = std::max(8.0, box.height() * 0.158);
     QFont rank = indexFont(plainFont(painter), indexHeight, true);
     const QString label = rankLabel(card.rank);
@@ -570,29 +580,33 @@ void paintDrawnFace(QPainter *painter, const QRectF &box, const Card &card,
                  QPointF(where.center().x(), where.bottom() + pip * 0.60 + box.height() * 0.012),
                  pip, card.suit, faded);
         painter->restore();
-        // A card too small for two corners gets one: better a legible corner
-        // than two unreadable ones.
+        // Une carte trop petite pour deux coins n'en reçoit qu'un : un coin
+        // lisible vaut mieux que deux illisibles.
         if (box.width() < 40) break;
     }
 
-    // Le milieu.
+    // La zone centrale.
     //
-    // Pas la bande laissée entre les deux colonnes d'index -- il n'en reste
-    // rien. Sur une vraie carte le coin n'occupe que le coin, et les symboles
-    // tiennent le milieu sur plus de la moitié de la largeur ; les colonnes
-    // sont assez rentrées et les rangées assez descendues pour que le symbole
-    // d'en haut à gauche ne vienne pas toucher celui du coin.
-    // Rentré assez pour que les deux colonnes de symboles tombent entre les
-    // deux coins et non dessus : l'index de ce jeu est large, parce qu'il doit
-    // se lire quand la main est serrée et qu'un tiers de la carte dépasse, et
-    // ce qui reste au milieu est d'autant plus étroit.
+    // Il ne s'agit pas de la bande résiduelle entre les deux colonnes d'index,
+    // qui serait trop étroite. Sur une carte imprimée, le coin n'occupe que le
+    // coin et les symboles tiennent le centre sur plus de la moitié de la
+    // largeur ; les colonnes sont suffisamment rentrées et les rangées
+    // suffisamment abaissées pour que le symbole supérieur gauche ne touche
+    // pas celui du coin.
+    //
+    // Le retrait est calculé pour que les deux colonnes de symboles se placent
+    // entre les deux coins et non par-dessus. L'index de ce jeu est large,
+    // devant rester lisible lorsque la main est resserrée et qu'un tiers
+    // seulement de la carte dépasse, ce qui réduit d'autant la zone
+    // centrale.
     const QRectF middle = box.adjusted(box.width() * 0.25, box.height() * 0.15,
                                        -box.width() * 0.25, -box.height() * 0.15);
 
-    // Les figures et l'as ne se logent pas entre les deux colonnes d'index:
-    // sur une vraie carte, le coin n'occupe que le coin, et la figure tient le
-    // milieu sur presque toute la largeur. Les deux ont donc leur propre boîte
-    // plutôt que celle, étroite, où les symboles sont rangés en colonnes.
+    // Les figures et l'as ne s'inscrivent pas entre les deux colonnes
+    // d'index : sur une carte imprimée, le coin n'occupe que le coin et la
+    // figure tient le centre sur presque toute la largeur. L'un et l'autre
+    // disposent donc de leur propre rectangle, distinct du rectangle étroit
+    // où les symboles sont disposés en colonnes.
     if (card.rank >= kValet) {
         const QRectF figure = box.adjusted(box.width() * 0.19, box.height() * 0.21,
                                            -box.width() * 0.19, -box.height() * 0.21);
@@ -605,7 +619,8 @@ void paintDrawnFace(QPainter *painter, const QRectF &box, const Card &card,
         return;
     }
     if (card.rank == kAs) {
-        // Un seul symbole, et grand: c'est ce qu'est un as.
+        // Un symbole unique et de grande taille, conformément à l'usage pour
+        // un as.
         paintPip(painter, box.center(), std::min(box.width(), box.height()) * 0.46, card.suit,
                  faded);
         return;
@@ -614,9 +629,9 @@ void paintDrawnFace(QPainter *painter, const QRectF &box, const Card &card,
     const QVector<QPointF> &layout = pipLayout(card.rank);
     const qreal pipSpan = std::min(middle.width() * 0.38, middle.height() * 0.15);
     if (middle.width() < 18 || pipSpan < 4.0 || layout.isEmpty()) {
-        // Trop petite pour les symboles: one in the middle says the colour,
-        // and the corner says the rank, which is all a card in a combination
-        // on the tapis has to say.
+        // Carte trop petite pour la disposition complète : un symbole central
+        // indique la couleur et le coin indique le rang, ce qui suffit pour
+        // une carte intégrée à une combinaison posée sur le tapis.
         paintPip(painter, box.center(), std::min(box.width(), box.height()) * 0.40, card.suit,
                  faded);
         return;
@@ -641,7 +656,7 @@ void drawCardFace(QPainter *painter, const QRectF &box, const Card &card, const 
     QPainterPath shape;
     shape.addRoundedRect(box, corner, corner);
 
-    // L'ombre portée: a card lies on cloth, and cloth takes a shadow.
+    // Ombre portée : la carte repose sur un tissu, qui reçoit son ombre.
     painter->setPen(Qt::NoPen);
     if (!look.noShadow) {
         QColor shade = scheme.feltEdge;
@@ -660,8 +675,9 @@ void drawCardFace(QPainter *painter, const QRectF &box, const Card &card, const 
                                     : (isRed(card.suit) ? scheme.cardRed : scheme.cardInk);
     const QColor faded = look.dimmed ? blendColours(ink, paper, 0.45) : ink;
 
-    // Le liseré. The chosen card wears the table's colour, which is how a
-    // selection reads on a card that is otherwise all white.
+    // Liseré : la carte sélectionnée est bordée de la couleur de la table,
+    // seul moyen de signaler une sélection sur une carte par ailleurs
+    // entièrement blanche.
     painter->setBrush(Qt::NoBrush);
     if (look.chosen) {
         painter->setPen(QPen(scheme.accent, std::max(1.6, box.width() * 0.035)));
@@ -672,15 +688,16 @@ void drawCardFace(QPainter *painter, const QRectF &box, const Card &card, const 
     painter->drawPath(shape);
 
     if (look.glow > 0.005) {
-        // Ce qui vient d'être joué. A ring that fades, so that a card played
-        // by somebody else across the table is a thing you saw happen.
+        // Carte qui vient d'être jouée : un anneau qui s'estompe, afin qu'un
+        // coup joué par un adversaire soit perçu au moment où il survient.
         QColor halo = scheme.gold;
         halo.setAlphaF(std::clamp(look.glow, 0.0, 1.0) * 0.95);
         painter->setPen(QPen(halo, std::max(2.0, box.width() * 0.055)));
         painter->drawPath(shape);
     }
 
-    // Une carte d'un jeu installé remplace celle que le programme dessinerait.
+    // Une carte issue d'un jeu installé se substitue à celle que le programme
+    // dessinerait.
     QPixmap art;
     if (const CardSet *set = CardDecks::instance().current()) {
         const int slot = CardSet::slotFor(card.joker() ? 0 : card.rank, int(card.suit));
@@ -691,7 +708,7 @@ void drawCardFace(QPainter *painter, const QRectF &box, const Card &card, const 
         paintDrawnFace(painter, box, card, scheme, paper, faded, look);
     } else {
         painter->save();
-        // Découpée aux coins arrondis.
+        // Découpée selon les coins arrondis.
         painter->setClipPath(shape);
         QRectF where(0, 0, art.width(), art.height());
         where.moveCenter(box.center());
@@ -720,22 +737,24 @@ void drawCardBack(QPainter *painter, const QRectF &box, const Palette &scheme,
         painter->fillPath(cast, shade);
     }
 
-    // Le dos choisi dans les réglages, s'il y en a un, à la place du treillis.
+    // Le dos sélectionné dans les réglages, s'il en existe un, remplace le
+    // treillis.
     //
-    // Demandé à TableLook et non à la cartothèque: le dos ne vient pas
-    // forcément du jeu des faces, et c'est TableLook qui sait d'où.
+    // Il est demandé à `TableLook` et non à la cartothèque : le dos ne
+    // provient pas nécessairement du jeu dont sont tirées les faces, et seul
+    // `TableLook` connaît son origine.
     QPixmap art;
     if (const CardSet *set = backCards()) {
         art = set->backImage(backIndex(), box.size().toSize());
     }
 
     if (art.isNull()) {
-        // Le treillis, recopié plutôt que redessiné.
+        // Le treillis est recopié depuis le cache plutôt que redessiné.
         const QPixmap &tile = drawnBack(box.size(), scheme, look.lit);
         if (!tile.isNull()) painter->drawPixmap(box.topLeft(), tile);
     } else {
-        // La carte du jeu installé peut être transparente par endroits: le
-        // corps dessous, puis l'image par-dessus.
+        // La carte d'un jeu installé peut comporter des zones transparentes :
+        // le corps est dessiné d'abord, l'image par-dessus.
         QColor back = scheme.cardBack;
         if (look.lit) back = blendColours(back, QColor(Qt::white), 0.18);
         painter->fillPath(shape, back);
@@ -806,19 +825,19 @@ void drawRivalEmblem(QPainter *painter, const QRectF &box, int emblem, const QSt
     painter->setBrush(Qt::NoBrush);
     painter->drawEllipse(disc.adjusted(span * 0.045, span * 0.045, -span * 0.045, -span * 0.045));
 
-    // Une marque négative: pas de marque. C'est le cas de votre propre
-    // plaque -- la marque est ce qui distingue les six les uns des autres, et
-    // vous n'êtes pas l'un d'eux ; le cercle et l'initiale suffisent.
+    // Une valeur négative supprime le symbole. C'est le cas de la plaque du
+    // joueur : le symbole sert à distinguer les six adversaires entre eux, et
+    // le joueur n'en fait pas partie ; le cercle et l'initiale suffisent.
     const bool marked = emblem >= 0;
 
-    // L'initiale au milieu, et la marque en haut: a ring of six is told apart
-    // by colour at a glance, by its mark at a look and by its letter for
-    // certain.
+    // L'initiale est centrée et le symbole placé au-dessus : parmi six
+    // médaillons, la couleur permet une identification immédiate, le symbole
+    // une identification rapide, et la lettre une identification certaine.
     //
-    // Elle descend d'un rien pour laisser la marque passer au-dessus d'elle.
-    // D'un rien et non de rien du tout: le décalage appartient à la marque,
-    // et un médaillon qui n'en porte pas garde sa lettre au milieu de son
-    // cercle, où l'oeil la cherche.
+    // L'initiale est légèrement abaissée pour laisser la place au symbole. Ce
+    // décalage est lié à la présence du symbole : un médaillon qui n'en porte
+    // pas conserve sa lettre au centre du cercle, là où le regard la
+    // cherche.
     const qreal drop = marked ? span * 0.06 : 0.0;
     QFont letter = plainFont(painter);
     letter.setBold(true);
@@ -921,8 +940,9 @@ void drawGauge(QPainter *painter, const QRectF &box, qreal filled, const QColor 
 void drawHandPile(QPainter *painter, const QRectF &box, int cards, const Palette &scheme,
                   const QColor &tint) {
     if (cards <= 0) return;
-    // Not one back per card -- fifteen of them in eighty pixels is a smear --
-    // but enough of them that a thick hand looks thick.
+    // Le tas ne comporte pas un dos par carte — quinze dos sur quatre-vingts
+    // pixels seraient indistincts — mais un nombre suffisant pour qu'une main
+    // nombreuse paraisse telle.
     const int shown = std::min(cards, 7);
     const qreal height = box.height();
     const QSizeF card = cardSizeForHeight(height);
@@ -934,7 +954,7 @@ void drawHandPile(QPainter *painter, const QRectF &box, int cards, const Palette
         drawCardBack(painter, at, scheme);
     }
 
-    // Le compte, en chiffres, parce que c'est ce qu'on veut savoir.
+    // Le nombre exact de cartes, affiché en chiffres.
     QFont count = plainFont(painter);
     count.setBold(true);
     count.setPixelSize(std::max(9, int(height * 0.42)));

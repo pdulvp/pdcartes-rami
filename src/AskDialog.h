@@ -4,20 +4,22 @@
 
 class QWidget;
 
-// Une question à deux réponses, dans la tenue des autres boîtes.
+// Boîte de confirmation à deux réponses, présentée comme les autres boîtes de
+// l'application.
 //
-// Elle remplace `QMessageBox::question`, qui est la boîte du système: sur une
-// application qui dessine les siennes -- bandeau de couleur sur la tranche,
-// titre de section souligné, pied à part -- celle du système arrive avec sa
-// police, ses marges et son icône, et se voit. Elle était posée cinq fois,
-// toujours de la même façon ; c'est maintenant une fonction.
+// Elle remplace `QMessageBox::question`, qui est la boîte du système : dans
+// une application dessinant ses propres boîtes — bandeau de couleur sur la
+// tranche, titre de section souligné, pied séparé — celle du système se
+// distingue par sa police, ses marges et son icône. Ce motif étant employé à
+// cinq reprises de façon identique, il est ici factorisé en une fonction.
 //
-// La question se dit en deux temps, comme sur `NameDialog`: `banner` nomme
-// l'acte et court sur la tranche, `question` est la phrase courte qu'on lit
-// en premier, et `aside` dit ce qu'il en coûte, sous elle et en plus clair.
+// La question est formulée en deux parties, comme dans `NameDialog` :
+// `banner` nomme l'action et s'affiche sur la tranche, `question` est la
+// phrase courte lue en premier, et `aside` en précise les conséquences, en
+// dessous et dans une teinte plus claire.
 //
-// `doIt` est le texte du bouton qui fait la chose -- `Effacer`,
-// `Revenir au menu` -- et non `Oui`: une question lue de travers se rattrape
-// sur le bouton, qui est le dernier endroit où elle peut l'être.
+// `doIt` est le libellé du bouton qui exécute l'action — « Effacer »,
+// « Revenir au menu » — et non « Oui » : une question mal lue peut encore être
+// rattrapée par le libellé du bouton, dernier point de contrôle.
 bool askYesNo(QWidget *parent, const QString &banner, const QString &question,
               const QString &doIt, const QString &aside = QString());

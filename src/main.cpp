@@ -14,10 +14,10 @@
 
 namespace {
 
-// Qt settles on the bare "hicolor" theme when the desktop has not told it
-// which icon theme to use, and hicolor carries next to nothing -- which
-// leaves the buttons along the top bare. Point the fallback at an icon theme
-// that is actually installed.
+// Qt retient le thème « hicolor » lorsque le bureau n'indique aucun thème
+// d'icônes. Ce thème ne contenant presque rien, les boutons du bandeau
+// supérieur resteraient sans icône. Cette fonction désigne comme thème de
+// recours un thème effectivement installé.
 void ensureIconTheme() {
     const QString configured = QIcon::themeName();
     if (!configured.isEmpty() && configured != QLatin1String("hicolor")) return;
@@ -59,14 +59,14 @@ int main(int argc, char *argv[]) {
     QApplication::setOrganizationName("pdulvp");
     QApplication::setApplicationName("pdcartes-rami");
     QApplication::setApplicationVersion(fullVersion());
-    // What the desktop knows this application by. On Wayland it becomes the
-    // window's app_id, and a shell matches that against the .desktop file of
-    // the same name to work out which application a window belongs to --
-    // which is what lets it be pinned.
+    // Identifiant sous lequel le bureau reconnaît l'application. Sous Wayland,
+    // il devient l'`app_id` de la fenêtre, que l'environnement rapproche du
+    // fichier .desktop de même nom pour déterminer à quelle application une
+    // fenêtre appartient ; c'est ce qui permet de l'épingler.
     QApplication::setDesktopFileName(QStringLiteral("pdcartes-rami"));
 
-    // The game is in French, so its numbers and its dates are French too,
-    // whatever the machine is set to.
+    // L'application étant en français, ses nombres et ses dates le sont
+    // également, quels que soient les réglages du système.
     QLocale::setDefault(QLocale(QLocale::French, QLocale::France));
 
     ensureIconTheme();

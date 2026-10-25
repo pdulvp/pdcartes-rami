@@ -9,8 +9,8 @@
 
 namespace {
 
-// Assez long pour qu'on suive le logo des yeux, assez court pour que personne
-// n'attende que ça finisse.
+// Durée de l'animation : suffisante pour que le déplacement du logo soit
+// suivi du regard, assez brève pour ne pas retarder l'affichage du menu.
 constexpr int kFlightMs = 520;
 
 QRectF between(const QRectF &from, const QRectF &to, qreal along) {
@@ -23,8 +23,8 @@ QRectF between(const QRectF &from, const QRectF &to, qreal along) {
 } // namespace
 
 TitleFlight::TitleFlight(QWidget *parent) : QWidget(parent) {
-    // Il est au-dessus de tout et ne prend rien: les clics vont à la page
-    // qui est dessous, même en plein vol.
+    // Le calque est placé au-dessus de tout et ne capte aucun événement : les
+    // clics atteignent la page sous-jacente, y compris pendant l'animation.
     setAttribute(Qt::WA_TransparentForMouseEvents);
     setAttribute(Qt::WA_NoSystemBackground);
     setAttribute(Qt::WA_TranslucentBackground);
@@ -34,8 +34,8 @@ TitleFlight::TitleFlight(QWidget *parent) : QWidget(parent) {
     m_walk->setDuration(kFlightMs);
     m_walk->setStartValue(0.0);
     m_walk->setEndValue(1.0);
-    // Vif au départ et posé à l'arrivée: un logo qui se range, et non un
-    // logo qu'on tire.
+    // Progression rapide au départ et ralentie à l'arrivée, ce qui produit un
+    // mouvement d'amortissement plutôt qu'un déplacement linéaire.
     m_walk->setEasingCurve(QEasingCurve::InOutCubic);
     connect(m_walk, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         m_along = value.toReal();

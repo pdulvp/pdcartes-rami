@@ -6,16 +6,16 @@
 class QPushButton;
 class Rami;
 
-// La feuille de marque, posée sur le tapis à la fin d'une manche.
+// Feuille de marque, affichée sur le tapis à la fin d'une manche.
 //
-// It covers the cloth rather than replacing it: the combinations everybody
-// laid are still there underneath, which is what you want to look at while
-// you are reading what they cost you.
+// Elle recouvre le tapis sans s'y substituer : les combinaisons posées restent
+// visibles en dessous, ce qui permet de les consulter en lisant le décompte.
 //
-// Two shapes, the same card: at the end of a manche it is what this donne
-// came to and what everybody is on; at the end of the game it says who won
-// it. The score is a penalty -- the fewest points wins -- so the column is
-// read from the bottom up, and the sheet says so.
+// Elle prend deux formes : à la fin d'une manche, elle indique le résultat de
+// la donne et le total de chaque joueur ; à la fin de la partie, elle désigne
+// le vainqueur. Le score étant une pénalité, le total le plus faible
+// l'emporte : la colonne se lit donc de bas en haut, ce que la feuille
+// signale.
 class ScoreBoard : public QWidget {
     Q_OBJECT
 
@@ -29,8 +29,8 @@ public:
     void refresh();
 
 Q_SIGNALS:
-    // La manche suivante, ou une nouvelle partie: whichever the sheet is
-    // showing.
+    // Passage à la manche suivante ou à une nouvelle partie, selon ce
+    // qu'affiche la feuille.
     void goOn();
     void leave();
 

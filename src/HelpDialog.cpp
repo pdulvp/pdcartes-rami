@@ -10,9 +10,9 @@
 
 namespace {
 
-// La feuille de style du document. Les couleurs viennent de la table que le
-// jeu porte, comme partout ailleurs : une boîte de règles ouverte sur une
-// table bordeaux est bordeaux.
+// Feuille de style du document. Les couleurs sont celles de la palette
+// courante, comme dans le reste de l'application : la fenêtre des règles
+// ouverte depuis une table bordeaux s'affiche en bordeaux.
 QString sheetFor(const Palette &scheme) {
     return QStringLiteral(R"CSS(
         h1 { color: %1; font-size: 17px; margin-top: 22px; margin-bottom: 2px; }
@@ -29,9 +29,9 @@ QString sheetFor(const Palette &scheme) {
         .arg(scheme.accent.name(), scheme.surfaceText.name(), scheme.hint.name());
 }
 
-// Les règles, en entier. Écrites ici plutôt que dans un fichier à côté du
-// binaire : un fichier à côté du binaire est un fichier qui manque sur la
-// machine de quelqu'un d'autre.
+// Texte intégral des règles. Il est inscrit dans le source plutôt que placé
+// dans un fichier distinct, afin qu'aucun fichier ne soit à installer auprès
+// de l'exécutable ni à rechercher à l'exécution.
 const char *kRules = R"HTML(
 <h1>Le rami</h1>
 
@@ -42,7 +42,7 @@ rangeant en combinaisons, avant les autres.</p>
 
 <h2>Les combinaisons</h2>
 
-<p>Il n'y en a que deux, et il n'y en a jamais eu d'autres.</p>
+<p>Il n'en existe que deux.</p>
 
 <table>
 <tr><th>Une suite</th><td>Trois cartes ou plus de la même couleur qui se
@@ -62,8 +62,8 @@ fois la même couleur.</td></tr>
 <tr><th>Roi, dame, valet</th><td>10 points</td></tr>
 <tr><th>Du deux au dix</th><td>ce qui est écrit dessus</td></tr>
 <tr><th>Le joker</th><td>dans une combinaison, la valeur de la carte qu'il
-remplace ; <b>resté en main, 25 points</b>, et c'est pour ça que personne ne le
-garde</td></tr>
+remplace ; <b>resté en main, 25 points</b>, ce qui dissuade de le
+conserver</td></tr>
 </table>
 
 <h2>Un tour</h2>
@@ -81,52 +81,53 @@ de n'importe qui.</li>
 
 <h2>Ouvrir : cinquante-et-un points</h2>
 
-<p>La première pose doit valoir <b>51 points au moins</b>, et dans le même
-tour. Tant qu'on n'a pas ouvert, on ne peut rien poser et rien compléter — on
-pioche et on défausse, et on attend d'avoir de quoi.</p>
+<p>La première pose doit valoir <b>51 points au moins</b>, atteints dans un
+seul tour. Tant que vous n'avez pas ouvert, vous ne pouvez ni poser ni
+compléter : vous piochez et vous défaussez jusqu'à réunir ce total.</p>
 
-<p>Une pose peut se construire combinaison par combinaison : le compte en cours
-est affiché sous votre main. Dès qu'il atteint 51 elle part sur le tapis et
-vous êtes ouvert pour le reste de la manche, avec le droit de compléter dans le
-même tour. Si le tour se termine et qu'elle n'y est pas, il faut la
-<b>reprendre en main</b> : les règles ne laissent pas défausser avec une pose
-qui ne compte pas.</p>
+<p>Une pose se construit combinaison par combinaison ; le total en cours est
+affiché sous votre main. Dès qu'il atteint 51, la pose est placée sur le tapis
+et vous êtes ouvert pour le reste de la manche, avec le droit de compléter
+durant le même tour. Si le tour s'achève avant que ce total soit atteint, vous
+devez <b>reprendre la pose en main</b> : il n'est pas permis de défausser en
+laissant une pose incomplète.</p>
 
-<p>Tant qu'elle n'est pas partie, une pose se défait aussi carte par carte :
-<b>cliquez une carte de la pose</b> et elle revient seule en main, pourvu que
-sa combinaison tienne encore sans elle — une suite y perd une extrémité, une
-série de quatre y perd sa quatrième. Quand elle ne tient plus, c'est la
-combinaison entière qui revient. <b>Reprendre</b> rend toute la pose d'un
-coup.</p>
+<p>Tant qu'elle n'est pas placée, une pose se défait carte par carte :
+<b>cliquez une carte de la pose</b> et elle revient seule en main, à condition
+que sa combinaison reste valide sans elle — une suite perd alors une
+extrémité, une série de quatre perd sa quatrième carte. Si la combinaison
+n'est plus valide, elle revient en main en entier. Le bouton
+<b>Reprendre</b> rend la pose complète en une fois.</p>
 
 <h2>Le joker</h2>
 
-<p>Un joker tient la place de n'importe quelle carte, et il n'en va pas plus
-d'un par combinaison. La carte qu'il remplace est décidée au moment où la
-combinaison est posée, et elle ne change plus : dans <b>5-★-7 de carreau</b> le
-joker est le six de carreau, et rien d'autre.</p>
+<p>Un joker remplace n'importe quelle carte, à raison d'un seul par
+combinaison. La carte qu'il représente est fixée au moment où la combinaison
+est posée et ne change plus : dans <b>5-★-7 de carreau</b>, le joker est le
+six de carreau.</p>
 
-<p>On peut le <b>racheter</b>. Si vous avez ouvert et que vous tenez en main
-exactement la carte dont il tient la place, vous la donnez et vous prenez le
-joker — mais il doit servir tout de suite, dans la même tour : le posera ou le
-mettra au bout d'une combinaison avant de défausser. Dans une série, le joker
-remplace n'importe laquelle des couleurs qui manquent.</p>
+<p>Un joker posé peut être <b>racheté</b>. Si vous avez ouvert et que vous
+détenez exactement la carte qu'il représente, vous échangez l'une contre
+l'autre. Le joker doit alors être réemployé dans le tour même : vous devez le
+poser dans une nouvelle combinaison ou l'ajouter à une combinaison existante
+avant de défausser. Dans une série, un joker peut représenter n'importe
+laquelle des couleurs absentes.</p>
 
 <h2>Sortir, et compter</h2>
 
-<p>La manche s'arrête quand quelqu'un n'a plus de cartes : il a posé ou
-complété tout ce qu'il avait, et il a défaussé la dernière. Il marque
-<b>zéro</b>. Tous les autres comptent ce qui leur reste en main — et une pose
-commencée qui n'a jamais atteint 51 points compte avec le reste, ce qui est
-tout le risque d'en commencer une.</p>
+<p>La manche s'achève dès qu'un joueur n'a plus de cartes : il a posé ou
+complété toutes les siennes, puis défaussé la dernière. Il marque
+<b>zéro</b>. Les autres comptent les points des cartes restées en main. Une
+pose commencée qui n'a jamais atteint 51 points est comptée avec elles :
+c'est le risque que l'on prend en en commençant une.</p>
 
-<p>Les points sont des pénalités : ils s'additionnent d'une manche à l'autre,
-et <b>c'est celui qui en a le moins qui gagne</b> la partie. Elle s'arrête dès
-que quelqu'un dépasse le but.</p>
+<p>Les points sont des pénalités : ils s'additionnent d'une manche à
+l'autre, et <b>le joueur qui en totalise le moins remporte la partie</b>.
+Celle-ci s'arrête dès qu'un joueur dépasse le total fixé.</p>
 
-<p>Si la pioche s'épuise, la défausse est retournée et redistribuée, en
-laissant sa carte du dessus. Au bout de deux fois, la manche est arrêtée là et
-tout le monde compte sa main.</p>
+<p>Si la pioche s'épuise, la défausse est retournée pour la reconstituer,
+sa carte supérieure restant en place. Après deux reconstitutions, la manche
+est interrompue et chaque joueur compte sa main.</p>
 
 <h1>À la souris</h1>
 
@@ -146,8 +147,9 @@ sa combinaison, si elle ne tient plus sans elle</td></tr>
 <tr><th><b>Reprendre</b></th><td>rend toute la pose en cours à votre main</td></tr>
 <tr><th><b>Défausser</b></th><td>jette la carte choisie et finit le tour</td></tr>
 <tr><th>Double-clic sur une carte</th><td>la défausse directement</td></tr>
-<tr><th><b>Conseil</b></th><td>dit ce que le meilleur joueur de la table ferait
-de votre main — le même cerveau qu'Oriane, sans ses bourdes</td></tr>
+<tr><th><b>Conseil</b></th><td>indique le coup que jouerait le meilleur
+joueur de la table : la même logique que celle d'Oriane, sans ses erreurs
+délibérées</td></tr>
 </table>
 
 <h2>Au clavier</h2>
@@ -165,44 +167,48 @@ de votre main — le même cerveau qu'Oriane, sans ses bourdes</td></tr>
 
 <h1>Les six autres</h1>
 
-<p>Les adversaires ne sont pas six réglages d'une même difficulté. Chacun est
-un joueur avec un passé : deux s'assoient en ne sachant presque rien, trois
-connaissent le jeu, et Oriane y joue depuis des années. Ce qu'ils savent est
-un seul chiffre, leur <b>expérience</b>, qui monte un peu à chaque manche
-jouée et un peu plus à chaque manche gagnée — de moins en moins vite à mesure
-qu'ils savent, si bien que les premiers rangs viennent en quelques parties et
-les derniers se font attendre — et qui est toujours là quand vous revenez.
-Une table que vous battiez le mois dernier est une table qui vous bat ce
-mois-ci.</p>
+<p>Les six adversaires ne sont pas six niveaux de difficulté d'un même
+joueur : chacun possède sa propre progression. Deux débutent en ne connaissant
+presque rien du jeu, trois le maîtrisent, et Oriane le pratique de longue
+date.</p>
+
+<p>Leur niveau tient en une seule valeur, l'<b>expérience</b>. Elle augmente
+à chaque manche jouée, et davantage à chaque manche gagnée. Sa progression
+ralentit à mesure qu'elle s'élève : les premiers paliers sont atteints en
+quelques parties, les derniers demandent beaucoup plus de temps. Elle est
+conservée d'une session à l'autre, de sorte que les adversaires continuent de
+progresser au fil des parties.</p>
 
 <table>
-<tr><th>Débutant</th><td>0 à 199 — lit sa main de travers et manque des
-ouvertures qui étaient là, jette ce dont il avait besoin, ne prend la défausse
-que quand elle finit une combinaison sous son nez, et se trompe franchement de
-temps en temps</td></tr>
-<tr><th>Intermédiaire</th><td>200 à 599 — lit sa main exactement et ne manque
-plus rien de ce qu'elle contient, soupèse la défausse, garde ce qui peut
-servir, et évite de vous donner ce qui se pose tout de suite</td></tr>
-<tr><th>Expert</th><td>600 à 1200 — se souvient de toutes les cartes passées,
-sait combien d'exemplaires d'une carte sont encore dehors, remarque ce que
-vous ramassez et ne vous le redonne pas, rachète ses jokers, et ne fait plus
-de bourde</td></tr>
+<tr><th>Débutant</th><td>0 à 199 — analyse sa main de façon incomplète et
+laisse passer des ouvertures possibles, se défausse de cartes qui lui
+auraient servi, ne prend la défausse que lorsqu'elle complète immédiatement
+une combinaison, et commet des erreurs manifestes</td></tr>
+<tr><th>Intermédiaire</th><td>200 à 599 — analyse sa main exactement et
+n'en laisse échapper aucune combinaison, évalue l'intérêt de la défausse,
+conserve les cartes susceptibles de servir, et évite de défausser une carte
+immédiatement jouable par un adversaire</td></tr>
+<tr><th>Expert</th><td>600 à 1200 — mémorise toutes les cartes passées,
+sait combien d'exemplaires de chaque carte restent en jeu, tient compte des
+cartes que vous ramassez pour ne pas vous les redonner, rachète ses jokers,
+et ne commet plus d'erreur</td></tr>
 </table>
 
 <h2>Qui est à table</h2>
 
-<p>Les places libres vont aux <b>moins joués</b>, pour que les six progressent
-à peu près ensemble au lieu de laisser les trois derniers débutants pour
-toujours. Au menu, un clic sur une carte d'adversaire l'<b>invite</b> : les
-invités s'assoient d'abord, le reste des places au tour de rôle.</p>
+<p>Les places libres sont attribuées aux adversaires <b>les moins
+sollicités</b>, afin que les six progressent à un rythme comparable. Dans le
+menu, un clic sur la carte d'un adversaire l'<b>invite</b> : les invités sont
+placés en premier, les places restantes étant attribuées à tour de rôle.</p>
 
 <h2>Les trois profils</h2>
 
-<p>L'expérience des six est comptée dans le profil sous lequel vous jouez, et
-nulle part ailleurs. Changer de profil, c'est changer de table : le Lulu que
-vous avez battu quarante fois sur le premier profil n'est pas celui du
-deuxième. Et dans les réglages, chacun des six porte un bouton qui le remet au
-niveau avec lequel il est arrivé, lui seul et sur ce profil seulement.</p>
+<p>L'expérience des six adversaires est enregistrée dans le profil sous
+lequel vous jouez, et dans celui-là seul. Changer de profil revient donc à
+changer de table : l'adversaire affronté quarante fois sur le premier profil
+est distinct de son homonyme sur le deuxième. Dans les réglages, chaque
+adversaire dispose d'un bouton qui le ramène à son niveau initial, pour lui
+seul et sur le profil courant.</p>
 )HTML";
 
 } // namespace

@@ -30,8 +30,8 @@ NameDialog::NameDialog(const QString &banner, const QString &question, const QSt
     m_field = new QLineEdit(value, this);
     m_field->setMaxLength(mostLetters);
     m_field->setClearButtonEnabled(true);
-    // Haut et dans la couleur du corps: c'est la seule chose à faire dans
-    // cette boîte, autant qu'elle en ait l'air.
+    // Champ de grande hauteur et dans la couleur du corps : c'est la seule
+    // action possible dans cette boîte, et sa présentation doit le refléter.
     m_field->setMinimumHeight(34);
     QPalette ink = m_field->palette();
     ink.setColor(QPalette::Base, currentPalette().field);
@@ -61,14 +61,14 @@ NameDialog::NameDialog(const QString &banner, const QString &question, const QSt
 
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    // La frappe commence dans le champ, et le texte est pris: on retape un
-    // nom plus souvent qu'on ne le corrige.
+    // Le focus est placé dans le champ et son contenu sélectionné : un nom est
+    // plus souvent ressaisi que corrigé.
     m_field->setFocus();
     m_field->selectAll();
 
-    // Large, parce qu'on y écrit un nom; haute de ce qu'il faut, parce que
-    // la phrase du dessous tient sur une ligne ou sur trois selon ce qu'on
-    // renomme, et qu'un bas de boîte vide se voit.
+    // Large, un nom y étant saisi ; de hauteur ajustée, la phrase inférieure
+    // occupant une à trois lignes selon l'élément renommé, un espace vide en
+    // bas de boîte étant visible.
     resize(560, std::max(200, sizeHint().height()));
 }
 

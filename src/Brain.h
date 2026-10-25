@@ -7,26 +7,27 @@
 #include <QString>
 #include <QVector>
 
-// Comment un adversaire décide.
+// Logique de décision d'un adversaire.
 //
-// Ce qu'il sait faire est dit ailleurs: les huit compétences, leurs niveaux
-// et ce que chacun vaut sont dans RivalSkills.h, et ce qu'il en a sur ce
-// profil-là est dans Rivals.h. Ici, on ne fait que jouer -- on reçoit un
-// Skill, qui est la liste de ce que ce joueur-là fait ou ne fait pas, et on
-// en tire le coup à jouer maintenant.
+// Ses capacités sont décrites ailleurs : les huit compétences, leurs niveaux
+// et leur valeur figurent dans RivalSkills.h, et leur état pour un profil
+// donné dans Rivals.h. Ce fichier se limite au choix du coup : il reçoit un
+// `Skill`, énumération des comportements que ce joueur adopte ou non, et en
+// déduit le coup à jouer.
 //
-// La seule chose qui compte dans ce fichier: un niveau n'est pas un
-// coefficient multiplié quelque part. C'est une liste de choses qu'un joueur
-// fait ou ne fait pas, et chacune se voit arriver de l'autre côté de la
-// table -- la main lue trop vite, la carte qu'on ne vous donne pas, le joker
-// racheté, la bourde.
+// Principe directeur de ce fichier : un niveau n'est pas un coefficient
+// appliqué à une force globale, mais un ensemble de comportements que le
+// joueur adopte ou non, chacun observable en cours de partie — une main
+// analysée trop vite, une carte qui n'est pas défaussée, un joker racheté, une
+// erreur.
 
-// Ce qui est passé sous les yeux de tout le monde.
+// Informations publiques accumulées depuis le début de la manche.
 //
-// Kept by the table and handed to each brain in turn: the cards that have
-// been face up, and which of them each player picked up off the défausse. It
-// is all public -- an expert is a player who remembers it, not one who is
-// allowed to look at your hand.
+// Elles sont tenues à jour par la table et transmises à chaque adversaire à
+// son tour : les cartes qui ont été face visible, et celles que chaque joueur
+// a ramassées sur la défausse. Toutes ces informations sont publiques ; un
+// expert est un joueur qui les mémorise, et non un joueur autorisé à consulter
+// la main des autres.
 struct Watch {
     QVector<Card> seen;
     QVector<QVector<Card>> taken;   // one list per seat
@@ -34,7 +35,8 @@ struct Watch {
     void note(const Card &card);
     void noteTaken(int seat, const Card &card, int seats);
     void clear();
-    // How many of the two copies of this card nobody has seen yet.
+    // Nombre d'exemplaires de cette carte, sur les deux que compte le jeu, que
+    // personne n'a encore vus.
     int unseenCopies(int rank, Suit suit) const;
 };
 
@@ -45,12 +47,14 @@ struct Move {
     int meldId = -1;
 };
 
-// The one move to make now, given where the game has got to. Called over and
-// over by the table until the turn has been played out, so that each thing a
-// rival does can be shown happening rather than arriving all at once.
+// Détermine le coup à jouer dans l'état courant de la partie. Appelée
+// successivement par la table jusqu'à l'achèvement du tour, afin que chaque
+// action de l'adversaire puisse être affichée au moment où elle survient
+// plutôt que toutes à la fois.
 Move chooseMove(const Rami &game, int at, const Skill &skill, const Watch &watch);
 
-// What the best player at the table would do with your hand, said in French.
-// This is the Conseil button, and it is the same brain -- there is no second,
-// better one kept for the player.
+// Décrit en français le coup que jouerait le meilleur joueur de la table avec
+// la main du joueur. C'est la fonction du bouton Conseil ; elle emploie la
+// même logique de décision que les adversaires, aucune logique distincte
+// n'étant réservée au joueur.
 QString advise(const Rami &game, int at, const Watch &watch);

@@ -6,53 +6,58 @@
 class QFont;
 class QFontMetricsF;
 
-// Les fontes d'affichage du jeu, tirées du binaire.
+// Polices d'affichage de l'application, chargées depuis les ressources du
+// binaire.
 //
-// Dedans et non à côté: le jeu est un fichier, le zip de Windows n'a rien de
-// plus à emporter, et une fonte qu'on ne trouve pas au démarrage ne laisse
-// pas l'écran titre en Sans.
+// Elles sont incluses dans l'exécutable plutôt que livrées à côté : la
+// distribution se réduit ainsi à un seul fichier, et aucune police ne peut
+// manquer au démarrage.
 //
-// Trois, parce qu'il y a trois métiers sur le tapis. L'enseigne veut de la
-// hauteur et des rainures; la ligne de dessus est au cinquième de sa taille
-// et veut des lettres pleines; et ce qui s'écrit en petit veut une fonte de
-// texte, qui se lit sans qu'on la regarde. Une seule fonte pour les trois
-// ferait soit une enseigne tiède, soit une ligne illisible.
+// Il y en a trois, pour trois usages distincts. Le titre réclame une police
+// haute et ornée ; la ligne qui le surmonte, affichée au cinquième de sa
+// taille, réclame des lettres pleines ; le texte courant réclame une police
+// de labeur, lisible sans attirer l'attention. Une police unique ne
+// conviendrait à aucun des trois.
 //
-// Chacune est chargée une fois pour la séance, à la première demande. Un nom
-// vide veut dire que la ressource manque -- ce qui ne devrait pas arriver,
-// elles sont compilées dedans -- et l'appelant se rabat alors sur la fonte
-// qu'on lui passe: moins beau, pas cassé.
+// Chacune est chargée une seule fois par session, à la première demande. Un
+// nom vide signale une ressource absente — cas qui ne devrait pas se
+// produire, les polices étant compilées dans le binaire ; l'appelant se
+// rabat alors sur la police qui lui est passée en argument.
 
-// L'enseigne: `RAMI`, en Zen Tokyo Zoo.
+// Police du titre : `RAMI`, en Zen Tokyo Zoo.
 QString signFamily();
-// La ligne du dessus: `PDCARTES`, en Zen Dots.
+// Police de la ligne supérieure : `PDCARTES`, en Zen Dots.
 QString capsFamily();
-// Ce qui s'écrit pour être lu, en M PLUS 2: la ligne de l'écran titre, et
-// tout le texte de la fenêtre.
+// Police du texte courant, en M PLUS 2 : la ligne de l'écran titre et
+// l'ensemble du texte de l'interface.
 //
-// Deux graisses chargées sous ce nom-là, le normal et le gras, parce que
-// c'est la fonte de toute l'application: avec le seul gras, Qt aurait
-// fabriqué le normal en amincissant le trait, et tout le jeu aurait parlé
-// fort.
+// Deux graisses sont chargées sous ce nom, le romain et le gras, cette
+// police étant celle de toute l'application. Si le gras seul était fourni,
+// Qt produirait le romain en amincissant le tracé, ce qui dégraderait
+// l'ensemble du texte.
 QString proseFamily();
 
-// Pose cette fonte-là sur toute l'application, en lui gardant le corps que
-// le système a choisi. Appelée une fois au démarrage: tout ce qui se lit dans
-// la fenêtre en hérite, et ce qui veut une fonte d'affichage la demande.
+// Applique cette police à l'ensemble de l'application, en conservant le
+// corps défini par le système. Appelée une fois au démarrage : tout le texte
+// de l'interface en hérite, les polices d'affichage étant demandées
+// explicitement là où elles sont nécessaires.
 void dressApplicationFont();
 
-// `fallback` habillé de `family` à `pixels` de haut. Quand `family` est vide,
-// c'est le gras de la fonte du système qui tient lieu de fonte d'affichage.
+// Retourne `fallback` dans la famille `family`, au corps `pixels`. Si
+// `family` est vide, le gras de la police système tient lieu de police
+// d'affichage.
 QFont familyFont(const QFont &fallback, const QString &family, qreal pixels);
 
-// La boîte à passer à `drawText` pour qu'un texte centré tombe sur le milieu
-// de ses capitales, et non sur celui de la boîte de ligne de la fonte.
+// Retourne le rectangle à passer à `drawText` pour qu'un texte centré le soit
+// sur la hauteur de ses capitales plutôt que sur la hauteur de ligne de la
+// police.
 //
-// Qt centre sur la boîte de ligne, qui va du haut des accents au bas des
-// jambages. Dans une fonte latine les deux milieux sont presque le même et
-// personne ne le remarque. Dans une fonte japonaise, non: sa boîte de ligne
-// est haute, parce qu'elle doit loger un idéogramme et les signes qui le
-// surmontent, et du latin centré dedans se retrouve posé bas. C'est d'autant
-// plus visible que la pastille est serrée autour du mot -- « 144 pts » dans
-// son ovale, le niveau d'un adversaire dans le sien.
+// Qt centre sur la hauteur de ligne, qui s'étend du sommet des accents au bas
+// des jambages. Dans une police latine, les deux centres coïncident presque
+// et l'écart passe inaperçu. Dans une police japonaise, la hauteur de ligne
+// est bien plus grande, devant loger un idéogramme et les signes qui le
+// surmontent : un texte latin centré selon ce critère apparaît trop bas.
+// L'écart est d'autant plus visible que le cadre est ajusté au texte, comme
+// pour « 144 pts » dans sa pastille ou le niveau d'un adversaire dans la
+// sienne.
 QRectF capCentred(const QRectF &box, const QFontMetricsF &metrics);

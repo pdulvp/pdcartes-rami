@@ -13,21 +13,22 @@ class TablePicker;
 class TitleFlight;
 class TitlePage;
 
-// La fenêtre : une bande de boutons en haut, et sous elle l'écran titre, le
-// menu ou la table.
+// Fenêtre principale : un bandeau de boutons en haut, surmontant l'écran
+// titre, le menu ou la table.
 //
-// L'écran titre est le seuil de la séance et non une page où l'on repasse :
-// on en sort au premier clic, et quitter une partie ramène au menu. La bande
-// du haut s'efface tant qu'il est là — elle n'a rien à y offrir, et un titre
-// plein cadre est ce qu'on attend d'un écran titre.
+// L'écran titre n'est affiché qu'au démarrage : le premier clic le fait
+// disparaître, et quitter une partie ramène au menu. Le bandeau supérieur est
+// masqué tant qu'il est affiché, n'ayant alors aucune fonction, et l'écran
+// titre occupe toute la fenêtre.
 //
-// Puis deux pages et pas de quatrième : choisir une table lance une partie, et
-// la table reste là quand la partie finit — gagnée ou perdue, un tapis fini
-// est une chose qu'on regarde. Tout ce que la fenêtre retient — la table, la
-// longueur de la partie, les commodités, la moitié sombre du jeu de couleurs
-// et le profil en cours — est écrit au moment où ça change plutôt qu'à la
-// fermeture, pour qu'une séance qui finit mal finisse quand même avec ses
-// réglages.
+// Les deux autres pages sont le menu et la table ; il n'en existe pas de
+// troisième. Choisir une table lance une partie, et la table reste affichée
+// une fois la partie terminée, afin que son état final reste consultable.
+//
+// Tous les réglages conservés par la fenêtre — la table, la durée de partie,
+// les options de confort, le mode sombre et le profil courant — sont
+// enregistrés au moment où ils changent et non à la fermeture, afin qu'une
+// session interrompue anormalement conserve ses réglages.
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -37,31 +38,34 @@ public:
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
-    // La ligne d'état se recoupe quand sa propre largeur change, et c'est
-    // elle seule qui sait quand: voir elideSubtitle().
+    // La ligne d'état est retronquée lorsque sa largeur change ; elle est seule
+    // à connaître ce moment. Voir `elideSubtitle()`.
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     QWidget *buildTopBar();
 
     void startGame(const QString &tableId);
-    // On quitte l'écran titre: le logo descend se mettre en tête du menu.
+    // Sortie de l'écran titre : le logo est animé vers sa position en tête du
+    // menu.
     void leaveTitle();
     void flightLanded();
     void startSameTableAgain();
-    // La question posée avant de perdre une partie en cours. Rend vrai quand
-    // on peut y aller: la partie est finie, ou le joueur a confirmé.
+    // Demande confirmation avant d'abandonner une partie en cours. Retourne
+    // vrai si l'opération peut avoir lieu : partie déjà terminée, ou
+    // confirmation du joueur.
     bool askAbandonMatch(const QString &doIt);
     void showMenu();
-    // Le geste du joueur qui quitte la table: on s'assure qu'il le veut,
-    // puisque la partie en cours ne se reprend pas.
+    // Traite la demande du joueur de quitter la table ; une confirmation est
+    // requise, une partie abandonnée ne pouvant être reprise.
     void askLeaveMatch();
     void openSettings();
 
-    // Le profil se tient dans la bande du haut: la plaque dit sous quel nom
-    // on joue, et l'ouvre d'un clic. Elle disparaît le temps de la partie --
-    // on ne change pas de profil en cours de route, l'expérience des six
-    // étant comptée sur celui qui a commencé la manche.
+    // Le profil est accessible depuis le bandeau supérieur : la plaque indique
+    // le profil courant et ouvre un menu au clic. Elle est masquée pendant une
+    // partie, le profil ne pouvant être changé en cours de jeu, l'expérience
+    // des adversaires étant attribuée à celui sous lequel la manche a
+    // commencé.
     void showProfileMenu();
     void renameProfile(int slot);
     void askForgetProfile(int slot);
@@ -70,16 +74,17 @@ private:
     void openHelp();
     void toggleDark();
 
-    // Puts the scheme that is current now on the window and everything in it.
+    // Applique la palette courante à la fenêtre et à tout son contenu.
     void applyColours();
     void updateTopBar();
-    // La ligne d'état est ce qui cède quand la barre est trop courte: elle est
-    // la seule chose là-haut dont on peut couper la fin sans rien perdre.
+    // La ligne d'état est l'élément tronqué lorsque le bandeau manque de
+    // place : c'est le seul dont la fin puisse être supprimée sans perte
+    // d'information essentielle.
     //
-    // Elle se coupe d'après la largeur qu'elle a, et cette largeur-là n'est
-    // connue qu'une fois la bande redisposée -- bien après qu'on a écrit
-    // dedans. C'est donc son propre redimensionnement qui déclenche la
-    // coupe, et non le moment où le texte arrive.
+    // La troncature dépend de sa largeur effective, laquelle n'est connue
+    // qu'une fois le bandeau redisposé, bien après l'écriture du texte. Elle
+    // est donc déclenchée par son propre redimensionnement et non par
+    // l'affectation du texte.
     void setSubtitle(const QString &text);
     void elideSubtitle();
 
@@ -93,8 +98,9 @@ private:
     TablePage *m_table = nullptr;
 
     QWidget *m_topBar = nullptr;
-    // Plus de titre écrit là-haut: le logo du menu le dit mieux, et deux
-    // fois le même nom dans la même fenêtre est une fois de trop.
+    // Aucun titre n'est affiché dans le bandeau : le logo du menu remplit
+    // cette fonction, et le nom de l'application n'a pas à figurer deux fois
+    // dans la même fenêtre.
     QLabel *m_subtitle = nullptr;
     ProfileChip *m_profileChip = nullptr;
     QLabel *m_score = nullptr;

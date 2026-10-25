@@ -16,8 +16,8 @@ class ScoreBoard;
 class TableView;
 class VictoryEffect;
 
-// Tout ce qu'on peut régler, et ce n'est pas grand-chose: un rami demande une
-// table, une longueur de partie, et deux ou trois commodités.
+// Paramètres configurables d'une partie : une table, une durée de partie, et
+// quelques options de confort.
 struct GameSettings {
     QString tableId;
     QString targetId;
@@ -30,14 +30,14 @@ struct GameSettings {
     QVector<QString> invited;   // les adversaires demandés, les autres au tour de rôle
 };
 
-// La page de jeu: la table, la rangée de boutons sous elle, et ce qui fait
-// jouer les cinq autres.
+// Page de jeu : la table, la barre de boutons située en dessous, et le
+// pilotage des adversaires.
 //
-// C'est ici que les deux moitiés du programme se rencontrent. En dessous, les
-// règles, qui ne savent rien de l'écran ; à côté, les cerveaux, qui ne savent
-// rien du temps qui passe. Cette page-là tient la partie, demande un coup à
-// celui dont c'est le tour, l'attend un instant pour qu'on le voie arriver,
-// et compte l'expérience à la fin de chaque manche.
+// C'est le point de jonction des deux parties du programme. D'un côté les
+// règles, qui ignorent l'affichage ; de l'autre la logique de décision, qui
+// ignore l'écoulement du temps. Cette page détient la partie, demande son coup
+// au joueur dont c'est le tour, temporise son exécution pour qu'elle soit
+// perceptible, et attribue l'expérience à la fin de chaque manche.
 class TablePage : public QWidget {
     Q_OBJECT
 
@@ -54,10 +54,10 @@ public:
 
 Q_SIGNALS:
     void stateChanged();
-    // La taille des cartes, changée à la molette sur le tapis: la fenêtre
-    // l'écrit dans les réglages.
+    // Taille des cartes, modifiée à la molette sur le tapis. La fenêtre
+    // principale enregistre la valeur dans les réglages.
     void zoomChanged(int percent);
-    // Demandé par la feuille de marque: on quitte la table.
+    // Émis depuis la feuille de marque : le joueur quitte la table.
     void wantsMenu();
 
 protected:
@@ -77,11 +77,12 @@ private:
 
     void sort(bool byRank);
     void doLay();
-    // Ce qui attend devant un joueur, carte par carte. Relevé avant de poser,
-    // parce que la pose qui ouvre le vide d'un coup.
+    // Contenu de la pose en attente devant un joueur, carte par carte. Relevé
+    // avant la pose, celle-ci vidant la zone d'attente en une seule
+    // opération.
     QVector<int> waitingCards(int seat) const;
-    // Ce qui vient d'arriver sur le tapis: la combinaison posée, et tout ce
-    // qui attendait avec elle quand c'est elle qui ouvre.
+    // Cartes qui viennent d'être déposées sur le tapis : la combinaison posée,
+    // et l'ensemble de la pose en attente lorsque c'est elle qui ouvre.
     QVector<int> landedCards(int seat, const QVector<int> &laid,
                              const QVector<int> &waitingBefore, bool wasOpen) const;
     void doLayOff();
@@ -120,9 +121,10 @@ private:
     GameSettings m_settings;
     QVector<Skill> m_skills;
     Watch m_watch;
-    // Ce que chacun a fait de ses compétences dans la manche en cours, et de
-    // qui vient la carte sur la défausse -- pour savoir à qui une carte
-    // reprise a coûté quelque chose.
+    // Actions comptabilisées pour chaque joueur au titre de ses compétences
+    // dans la manche en cours, et provenance de la carte au sommet de la
+    // défausse, afin de déterminer à qui une carte reprise a porté
+    // préjudice.
     QVector<Deeds> m_deeds;
     int m_pileFrom = -1;
     QTimer *m_beat = nullptr;

@@ -4,9 +4,10 @@
 
 namespace {
 
-// As many times as the défausse is turned back into a pioche before a manche
-// is given up on. Two: by then everyone has seen every card twice, and if
-// nobody can go out they are not going to.
+// Nombre de fois où la défausse est retournée pour reconstituer la pioche
+// avant qu'une manche ne soit interrompue. La valeur est deux : à ce stade,
+// chaque joueur a vu chaque carte à deux reprises, et si aucun n'est parvenu à
+// sortir, aucun n'y parviendra.
 constexpr int kMostReshuffles = 2;
 
 Seat emptySeat() { return Seat{}; }
@@ -67,15 +68,17 @@ void Rami::startMatch(const QVector<SeatSpec> &specs, int targetPoints) {
     m_handNumber = 0;
     m_meldIds = 0;
     m_matchWinner = -1;
-    // Whoever deals does not lead, so the first hand is led by the human: the
-    // player should not open a game by watching five other people think.
+    // Le donneur n'entame pas, de sorte que la première manche est entamée par
+    // le joueur humain : une partie ne doit pas débuter par l'attente des
+    // coups des autres joueurs.
     m_dealer = m_seats.size() - 1;
     startHand();
 }
 
 void Rami::startHand() {
     if (m_seats.isEmpty()) return;
-    // The deal moves round one seat a manche, which moves the lead with it.
+    // La donne passe au joueur suivant à chaque manche, ce qui décale
+    // également le joueur qui entame.
     if (m_handNumber > 0) m_dealer = (m_dealer + 1) % m_seats.size();
     ++m_handNumber;
     m_outSeat = -1;
@@ -107,9 +110,10 @@ void Rami::dealHand() {
     m_stock = freshPack();
     shuffleCards(m_stock);
 
-    // Round the table one card at a time, as it is dealt at a table. It makes
-    // no difference to anything, and doing it the other way would be the sort
-    // of shortcut that shows.
+    // Distribution carte par carte en faisant le tour de la table, comme dans
+    // une partie réelle. Le résultat serait identique en distribuant les mains
+    // l'une après l'autre, mais la distribution serait alors visiblement
+    // différente à l'écran.
     for (int round = 0; round < kHandSize; ++round) {
         for (int at = 0; at < m_seats.size(); ++at) {
             const int who = (m_dealer + 1 + at) % m_seats.size();
@@ -118,8 +122,8 @@ void Rami::dealHand() {
     }
     for (Seat &seat : m_seats) sortBySuit(seat.hand);
 
-    // One card turned over to start the défausse, so that the first player
-    // has the same choice as everybody else.
+    // Une carte est retournée pour amorcer la défausse, afin que le premier
+    // joueur dispose du même choix que les suivants.
     if (!m_stock.isEmpty()) m_pile.append(m_stock.takeLast());
 }
 
@@ -128,8 +132,8 @@ bool Rami::refillStock() {
     if (m_pile.size() < 2) return false;
     if (m_reshuffles >= kMostReshuffles) return false;
 
-    // The card on top stays where it is -- it is still the one on offer --
-    // and everything under it is turned over and shuffled.
+    // La carte supérieure reste en place, demeurant la carte disponible ;
+    // toutes celles qui se trouvent en dessous sont retournées et mélangées.
     const Card top = m_pile.takeLast();
     m_stock = m_pile;
     m_pile.clear();
@@ -147,7 +151,8 @@ bool Rami::drawStock(QString *why) {
     }
     if (!refillStock()) {
         if (why) *why = tr("Il n'y a plus rien à piocher.");
-        // Nobody can go out of a manche with no cards left to find.
+        // Aucun joueur ne peut sortir d'une manche où il ne reste plus de
+        // cartes à piocher.
         finishHand();
         return false;
     }
@@ -228,8 +233,8 @@ bool Rami::lay(const QVector<int> &cardIds, QString *why) {
         seat.waiting.append(meld);
         const int value = poseValue(m_turn);
         if (value >= kOpeningPoints) {
-            // Fifty-one reached: the whole pose goes on the tapis at once and
-            // this player is open from here on.
+            // Cinquante et un points atteints : la pose est déposée en bloc sur
+            // le tapis et le joueur est ouvert pour le reste de la manche.
             for (Meld &waiting : seat.waiting) m_table.append(waiting);
             seat.waiting.clear();
             seat.opened = true;
@@ -338,8 +343,8 @@ bool Rami::buyJoker(int cardId, int meldId, QString *why) {
         takeCard(seat.hand, cardId);
         seat.hand.append(joker);
         m_table[i] = swapped;
-        // Bought, not borrowed: the joker has to be put back to work in this
-        // same turn, and the turn will not end while it is still in hand.
+        // Le joker est racheté et non emprunté : il doit être réemployé durant
+        // ce même tour, lequel ne peut s'achever tant qu'il reste en main.
         m_jokerDebt.append(joker.id);
         Q_EMIT acted(m_turn, tr("%1 rachète le joker de %2.").arg(seat.name, swapped.spell()));
         Q_EMIT changed();
@@ -423,8 +428,8 @@ bool Rami::takeBackCard(int cardId, QString *why) {
             }
             return false;
         }
-        // Son nom et son propriétaire lui reviennent: shorten() ne rend que
-        // des cartes et une lecture.
+        // L'identifiant et le propriétaire sont restaurés : `shorten()` ne
+        // retourne que les cartes et leur interprétation.
         shorter.id = meld.id;
         shorter.owner = meld.owner;
         meld = shorter;
@@ -513,9 +518,9 @@ void Rami::nextTurn() {
 void Rami::finishHand() {
     m_phase = Phase::HandOver;
 
-    // What everybody is still holding. A pose left short of fifty-one is
-    // still in the hand that laid it, and counts against it: that is the
-    // whole risk of beginning one.
+    // Décompte des cartes restées en main. Une pose n'ayant pas atteint
+    // cinquante et un points se trouve toujours dans la main de son auteur et
+    // lui est comptée : c'est le risque encouru en commençant une pose.
     for (int at = 0; at < m_seats.size(); ++at) {
         Seat &seat = m_seats[at];
         int penalty = 0;
@@ -536,9 +541,10 @@ void Rami::finishHand() {
     }
 
     if (over) {
-        // The fewest points wins. A tie goes to whoever went out of the last
-        // manche, and failing that to the earliest seat, so that there is
-        // always exactly one winner.
+        // Le total le plus faible l'emporte. En cas d'égalité, le joueur sorti
+        // lors de la dernière manche est départagé en sa faveur ; à défaut,
+        // c'est le joueur de rang le plus faible, afin qu'il y ait toujours
+        // exactement un vainqueur.
         int best = -1;
         for (int at = 0; at < m_seats.size(); ++at) {
             if (best < 0 || m_seats.at(at).score < m_seats.at(best).score) {
