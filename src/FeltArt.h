@@ -1,6 +1,12 @@
 #pragma once
 
 #include "Cards.h"
+
+// Le dessin d'une carte vit dans la cartothèque : les deux programmes qui la
+// partagent en ont l'usage, l'un pour jouer, l'autre pour fabriquer des jeux.
+// Ce fichier est inclus ici plutôt que par chaque appelant, `plainFont()` et
+// `cardCornerFor()` étant demandées un peu partout dans l'application.
+#include "CardArt.h"
 #include "Palette.h"
 
 #include <QPixmap>
@@ -10,29 +16,17 @@
 class QPainter;
 class QFont;
 
-// Dessin du tapis et des cartes qui y sont posées.
+// Dessin du tapis, et des cartes qui y sont posées.
 //
-// Tout est dessiné par le programme plutôt que chargé depuis des images. Un
-// jeu de cartes en demanderait cinquante-quatre, ce qui supposerait soit un
-// travail d'illustration, soit un dossier de fichiers à localiser à
-// l'exécution et susceptible d'être absent. Dessinées, les cartes adoptent
-// les couleurs de la palette courante, restent nettes à toute taille, et
-// l'application demeure un fichier unique.
+// Ce qui se trouve ici ne concerne que la table : le tissu, les plaques
+// posées dessus, les médaillons des adversaires, et les quelques réglages
+// d'une carte qui dépendent de la table — l'ombre qu'elle y porte, le liseré
+// de sélection, le halo du coup qui vient d'être joué, et la substitution
+// d'un jeu installé à la carte dessinée.
 
-// Proportion conservée par une carte quelle que soit sa taille de rendu. Les
-// cartes réelles mesurent 2,25 sur 3,5 pouces, rapport auquel l'œil est
-// habitué.
-//
-// Cette valeur est celle des cartes dessinées par le programme. Un jeu
-// installé fournit la sienne ; la disposition du tapis repose sur
-// `cardAspect()`.
-inline constexpr qreal kCardRatio = 0.642;
+// Proportion des cartes en cours, celle du jeu installé s'il y en a un, celle
+// du jeu dessiné sinon.
 qreal cardAspect();
-
-// Rayon d'arrondi des coins d'une carte de cette taille. La fonction est
-// partagée afin qu'un aperçu de dos affiché ailleurs dans le programme
-// adopte exactement le même arrondi que les cartes du tapis.
-qreal cardCornerFor(const QRectF &box);
 QSizeF cardSizeForHeight(qreal height);
 QSizeF cardSizeForWidth(qreal width);
 
@@ -93,18 +87,11 @@ void drawCardBack(QPainter *painter, const QRectF &box, const Palette &scheme,
 void drawCardSlot(QPainter *painter, const QRectF &box, const Palette &scheme,
                   const QString &label);
 
-// Retourne la police du peintre réinitialisée.
-//
-// `QPainter` conserve la dernière police qui lui a été donnée, et ces
-// fonctions de dessin s'enchaînent sur le même peintre : un titre composé en
-// capitales espacées laisserait le dessin suivant dans la même composition.
-// Toutes les polices employées ci-dessous dérivent de cette fonction plutôt
-// que de `painter->font()`, ce qui évite qu'une plaque hérite des réglages de
-// la précédente.
-QFont plainFont(const QPainter *painter);
-
-// Dessine le symbole de couleur seul, pour une légende ou le coin d'une plaque.
-void drawSuitPip(QPainter *painter, const QRectF &box, Suit suit, const QColor &ink);
+// Le symbole d'une couleur, désignée par le type de l'application plutôt que
+// par le numéro qu'emploie la cartothèque.
+inline void drawSuitPip(QPainter *painter, const QRectF &box, Suit suit, const QColor &ink) {
+    drawSuitPip(painter, box, int(suit), ink);
+}
 
 // Dessine le médaillon d'un adversaire : un anneau à sa couleur, contenant un
 // symbole et son initiale. Les six adversaires ont chacun leur symbole, de

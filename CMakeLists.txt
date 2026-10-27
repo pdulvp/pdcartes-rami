@@ -114,10 +114,8 @@ add_executable(pdcartes-rami
     # are drawn. Nothing below this line knows the rules.
     src/Cards.cpp
     src/Cards.h
-    src/CardArt.cpp
-    src/CardArt.h
-    src/DrawnDeck.cpp
-    src/DrawnDeck.h
+    src/FeltArt.cpp
+    src/FeltArt.h
     # The rules: what makes a combination, and the game that is played with
     # them. Nothing here knows there is a screen.
     src/Melds.cpp

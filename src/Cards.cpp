@@ -1,5 +1,7 @@
 #include "Cards.h"
 
+#include "CardArt.h"
+
 #include <QCoreApplication>
 #include <QRandomGenerator>
 
@@ -40,7 +42,10 @@ void shuffleCards(QVector<Card> &cards) {
     }
 }
 
-bool isRed(Suit suit) { return suit == Suit::Coeur || suit == Suit::Carreau; }
+// Les deux fonctions suivantes délèguent à la cartothèque, qui dessine les
+// cartes et a donc les mêmes questions à résoudre : deux tables des rangs
+// finiraient par diverger.
+bool isRed(Suit suit) { return cardSuitIsRed(int(suit)); }
 
 QString suitPip(Suit suit) {
     switch (suit) {
@@ -62,17 +67,7 @@ QString suitName(Suit suit) {
     return QString();
 }
 
-QString rankLabel(int rank) {
-    switch (rank) {
-    case kJoker: return QStringLiteral("★");
-    case kAs: return QCoreApplication::translate("cards", "A");
-    case kValet: return QCoreApplication::translate("cards", "V");
-    case kDame: return QCoreApplication::translate("cards", "D");
-    case kRoi: return QCoreApplication::translate("cards", "R");
-    default: break;
-    }
-    return QString::number(rank);
-}
+QString rankLabel(int rank) { return cardRankLabel(rank); }
 
 QString cardLabel(const Card &card) {
     if (!card.valid()) return QString();

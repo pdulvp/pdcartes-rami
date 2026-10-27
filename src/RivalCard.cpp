@@ -1,6 +1,6 @@
 #include "RivalCard.h"
 
-#include "CardArt.h"
+#include "FeltArt.h"
 #include "Fonts.h"
 #include "Palette.h"
 #include "RivalGlance.h"

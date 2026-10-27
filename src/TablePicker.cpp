@@ -1,7 +1,7 @@
 #include "TablePicker.h"
 
 #include "AskDialog.h"
-#include "CardArt.h"
+#include "FeltArt.h"
 #include "Fonts.h"
 #include "MenuStyle.h"
 #include "NameDialog.h"

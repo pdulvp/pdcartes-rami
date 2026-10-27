@@ -1,6 +1,6 @@
 #include "ScoreBoard.h"
 
-#include "CardArt.h"
+#include "FeltArt.h"
 #include "Palette.h"
 #include "Rami.h"
 

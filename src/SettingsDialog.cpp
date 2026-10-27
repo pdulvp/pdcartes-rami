@@ -1,6 +1,6 @@
 #include "SettingsDialog.h"
 
-#include "CardArt.h"
+#include "FeltArt.h"
 #include "CardDeck.h"
 #include "DialogChrome.h"
 // Généré par CMake à partir de data/links.ini ; voir CMakeLists.txt.

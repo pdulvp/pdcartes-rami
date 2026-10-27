@@ -9,6 +9,8 @@
 #include "CardDeck.h"
 #include "DrawnDeck.h"
 #include "Fonts.h"
+#include "Palette.h"
+#include "TableLook.h"
 #include "MainWindow.h"
 #include "Version.h"
 
@@ -102,7 +104,16 @@ int main(int argc, char *argv[]) {
     if (parser.isSet(exportDeck)) {
         QString why;
         const QString path = parser.value(exportDeck);
-        if (!exportDrawnDeck(path, &why)) {
+        // Les cartes dessinées prennent les couleurs qu'on leur donne : une
+        // teinte fixe est donc imposée pour l'export, celle du tapis par
+        // défaut, plutôt que celle du dernier profil ouvert.
+        setDarkMode(false);
+        setCurrentPalette(defaultFeltHue());
+        DrawnRecipe how;
+        how.style = CardStyle::fromPalette(currentPalette());
+        CardSet drawn = drawnCardSet(how);
+        drawn.author = QStringLiteral("pdcartes-rami");
+        if (!drawn.save(path, &why)) {
             fprintf(stderr, "%s\n", qPrintable(why));
             return 1;
         }

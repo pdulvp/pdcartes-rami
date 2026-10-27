@@ -1,6 +1,6 @@
 #include "TileButton.h"
 
-#include "CardArt.h"
+#include "FeltArt.h"
 #include "Fonts.h"
 #include "Palette.h"
 
