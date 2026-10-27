@@ -685,10 +685,14 @@ void SettingsDialog::fillDecks() {
 
     QSignalBlocker quiet(m_deck);
     m_deck->clear();
-    for (const DeckEntry &entry : decks.entries()) {
+    // Seuls les jeux de 52 : le rami distribue l'as au roi dans quatre
+    // couleurs et quatre jokers. Un tarot n'a pas les bonnes cartes, un jeu
+    // de 32 n'en a pas assez, et ni l'un ni l'autre ne gagnerait à être
+    // proposé puis refusé.
+    for (const DeckEntry &entry : decks.entriesOfKind(DeckKind::Full)) {
         QString label = entry.name;
         if (!entry.builtIn && !entry.complete) {
-            label += tr(" — %1 cartes sur %2").arg(entry.faces).arg(CardSet::kSlots);
+            label += tr(" — %1 cartes sur %2").arg(entry.faces).arg(entry.slotCount);
         }
         m_deck->addItem(label, entry.id);
         if (entry.id == chosen) m_deck->setCurrentIndex(m_deck->count() - 1);
@@ -706,7 +710,10 @@ void SettingsDialog::fillBackDecks() {
     m_backDeck->clear();
     // En tête, et choisi quand rien n'est écrit: le dos suit les faces.
     m_backDeck->addItem(tr("Celui du jeu de cartes"), QString());
+    // Les dos, eux, viennent de n'importe quel genre : un dos est un dos, et
+    // celui d'un tarot va aussi bien sur une carte de rami.
     for (const DeckEntry &entry : CardDecks::instance().entries()) {
+        if (entry.backs == 0 && !entry.builtIn) continue;
         m_backDeck->addItem(entry.name, entry.id);
         if (!chosen.isEmpty() && entry.id == chosen) {
             m_backDeck->setCurrentIndex(m_backDeck->count() - 1);
@@ -766,7 +773,7 @@ void SettingsDialog::describeDeck() {
         }
         if (!entry->complete) {
             says += tr(" %1 cartes manquantes, dessinées par le jeu.")
-                        .arg(CardSet::kSlots - entry->faces);
+                        .arg(entry->slotCount - entry->faces);
         }
     }
     m_deckNote->setText(says.trimmed());
