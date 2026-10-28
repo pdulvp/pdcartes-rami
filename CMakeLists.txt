@@ -346,6 +346,31 @@ foreach(_paper LICENSE-CC-BY-SA-3.0 AUTHORS PROVENANCE)
     endif()
 endforeach()
 
+# Les jeux de cartes livrés avec le programme.
+#
+# Ils ne sont pas compilés dans le binaire mais installés en fichiers, comme
+# ceux que l'utilisateur dépose de son côté: ce sont les mêmes fichiers,
+# qu'un éditeur fabrique et que la cartothèque lit, et les compiler
+# obligerait à les écrire sur le disque au premier démarrage pour les relire
+# ensuite.
+#
+# Le dossier d'arrivée est celui que `CardSet::searchFolders()` consulte: le
+# nom de l'application sous un dossier de données -- soit
+# `/usr/share/pdcartes-rami/cartes` dans le paquet Debian, dont le préfixe est
+# `/usr` -- et, sous Windows, le dossier voisin de l'exécutable, dans
+# l'archive qu'on décompresse où l'on veut.
+#
+# Le filtre ne laisse passer que les jeux: la note du dossier reste dans le
+# dépôt. Le dossier n'est pas créé s'il ne contient aucun jeu.
+if(WIN32)
+    install(DIRECTORY assets/cartes/ DESTINATION cartes
+            FILES_MATCHING PATTERN "*.cartes")
+else()
+    install(DIRECTORY assets/cartes/
+            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cartes
+            FILES_MATCHING PATTERN "*.cartes")
+endif()
+
 # L'arène : le moteur et les cerveaux sans l'écran, pour mesurer.
 #
 # Elle ne s'installe pas et ne se lance pas toute seule -- c'est un instrument,

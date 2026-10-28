@@ -775,6 +775,11 @@ void SettingsDialog::describeDeck() {
             says += tr(" %1 cartes manquantes, dessinées par le jeu.")
                         .arg(entry->slotCount - entry->faces);
         }
+        // La licence, quand le jeu en porte une : elle n'a d'intérêt que si
+        // elle se lit quelque part.
+        if (!entry->licence.trimmed().isEmpty()) {
+            says += tr(" Sous licence %1.").arg(entry->licence.trimmed());
+        }
     }
     m_deckNote->setText(says.trimmed());
 }
