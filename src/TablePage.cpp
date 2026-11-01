@@ -83,6 +83,7 @@ TablePage::TablePage(QWidget *parent) : QWidget(parent) {
     connect(m_view, &TableView::poseCardPressed, this, &TablePage::onPoseCardPressed);
     connect(m_view, &TableView::cardDoubleClicked, this, &TablePage::onCardDoubleClicked);
     connect(m_view, &TableView::chosenChanged, this, &TablePage::updateActions);
+    connect(m_view, &TableView::sortChosen, this, &TablePage::sort);
     connect(m_view, &TableView::zoomChanged, this, [this](int percent) {
         m_settings.zoom = percent;
         Q_EMIT zoomChanged(percent);
@@ -121,9 +122,6 @@ QWidget *TablePage::buildActions() {
 
     m_pose = new QLabel(m_actions);
 
-    m_sortSuit = actionButton(m_actions, tr("Par couleur"), tr("Ranger la main par couleur"),
-                              tr("T"));
-    m_sortRank = actionButton(m_actions, tr("Par rang"), tr("Ranger la main par rang"), tr("R"));
     m_lay = actionButton(m_actions, tr("Poser"),
                          tr("Poser les cartes choisies en une combinaison"), tr("Entrée"));
     m_layOff = actionButton(m_actions, tr("Compléter"),
@@ -143,9 +141,6 @@ QWidget *TablePage::buildActions() {
     across->setSpacing(7);
     across->addWidget(m_pose);
     across->addStretch();
-    across->addWidget(m_sortSuit);
-    across->addWidget(m_sortRank);
-    across->addSpacing(12);
     across->addWidget(m_lay);
     across->addWidget(m_layOff);
     across->addWidget(m_takeBack);
@@ -153,8 +148,6 @@ QWidget *TablePage::buildActions() {
     across->addWidget(m_hint);
     across->addWidget(m_discard);
 
-    connect(m_sortSuit, &QPushButton::clicked, this, [this] { sort(false); });
-    connect(m_sortRank, &QPushButton::clicked, this, [this] { sort(true); });
     connect(m_lay, &QPushButton::clicked, this, &TablePage::doLay);
     connect(m_layOff, &QPushButton::clicked, this, &TablePage::doLayOff);
     connect(m_takeBack, &QPushButton::clicked, this, &TablePage::doTakeBack);
@@ -889,8 +882,6 @@ void TablePage::updateActions() {
         }
     }
 
-    m_sortSuit->setEnabled(me >= 0 && !seat.hand.isEmpty());
-    m_sortRank->setEnabled(me >= 0 && !seat.hand.isEmpty());
     m_lay->setEnabled(canLay);
     m_layOff->setEnabled(canLayOff);
     m_takeBack->setEnabled(building && !seat.waiting.isEmpty());

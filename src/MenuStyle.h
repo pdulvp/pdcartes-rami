@@ -39,3 +39,19 @@ QIcon appIcon(const QStringList &names, const QColor &ink);
 // bouton affiche à la place le libellé passé en `fallback`.
 QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QString &fallback,
                         const QString &tip);
+
+// Le même bouton, mais posé sur le drap et non dans une boîte de dialogue.
+//
+// Sans fond et doré : le tapis est déjà une surface, et un bouton qui y pose
+// la sienne fait une plaque de plus à lire. Au survol, un voile doré indique
+// qu'il se clique, et c'est tout ce qu'il lui faut.
+//
+// `fallback` est le mot affiché quand ni le bureau ni le binaire ne
+// fournissent l'icône — un bouton sans image ni mot ne se voit pas.
+QToolButton *feltIconButton(QWidget *parent, const QStringList &iconNames, const QString &label,
+                            const QString &tip);
+
+// Pose sur un `feltIconButton` les couleurs du jeu de couleurs courant.
+// Appelée à sa création, puis chaque fois que la teinte du drap ou la moitié
+// sombre changent.
+void dressFeltIconButton(QToolButton *button, const QStringList &iconNames);

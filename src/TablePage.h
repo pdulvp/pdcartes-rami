@@ -109,8 +109,6 @@ private:
     VictoryEffect *m_victory = nullptr;
     QWidget *m_actions = nullptr;
 
-    QPushButton *m_sortSuit = nullptr;
-    QPushButton *m_sortRank = nullptr;
     QPushButton *m_lay = nullptr;
     QPushButton *m_layOff = nullptr;
     QPushButton *m_takeBack = nullptr;

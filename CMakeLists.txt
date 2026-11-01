@@ -236,6 +236,7 @@ qt_add_resources(pdcartes-rami "icones"
         assets/icons/preferences-system-symbolic.svg
         assets/icons/user-home-symbolic.svg
         assets/icons/view-refresh-symbolic.svg
+        assets/icons/view-sort-ascending-symbolic.svg
         assets/icons/weather-clear-night-symbolic.svg
         assets/icons/weather-clear-symbolic.svg)
 

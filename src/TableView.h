@@ -8,7 +8,9 @@
 #include <QVector>
 #include <QWidget>
 
+class QMenu;
 class QTimer;
+class QToolButton;
 class Rami;
 
 // Affichage de la table.
@@ -93,6 +95,8 @@ Q_SIGNALS:
     // carte.
     void poseCardPressed(int cardId);
     void chosenChanged();
+    // Choisi dans le menu du bouton de tri, posé au-dessus de la main.
+    void sortChosen(bool byRank);
     // Modifié à la molette ; la fenêtre principale enregistre la valeur.
     void zoomChanged(int percent);
 
@@ -107,6 +111,16 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 private:
+    // Le bouton de tri, et sa place au bout de la bande qui surmonte la main.
+    //
+    // Un vrai bouton et non un dessin : il porte un menu, une infobulle et un
+    // survol, et les trois seraient à refaire à la main sur un rectangle
+    // peint. C'est le seul enfant que le drap ait.
+    void buildSortButton();
+    void placeSortButton();
+    // Ce que le bouton laisse à la phrase d'état, qui s'écrit à sa gauche.
+    qreal railTextRight() const;
+
     struct Spot {
         int id = -1;
         QRectF box;
@@ -214,6 +228,9 @@ private:
     QRectF m_stacks;
     QRectF m_rail;
     QRectF m_handRow;
+
+    QToolButton *m_sortButton = nullptr;
+    QMenu *m_sortMenu = nullptr;
 
     QRectF m_stockBox;
     QRectF m_pileBox;

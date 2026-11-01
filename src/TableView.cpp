@@ -2,6 +2,7 @@
 
 #include "FeltArt.h"
 #include "Fonts.h"
+#include "MenuStyle.h"
 #include "Palette.h"
 #include "Profiles.h"
 #include "Rami.h"
@@ -11,9 +12,12 @@
 #include "CardDeck.h"
 #include "TableLook.h"
 
+#include <QAction>
 #include <QFontMetricsF>
 #include <QLineF>
+#include <QMenu>
 #include <QMouseEvent>
+#include <QToolButton>
 #include <QWheelEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -264,6 +268,10 @@ QSizeF cardWithin(qreal height, qreal width) {
 // Élévation d'une carte sélectionnée au-dessus de la main.
 constexpr qreal kLift = 18.0;
 
+// Ce qui sépare le bouton de tri du bord de la bande, et la phrase d'état du
+// bouton.
+constexpr qreal kSortGap = 8.0;
+
 // Bornes du zoom et pas de la molette. En deçà de la borne inférieure, les
 // figures deviennent illisibles ; au-delà de la borne supérieure, la main de
 // quatorze cartes ne tient plus en largeur.
@@ -352,6 +360,74 @@ TableView::TableView(QWidget *parent) : QWidget(parent) {
             return;
         }
     });
+
+    buildSortButton();
+}
+
+// ---------------------------------------------------------------------------
+// Le bouton de tri.
+//
+// Ranger sa main n'est pas un coup : c'est un geste de confort, et il
+// appartient à la main plutôt qu'à la rangée des actions, où il voisinait
+// avec Poser et Défausser. Il est donc posé sur le drap, juste au-dessus des
+// cartes et à leur droite, sans fond et doré, et c'est un menu qui porte les
+// deux ordres plutôt que deux boutons côte à côte.
+
+namespace {
+
+const QStringList kSortIconNames = {QStringLiteral("view-sort-ascending-symbolic"),
+                                    QStringLiteral("view-sort-ascending")};
+
+} // namespace
+
+void TableView::buildSortButton() {
+    m_sortMenu = new QMenu(this);
+    QAction *bySuit = m_sortMenu->addAction(tr("Par couleur"));
+    QAction *byRank = m_sortMenu->addAction(tr("Par rang"));
+    connect(bySuit, &QAction::triggered, this, [this] { Q_EMIT sortChosen(false); });
+    connect(byRank, &QAction::triggered, this, [this] { Q_EMIT sortChosen(true); });
+    // Un menu est une fenêtre à part et n'hérite d'aucun style : il prend ses
+    // couleurs de la palette, comme celui de la plaque de profil.
+    dressMenu(m_sortMenu);
+
+    m_sortButton = feltIconButton(this, kSortIconNames, tr("Tri"),
+                                  tr("Ranger la main : par couleur, ou par rang"));
+    m_sortButton->setMenu(m_sortMenu);
+    // Le menu s'ouvre au clic et sur toute la surface du bouton : un bouton
+    // qui ne fait qu'ouvrir un menu n'a pas de second geste à offrir.
+    m_sortButton->setPopupMode(QToolButton::InstantPopup);
+    m_sortButton->hide();
+}
+
+void TableView::placeSortButton() {
+    if (!m_sortButton) return;
+    // Rien à ranger, rien à montrer : la main est vide, ou la partie n'a pas
+    // commencé.
+    int me = -1;
+    if (m_game) {
+        for (int at = 0; at < m_game->seatCount(); ++at) {
+            if (m_game->seat(at).human()) me = at;
+        }
+    }
+    const bool useful = me >= 0 && m_game->seat(me).hand.size() > 1;
+    m_sortButton->setVisible(useful);
+    if (!useful || m_rail.isNull()) return;
+
+    const QSize wanted = m_sortButton->sizeHint();
+    QRect box(0, 0, wanted.width(), wanted.height());
+    // Au bout de la bande, calé à droite comme la phrase d'état qui s'y
+    // écrit, et posé sur sa ligne médiane.
+    box.moveTopRight(QPoint(int(m_rail.right()) - int(kSortGap),
+                            int(m_rail.center().y() - wanted.height() / 2.0)));
+    m_sortButton->setGeometry(box);
+    m_sortButton->raise();
+}
+
+qreal TableView::railTextRight() const {
+    if (m_sortButton && m_sortButton->isVisible()) {
+        return m_sortButton->geometry().left() - kSortGap;
+    }
+    return m_rail.right() - 6.0;
 }
 
 void TableView::watch(const Rami *game) {
@@ -396,6 +472,10 @@ void TableView::sayTrouble(const QString &line) {
 }
 
 void TableView::refresh() {
+    // La teinte du drap a pu changer, et le bouton de tri est doré : son
+    // habillage est refait comme celui de tout ce qui porte une couleur.
+    if (m_sortButton) dressFeltIconButton(m_sortButton, kSortIconNames);
+    if (m_sortMenu) dressMenu(m_sortMenu);
     relayout();
     update();
 }
@@ -801,6 +881,7 @@ void TableView::relayout() {
     layoutSeats();
     layoutMelds();
     layoutHand();
+    placeSortButton();
 
     // La pioche et la défausse, superposées dans la colonne de droite, avec
     // l'espace nécessaire en dessous pour la plaque du joueur.
@@ -1432,7 +1513,7 @@ void TableView::paintRail(QPainter *painter) {
     painter->setPen(m_trouble ? blendColours(scheme.danger, QColor(Qt::white), 0.35)
                               : scheme.feltText);
     painter->drawText(
-        QRectF(textLeft, m_rail.top(), std::max(60.0, m_rail.right() - textLeft - 6.0),
+        QRectF(textLeft, m_rail.top(), std::max(60.0, railTextRight() - textLeft),
                m_rail.height()),
         Qt::AlignRight | Qt::AlignVCenter | Qt::TextWordWrap, m_line);
 }

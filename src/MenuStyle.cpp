@@ -102,3 +102,47 @@ QToolButton *iconButton(QWidget *parent, const QStringList &iconNames, const QSt
                                    blendColours(scheme.field, scheme.accent, 0.18).name()));
     return button;
 }
+
+void dressFeltIconButton(QToolButton *button, const QStringList &iconNames) {
+    if (!button) return;
+    const Palette &scheme = currentPalette();
+
+    const QIcon icon = appIcon(iconNames, scheme.gold);
+    if (icon.isNull()) {
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    } else {
+        button->setIcon(icon);
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    }
+
+    // Le voile du survol est tiré du drap et non de l'or pur : posé sur le
+    // tissu, un or franc ferait une tache là où il ne doit se produire qu'un
+    // éclaircissement.
+    const QColor lit = blendColours(scheme.felt, scheme.gold, 0.22);
+    const QColor pressed = blendColours(scheme.felt, scheme.gold, 0.34);
+    button->setStyleSheet(
+        QStringLiteral("QToolButton { border: none; background: transparent; color: %1;"
+                       // Un pixel de moins en haut qu'en bas, comme partout où
+                       // Qt centre lui-même : voir `capCentred` dans Fonts.h.
+                       " border-radius: 7px; padding: 4px 8px 6px 8px; }"
+                       "QToolButton:hover { background: %2; }"
+                       "QToolButton:pressed { background: %3; }"
+                       // Le menu s'ouvre au clic, et la flèche le dit ; Qt la
+                       // pose lui-même à droite du libellé.
+                       "QToolButton::menu-indicator { subcontrol-position: right center;"
+                       " subcontrol-origin: padding; right: 2px; }")
+            .arg(scheme.gold.name(), lit.name(), pressed.name()));
+}
+
+QToolButton *feltIconButton(QWidget *parent, const QStringList &iconNames, const QString &label,
+                            const QString &tip) {
+    auto *button = new QToolButton(parent);
+    button->setText(label);
+    button->setToolTip(tip);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setFocusPolicy(Qt::NoFocus);
+    button->setAutoRaise(true);
+    button->setIconSize(QSize(16, 16));
+    dressFeltIconButton(button, iconNames);
+    return button;
+}

@@ -5,6 +5,12 @@
 		},
 		{
 			"path": "../../cartes-set-creator"
+		},
+		{
+			"path": "../../belottesol"
+		},
+		{
+			"path": "../../pdcartes-tarot"
 		}
 	],
 	"settings": {}
