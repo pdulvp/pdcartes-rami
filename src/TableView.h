@@ -118,8 +118,12 @@ private:
     // peint. C'est le seul enfant que le drap ait.
     void buildSortButton();
     void placeSortButton();
-    // Ce que le bouton laisse à la phrase d'état, qui s'écrit à sa gauche.
-    qreal railTextRight() const;
+    // Y a-t-il quelque chose à ranger ? Une main d'une carte ne se trie pas.
+    bool sortUseful() const;
+    // La place que le bouton prend au bout gauche de la bande, écartement
+    // compris ; nulle lorsqu'il est caché. La pose en cours et la phrase
+    // d'état commencent après elle.
+    qreal sortButtonSpan() const;
 
     struct Spot {
         int id = -1;

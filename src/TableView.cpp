@@ -399,35 +399,37 @@ void TableView::buildSortButton() {
     m_sortButton->hide();
 }
 
+bool TableView::sortUseful() const {
+    // Rien à ranger, rien à montrer : la main est vide ou n'a qu'une carte,
+    // ou la partie n'a pas commencé.
+    if (!m_game) return false;
+    for (int at = 0; at < m_game->seatCount(); ++at) {
+        if (!m_game->seat(at).human()) continue;
+        return m_game->seat(at).hand.size() > 1;
+    }
+    return false;
+}
+
+qreal TableView::sortButtonSpan() const {
+    if (!m_sortButton || !sortUseful()) return 0.0;
+    return kSortGap + m_sortButton->sizeHint().width();
+}
+
 void TableView::placeSortButton() {
     if (!m_sortButton) return;
-    // Rien à ranger, rien à montrer : la main est vide, ou la partie n'a pas
-    // commencé.
-    int me = -1;
-    if (m_game) {
-        for (int at = 0; at < m_game->seatCount(); ++at) {
-            if (m_game->seat(at).human()) me = at;
-        }
-    }
-    const bool useful = me >= 0 && m_game->seat(me).hand.size() > 1;
+    const bool useful = sortUseful();
     m_sortButton->setVisible(useful);
     if (!useful || m_rail.isNull()) return;
 
     const QSize wanted = m_sortButton->sizeHint();
     QRect box(0, 0, wanted.width(), wanted.height());
-    // Au bout de la bande, calé à droite comme la phrase d'état qui s'y
-    // écrit, et posé sur sa ligne médiane.
-    box.moveTopRight(QPoint(int(m_rail.right()) - int(kSortGap),
-                            int(m_rail.center().y() - wanted.height() / 2.0)));
+    // Au bout gauche de la bande, du côté où la main commence, et posé sur sa
+    // ligne médiane. La pose en cours et la phrase d'état commencent après
+    // lui : voir `sortButtonSpan()`.
+    box.moveTopLeft(QPoint(int(m_rail.left() + kSortGap),
+                           int(m_rail.center().y() - wanted.height() / 2.0)));
     m_sortButton->setGeometry(box);
     m_sortButton->raise();
-}
-
-qreal TableView::railTextRight() const {
-    if (m_sortButton && m_sortButton->isVisible()) {
-        return m_sortButton->geometry().left() - kSortGap;
-    }
-    return m_rail.right() - 6.0;
 }
 
 void TableView::watch(const Rami *game) {
@@ -1086,7 +1088,7 @@ void TableView::layoutHand() {
     // ligne d'état, s'agissant d'une pose du joueur et non encore achevée.
     if (mine.waiting.isEmpty()) return;
     const QSizeF small = cardSizeForHeight(std::min(kPoseTall * z, m_rail.height() - 10.0));
-    qreal x = m_rail.left() + 8.0;
+    qreal x = m_rail.left() + sortButtonSpan() + 8.0;
     for (const Meld &meld : mine.waiting) {
         const qreal width = small.width() + small.width() * kMeldStep * (meld.cards.size() - 1);
         const QRectF spot(x, m_rail.center().y() - small.height() / 2.0, width,
@@ -1471,7 +1473,7 @@ void TableView::paintRail(QPainter *painter) {
         if (m_game->seat(at).human()) me = at;
     }
 
-    qreal textLeft = m_rail.left() + 6.0;
+    qreal textLeft = m_rail.left() + sortButtonSpan() + 6.0;
 
     if (!m_poseBoxes.isEmpty() && me >= 0) {
         for (const Spot &spot : m_poseBoxes) {
@@ -1513,7 +1515,7 @@ void TableView::paintRail(QPainter *painter) {
     painter->setPen(m_trouble ? blendColours(scheme.danger, QColor(Qt::white), 0.35)
                               : scheme.feltText);
     painter->drawText(
-        QRectF(textLeft, m_rail.top(), std::max(60.0, railTextRight() - textLeft),
+        QRectF(textLeft, m_rail.top(), std::max(60.0, m_rail.right() - textLeft - 6.0),
                m_rail.height()),
         Qt::AlignRight | Qt::AlignVCenter | Qt::TextWordWrap, m_line);
 }
